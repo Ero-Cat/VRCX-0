@@ -2487,6 +2487,9 @@
                     "bootstrap_running": "首次同步进行中 — 请保持应用运行。",
                     "unavailable": "同步状态不可用。",
                     "last_cycle": "上次同步",
+                    "last_pushed": "上次上传",
+                    "last_pulled": "上次下载",
+                    "ops_count": "{count} 条",
                     "this_device_tag": "本机"
                 },
                 "phase": {

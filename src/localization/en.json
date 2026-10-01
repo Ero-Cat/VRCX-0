@@ -2493,6 +2493,9 @@
                     "bootstrap_running": "Initial sync in progress — keep the app running.",
                     "unavailable": "Sync status is unavailable.",
                     "last_cycle": "Last sync",
+                    "last_pushed": "Last upload",
+                    "last_pulled": "Last download",
+                    "ops_count": "{count} ops",
                     "this_device_tag": "This device"
                 },
                 "phase": {

@@ -8,8 +8,11 @@ import {
     XCircleIcon
 } from 'lucide-react';
 import {
+    cloneElement,
+    isValidElement,
     useCallback,
     useEffect,
+    useId,
     useRef,
     useState,
     type ReactNode
@@ -32,6 +35,7 @@ import {
 import { toast } from '@/services/toastService';
 import { Badge } from '@/ui/shadcn/badge';
 import { Button } from '@/ui/shadcn/button';
+import { FieldLabel } from '@/ui/shadcn/field';
 import { Input } from '@/ui/shadcn/input';
 import { Progress } from '@/ui/shadcn/progress';
 import { Spinner } from '@/ui/shadcn/spinner';
@@ -224,10 +228,7 @@ export function SettingsSyncTab() {
             } else {
                 toast.add({
                     type: 'success',
-                    title: t('view.settings.sync.now_done', {
-                        pushed: snapshot.lastPushedOps ?? 0,
-                        pulled: snapshot.lastPulledOps ?? 0
-                    })
+                    title: t('view.settings.sync.now_done')
                 });
             }
         } catch (error) {
@@ -255,8 +256,8 @@ export function SettingsSyncTab() {
                 title={t('view.settings.sync.connection.title')}
                 description={t('view.settings.sync.connection.description')}
             >
-                <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
-                    <Field
+                <div className="grid grid-cols-2 gap-x-4 gap-y-4 pt-1.5 sm:grid-cols-3">
+                    <FormField
                         label={t('view.settings.sync.connection.host_label')}
                     >
                         <Input
@@ -265,37 +266,32 @@ export function SettingsSyncTab() {
                             placeholder="192.168.1.10"
                             spellCheck={false}
                         />
-                    </Field>
-                    <div className="grid grid-cols-[1fr_5.5rem] gap-3">
-                        <Field
-                            label={t(
-                                'view.settings.sync.connection.database_label'
-                            )}
-                        >
-                            <Input
-                                value={database}
-                                onChange={(event) =>
-                                    setDatabase(event.target.value)
-                                }
-                                placeholder="vrcx0"
-                                spellCheck={false}
-                            />
-                        </Field>
-                        <Field
-                            label={t(
-                                'view.settings.sync.connection.port_label'
-                            )}
-                        >
-                            <Input
-                                value={port}
-                                onChange={(event) =>
-                                    setPort(event.target.value)
-                                }
-                                inputMode="numeric"
-                            />
-                        </Field>
-                    </div>
-                    <Field
+                    </FormField>
+                    <FormField
+                        label={t('view.settings.sync.connection.port_label')}
+                    >
+                        <Input
+                            value={port}
+                            onChange={(event) => setPort(event.target.value)}
+                            placeholder="5432"
+                            inputMode="numeric"
+                        />
+                    </FormField>
+                    <FormField
+                        label={t(
+                            'view.settings.sync.connection.database_label'
+                        )}
+                    >
+                        <Input
+                            value={database}
+                            onChange={(event) =>
+                                setDatabase(event.target.value)
+                            }
+                            placeholder="vrcx0"
+                            spellCheck={false}
+                        />
+                    </FormField>
+                    <FormField
                         label={t('view.settings.sync.connection.user_label')}
                     >
                         <Input
@@ -305,8 +301,8 @@ export function SettingsSyncTab() {
                             spellCheck={false}
                             autoComplete="off"
                         />
-                    </Field>
-                    <Field
+                    </FormField>
+                    <FormField
                         label={t(
                             'view.settings.sync.connection.password_label'
                         )}
@@ -317,41 +313,74 @@ export function SettingsSyncTab() {
                             onChange={(event) =>
                                 setPassword(event.target.value)
                             }
-                            placeholder={
-                                hasPassword
-                                    ? t(
-                                          'view.settings.sync.connection.password_saved'
-                                      )
-                                    : '••••••••'
-                            }
+                            placeholder="••••••••"
                             autoComplete="new-password"
                         />
+                        {hasPassword ? (
+                            <p className="text-muted-foreground text-xs">
+                                {t(
+                                    'view.settings.sync.connection.password_saved'
+                                )}
+                            </p>
+                        ) : null}
+                    </FormField>
+                </div>
+
+                <div className="border-stroke-subtle mt-5 border-t">
+                    <Field
+                        label={t(
+                            'view.settings.sync.connection.tls_verify_label'
+                        )}
+                        description={t(
+                            'view.settings.sync.connection.tls_verify_hint'
+                        )}
+                    >
+                        <Switch
+                            checked={tlsVerify}
+                            onCheckedChange={setTlsVerify}
+                        />
+                    </Field>
+                    <Field
+                        label={t(
+                            'view.settings.sync.connection.plaintext_label'
+                        )}
+                        description={t(
+                            'view.settings.sync.connection.plaintext_hint'
+                        )}
+                    >
+                        <Switch
+                            checked={allowPlaintext}
+                            onCheckedChange={setAllowPlaintext}
+                        />
+                    </Field>
+                    <Field
+                        label={t(
+                            'view.settings.sync.connection.interval_label'
+                        )}
+                        description={t(
+                            'view.settings.sync.connection.interval_hint'
+                        )}
+                    >
+                        <div className="flex items-center justify-end gap-2">
+                            <Input
+                                value={intervalSec}
+                                onChange={(event) =>
+                                    setIntervalSec(event.target.value)
+                                }
+                                inputMode="numeric"
+                                className="w-20"
+                            />
+                            <span className="text-muted-foreground text-sm">
+                                {t(
+                                    'view.settings.sync.connection.interval_unit'
+                                )}
+                            </span>
+                        </div>
                     </Field>
                 </div>
-                <Field
-                    label={t('view.settings.sync.connection.tls_verify_label')}
-                    description={t(
-                        'view.settings.sync.connection.tls_verify_hint'
-                    )}
-                >
-                    <Switch
-                        checked={tlsVerify}
-                        onCheckedChange={setTlsVerify}
-                    />
-                </Field>
-                <Field
-                    label={t('view.settings.sync.connection.plaintext_label')}
-                    description={t(
-                        'view.settings.sync.connection.plaintext_hint'
-                    )}
-                >
-                    <Switch
-                        checked={allowPlaintext}
-                        onCheckedChange={setAllowPlaintext}
-                    />
-                </Field>
-                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-1">
-                    <div className="flex flex-wrap items-center gap-2">
+
+                <div className="border-stroke-subtle mt-1 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-t pt-4">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2.5">
                         <Button
                             variant="outline"
                             onClick={handleTest}
@@ -372,8 +401,8 @@ export function SettingsSyncTab() {
                             <TestResultBadge result={testResult} />
                         ) : null}
                     </div>
-                    <div className="flex items-center gap-2.5">
-                        <span className="text-sm">
+                    <div className="flex shrink-0 items-center gap-2.5">
+                        <span className="text-sm font-medium">
                             {t('view.settings.sync.connection.enable_label')}
                         </span>
                         <Switch
@@ -386,33 +415,6 @@ export function SettingsSyncTab() {
                         />
                     </div>
                 </div>
-            </SettingsCard>
-
-            <SettingsCard
-                cardId="sync-options"
-                title={t('view.settings.sync.options.title')}
-                description={t('view.settings.sync.options.description')}
-            >
-                <Field
-                    label={t('view.settings.sync.connection.interval_label')}
-                    description={t(
-                        'view.settings.sync.connection.interval_hint'
-                    )}
-                >
-                    <div className="flex items-center gap-2">
-                        <Input
-                            value={intervalSec}
-                            onChange={(event) =>
-                                setIntervalSec(event.target.value)
-                            }
-                            inputMode="numeric"
-                            className="w-24"
-                        />
-                        <span className="text-muted-foreground text-sm">
-                            {t('view.settings.sync.connection.interval_unit')}
-                        </span>
-                    </div>
-                </Field>
             </SettingsCard>
 
             <SettingsCard
@@ -438,8 +440,8 @@ export function SettingsSyncTab() {
                 }
             >
                 {status ? (
-                    <div className="flex flex-col gap-4">
-                        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                    <div className="flex flex-col gap-4 pt-1">
+                        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                             <PhaseBadge phase={status.phase} />
                             {status.pendingOutbox > 0 ? (
                                 <span className="flex items-center gap-1.5 text-xs text-amber-500">
@@ -451,7 +453,7 @@ export function SettingsSyncTab() {
                             ) : null}
                         </div>
 
-                        <div className="grid grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
                             <StatusCell
                                 label={t(
                                     'view.settings.sync.status.last_cycle'
@@ -465,6 +467,28 @@ export function SettingsSyncTab() {
                             <StatusCell
                                 label={t('view.settings.sync.status.device_id')}
                                 value={status.deviceId.slice(0, 8)}
+                            />
+                            <StatusCell
+                                label={t(
+                                    'view.settings.sync.status.last_pushed'
+                                )}
+                                value={t(
+                                    'view.settings.sync.status.ops_count',
+                                    {
+                                        count: status.lastPushedOps ?? 0
+                                    }
+                                )}
+                            />
+                            <StatusCell
+                                label={t(
+                                    'view.settings.sync.status.last_pulled'
+                                )}
+                                value={t(
+                                    'view.settings.sync.status.ops_count',
+                                    {
+                                        count: status.lastPulledOps ?? 0
+                                    }
+                                )}
                             />
                         </div>
 
@@ -483,18 +507,18 @@ export function SettingsSyncTab() {
 
                         {status.remoteDevices.length > 0 ? (
                             <div>
-                                <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium">
+                                <p className="mb-2 flex items-center gap-1.5 text-xs font-medium">
                                     <LaptopIcon className="size-3.5" />
                                     {t('view.settings.sync.status.devices')}
                                 </p>
-                                <ul className="flex flex-col gap-1">
+                                <ul className="flex flex-col gap-1.5">
                                     {status.remoteDevices.map((device) => {
                                         const isSelf =
                                             device.deviceId === status.deviceId;
                                         return (
                                             <li
                                                 key={device.deviceId}
-                                                className="flex items-center justify-between gap-3 rounded-md border px-2.5 py-1.5 text-xs"
+                                                className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-xs"
                                             >
                                                 <span className="flex min-w-0 items-center gap-1.5">
                                                     {isSelf ? (
@@ -536,6 +560,30 @@ export function SettingsSyncTab() {
                 )}
             </SettingsCard>
         </SettingsTabContent>
+    );
+}
+
+function FormField({
+    label,
+    children
+}: {
+    label: string;
+    children: ReactNode;
+}) {
+    const id = useId();
+    const control = isValidElement<{ id?: string }>(children)
+        ? cloneElement(children, { id })
+        : children;
+    return (
+        <div className="flex min-w-0 flex-col gap-2">
+            <FieldLabel
+                htmlFor={id}
+                className="text-sm leading-none font-medium"
+            >
+                {label}
+            </FieldLabel>
+            {control}
+        </div>
     );
 }
 
@@ -612,7 +660,7 @@ function BootstrapProgressView({
               )
             : null;
     return (
-        <div className="flex flex-col gap-2.5 rounded-md border p-3.5">
+        <div className="flex flex-col gap-3 rounded-md border p-4">
             <div className="flex items-center justify-between gap-4">
                 <span className="flex items-center gap-2 text-sm font-medium">
                     <Spinner className="size-3.5" />
@@ -660,11 +708,11 @@ function BootstrapProgressView({
                       })}
             </p>
             {(progress.tables?.length ?? 0) > 0 ? (
-                <div className="max-h-44 overflow-y-auto rounded border px-2.5 py-1">
+                <div className="max-h-44 overflow-y-auto rounded-md border px-3 py-1.5">
                     {(progress.tables ?? []).map((table) => (
                         <div
                             key={table.name}
-                            className="flex items-baseline justify-between gap-3 py-0.5"
+                            className="flex items-baseline justify-between gap-3 py-1"
                         >
                             <span className="flex min-w-0 items-baseline gap-1.5">
                                 {table.done ? (
