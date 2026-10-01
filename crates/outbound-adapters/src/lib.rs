@@ -47,6 +47,7 @@ pub mod realtime_lifecycle_log;
 mod realtime_remote_requests;
 mod realtime_store;
 mod realtime_transport;
+mod remote_sync_postgres;
 mod saved_group_favorites;
 pub mod screenshots;
 mod secret_startup;
@@ -116,6 +117,7 @@ pub use quick_search::{LocalQuickSearchDetailStore, VrchatQuickSearchRemoteReque
 pub use realtime_remote_requests::VrchatRealtimeRemoteRequests;
 pub use realtime_store::PersistenceRealtimeStore;
 pub use realtime_transport::VrchatRealtimeTransport;
+pub use remote_sync_postgres::{PostgresSyncStore, PostgresSyncStoreConfig};
 pub use saved_group_favorites::LocalSavedGroupFavoritesAdapter;
 pub use secret_startup::LocalSecretStartup;
 pub use social_mutation_remote_requests::VrchatSocialMutationRemoteRequests;

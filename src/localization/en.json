@@ -2280,6 +2280,7 @@
                 "vr": "VR",
                 "media": "Media",
                 "integrations": "Integrations",
+                "sync": "Data Sync",
                 "feedback": "Feedback"
             },
             "feedback": {
@@ -2448,6 +2449,74 @@
                         "running": "Running",
                         "error": "Error"
                     }
+                }
+            },
+            "sync": {
+                "connection": {
+                    "title": "Remote Database Sync",
+                    "host_label": "Host",
+                    "port_label": "Port",
+                    "user_label": "User",
+                    "password_label": "Password",
+                    "password_saved": "Password saved — leave empty to keep",
+                    "database_label": "Database",
+                    "description": "Sync your local database with a remote PostgreSQL server. All devices syncing to the same database converge automatically; concurrent writes never lose data.",
+                    "tls_verify_label": "Verify TLS certificate",
+                    "tls_verify_hint": "Disable only for self-signed homelab certificates. Encryption always stays on.",
+                    "plaintext_label": "Allow unencrypted connection",
+                    "plaintext_hint": "Trusted LAN servers without TLS only. Turn on when \"Test connection\" fails with a TLS handshake error.",
+                    "interval_label": "Sync interval (seconds)",
+                    "interval_hint": "How often to push and pull changes (minimum 5).",
+                    "test_button": "Test connection",
+                    "test_ok": "OK — {version} ({ms} ms)",
+                    "test_failed": "Failed: {error}",
+                    "enable_label": "Enable remote sync (applies the settings above)",
+                    "testing": "Testing…"
+                },
+                "enable_toast": "Remote sync enabled",
+                "disable_toast": "Remote sync disabled",
+                "now_done": "Sync completed",
+                "now_running": "Syncing…",
+                "now_done_pending": "Synced; {count} change(s) still queued",
+                "status": {
+                    "title": "Sync Status",
+                    "description": "Health of the sync engine and the devices sharing this database.",
+                    "phase": "Phase",
+                    "device_id": "Device ID",
+                    "last_push": "Last push",
+                    "last_pull": "Last pull",
+                    "pending": "Pending changes",
+                    "schema_version": "Remote schema",
+                    "sync_now": "Sync now",
+                    "devices": "Devices",
+                    "this_device": "{id} (this device)",
+                    "bootstrap_running": "Initial sync in progress — keep the app running.",
+                    "unavailable": "Sync status is unavailable.",
+                    "last_cycle": "Last cycle",
+                    "last_moved": "Last cycle moved",
+                    "moved_counts": "push {pushed} · pull {pulled}"
+                },
+                "phase": {
+                    "idle": "Idle",
+                    "running": "Syncing",
+                    "bootstrap": "Initial sync",
+                    "push": "Uploading history",
+                    "merge": "Merging remote data",
+                    "reconciling": "Reconciling",
+                    "error": "Error",
+                    "disabled": "Disabled",
+                    "done": "Done"
+                },
+                "progress": {
+                    "rows": "{count} rows uploaded",
+                    "rows_of": "Total {done} / {total} rows ({percent}%)",
+                    "tables_of": "Tables {done}/{total}",
+                    "table_rows_of": "{done} / {total} rows ({percent}%)",
+                    "table_done": "{total} rows"
+                },
+                "options": {
+                    "title": "Sync Options",
+                    "description": "Cadence and history window for background synchronization."
                 }
             },
             "advanced_groups": {

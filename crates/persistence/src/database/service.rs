@@ -458,6 +458,27 @@ fn map_profile_backup_sqlite_error(error: rusqlite::Error) -> Error {
     Error::sqlite(error)
 }
 
+#[cfg(feature = "test-utils")]
+impl DatabaseService {
+    /// Raw SQL access for integration tests that need surgical control
+    /// (convergence simulations); never available outside `cfg(test)` builds.
+    pub fn test_execute(
+        &self,
+        sql: &str,
+        args: &HashMap<String, serde_json::Value>,
+    ) -> Result<Vec<Vec<serde_json::Value>>, Error> {
+        self.execute(sql, args)
+    }
+
+    pub fn test_execute_non_query(
+        &self,
+        sql: &str,
+        args: &HashMap<String, serde_json::Value>,
+    ) -> Result<i64, Error> {
+        self.execute_non_query(sql, args)
+    }
+}
+
 pub fn optimize_database(db: &DatabaseService) -> Result<(), Error> {
     db.execute_non_query("PRAGMA optimize", &Default::default())?;
     Ok(())

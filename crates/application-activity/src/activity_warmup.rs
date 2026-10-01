@@ -124,12 +124,24 @@ fn warm_activity_pages(
 }
 
 fn claim_activity_warmup_generation(scheduled: &AtomicU64, auth_generation: u64) -> bool {
-    auth_generation > 0
-        && scheduled
-            .try_update(Ordering::AcqRel, Ordering::Acquire, |current| {
-                (current < auth_generation).then_some(auth_generation)
-            })
-            .is_ok()
+    if auth_generation == 0 {
+        return false;
+    }
+    let mut current = scheduled.load(Ordering::Acquire);
+    loop {
+        if current >= auth_generation {
+            return false;
+        }
+        match scheduled.compare_exchange(
+            current,
+            auth_generation,
+            Ordering::AcqRel,
+            Ordering::Acquire,
+        ) {
+            Ok(_) => return true,
+            Err(actual) => current = actual,
+        }
+    }
 }
 
 fn release_activity_warmup_generation(scheduled: &AtomicU64, auth_generation: u64) {

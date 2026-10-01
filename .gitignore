@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .idea/
+.zcode/
+.zcodeignore
 *.log
 
 # Tauri / Rust

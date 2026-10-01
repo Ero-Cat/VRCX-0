@@ -150,6 +150,7 @@ impl RuntimeHostState {
             .vrc_status
             .start_loop(self.runtime_context.tasks.clone());
         self.profile_backup.start_scheduler();
+        Arc::clone(&self.remote_sync_host).start_auto();
     }
 }
 

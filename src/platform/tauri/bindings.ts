@@ -716,6 +716,45 @@ const generatedCommands = {
     async appConfigSetValues(entries: ConfigWriteEntry[]): Promise<null> {
         return await TAURI_INVOKE('app__config_set_values', { entries });
     },
+    /**
+     * Persist sync settings and (re)start the engine accordingly. Passing
+     * `None` keeps a setting group unchanged; an empty password keeps the
+     * stored one.
+     */
+    async syncConfigure(
+        enabled: boolean | null,
+        connection: SyncConnectionInput | null,
+        intervalSec: number | null
+    ): Promise<SyncStatusSnapshot> {
+        return await TAURI_INVOKE('sync__configure', {
+            enabled,
+            connection,
+            intervalSec
+        });
+    },
+    /**
+     * Stored connection fields without the password value.
+     */
+    async syncGetConnection(): Promise<SyncConnectionFields> {
+        return await TAURI_INVOKE('sync__get_connection');
+    },
+    /**
+     * Probe the given connection details without persisting them.
+     */
+    async syncTestConnection(
+        connection: SyncConnectionInput
+    ): Promise<SyncConnectionTestResult> {
+        return await TAURI_INVOKE('sync__test_connection', { connection });
+    },
+    async syncStatus(): Promise<SyncStatusSnapshot> {
+        return await TAURI_INVOKE('sync__status');
+    },
+    async syncTriggerNow(): Promise<SyncStatusSnapshot> {
+        return await TAURI_INVOKE('sync__trigger_now');
+    },
+    async syncBootstrapProgress(): Promise<SyncBootstrapProgress> {
+        return await TAURI_INVOKE('sync__bootstrap_progress');
+    },
     async appConfigListValues(): Promise<ConfigReadEntry[]> {
         return await TAURI_INVOKE('app__config_list_values');
     },
@@ -6296,6 +6335,107 @@ export type StartupBootstrapSnapshot = {
     configEntries: ConfigReadEntry[];
     systemLanguage: string;
     systemCulture: string;
+};
+export type SyncBootstrapProgress = {
+    running: boolean;
+    phase: string;
+    currentTable: string;
+    tablesDone: number;
+    tablesTotal: number;
+    rowsDone: number;
+    /**
+     * Total rows at bootstrap start (0 until measured).
+     */
+    rowsTotal?: number;
+    /**
+     * Rows completed within the current table.
+     */
+    currentTableRowsDone?: number;
+    /**
+     * Total rows of the current table (0 until measured).
+     */
+    currentTableRowsTotal?: number;
+    /**
+     * Per-table snapshot: how far each table is.
+     */
+    tables?: SyncTableProgress[];
+};
+/**
+ * Structured database connection fields for the settings UI. The backend
+ * composes the connection string from these; the password never travels
+ * back to the frontend (only whether one is stored).
+ */
+export type SyncConnectionFields = {
+    host: string;
+    port: number;
+    user: string;
+    database: string;
+    tlsVerify: boolean;
+    /**
+     * Explicit opt-in for servers without TLS (trusted LAN only).
+     */
+    allowPlaintext: boolean;
+    hasPassword: boolean;
+    /**
+     * Sync cadence in seconds (0 = default 60).
+     */
+    intervalSeconds?: number;
+};
+/**
+ * Connection form submission for configure/test. The password is only
+ * present when the user typed a new one.
+ */
+export type SyncConnectionInput = {
+    host: string;
+    port: number;
+    user: string;
+    password?: string | null;
+    database: string;
+    tlsVerify?: boolean;
+    allowPlaintext?: boolean;
+};
+export type SyncConnectionTestResult = {
+    ok: boolean;
+    serverVersion: string;
+    latencyMs: number;
+    error: string | null;
+};
+export type SyncDeviceRecord = {
+    deviceId: string;
+    appVersion: string;
+    lastPushAt: string | null;
+    lastPullAt: string | null;
+};
+/**
+ * Snapshot of sync health surfaced to the frontend.
+ */
+export type SyncStatusSnapshot = {
+    enabled: boolean;
+    configured: boolean;
+    phase: string;
+    deviceId: string;
+    lastPushAt: string | null;
+    lastPullAt: string | null;
+    pendingOutbox: number;
+    pullCursor: number;
+    lastError: string | null;
+    remoteSchemaVersion: number;
+    remoteDevices: SyncDeviceRecord[];
+    /**
+     * Ops moved by the most recent completed cycle.
+     */
+    lastPushedOps?: number;
+    lastPulledOps?: number;
+    lastCycleAt?: string | null;
+};
+/**
+ * One table's upload progress inside a bootstrap.
+ */
+export type SyncTableProgress = {
+    name: string;
+    rowsDone: number;
+    rowsTotal: number;
+    done: boolean;
 };
 export type TelemetryClientEvent =
     | { type: 'pageVisit'; route: string }

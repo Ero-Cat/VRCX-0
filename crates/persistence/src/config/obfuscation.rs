@@ -12,6 +12,8 @@ const CONFIG_OBFUSCATION_MASK: &[u8] = b"vrcx-0-config-values";
 const CONFIG_OBFUSCATION_CHECKSUM_BYTES: usize = 8;
 
 const OBFUSCATED_CONFIG_KEYS: &[&str] = &[
+    // Keep sorted: looked up with binary_search.
+    "config:remotesync.password",
     "config:vrcx_assistant.apikey",
     "config:vrcx_integrationapitoken",
     "config:vrcx_llm.endpoints",

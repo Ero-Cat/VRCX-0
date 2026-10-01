@@ -916,6 +916,10 @@ impl DesktopRuntimeHostState {
         &self.vrchat_remote
     }
 
+    pub fn remote_sync(&self) -> &std::sync::Arc<vrcx_0_composition::RemoteSyncHost> {
+        self.runtime.remote_sync()
+    }
+
     pub fn local_data(&self) -> &LocalDataRuntime {
         &self.local_data
     }

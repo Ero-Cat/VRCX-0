@@ -1,0 +1,19 @@
+[package]
+name = "vrcx-0-application-sync"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+description = "Remote database sync engine: change push/pull, bootstrap and reconciliation orchestration"
+
+[dependencies]
+async-trait = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+specta = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt", "sync", "time", "macros"] }
+tracing = { workspace = true }
+vrcx-0-application-core = { path = "../application-core" }
+vrcx-0-contracts = { path = "../contracts" }
+vrcx-0-persistence = { path = "../persistence" }

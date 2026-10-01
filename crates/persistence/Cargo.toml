@@ -26,6 +26,10 @@ specta.workspace = true
 tar = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+uuid = { workspace = true }
 vrcx-0-core = { path = "../core" }
 vrcx-0-platform = { path = "../platform" }
 zstd = { workspace = true }
+
+[dev-dependencies]
+vrcx-0-persistence = { path = ".", features = ["test-utils"] }

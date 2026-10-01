@@ -86,6 +86,7 @@ pub struct RuntimeHostStateBuilder {
     profile_backup: ProfileBackupRuntime,
     data_dir_migration: DataDirMigrationRuntime,
     runtime_context: Arc<RuntimeHostContext>,
+    remote_sync_host: Arc<crate::state::remote_sync::RemoteSyncHost>,
     desktop_assembly: RuntimeHostDesktopAssemblyDeps,
     backend_runtime: BackendRuntime,
     web: Arc<WebClient>,
@@ -106,6 +107,7 @@ pub struct RuntimeHostState {
     pub(crate) profile_backup: ProfileBackupRuntime,
     pub(crate) data_dir_migration: DataDirMigrationRuntime,
     pub(crate) runtime_context: Arc<RuntimeHostContext>,
+    pub(crate) remote_sync_host: Arc<crate::state::remote_sync::RemoteSyncHost>,
     desktop_assembly: RuntimeHostDesktopAssemblyDeps,
     pub(crate) backend_runtime: BackendRuntime,
     pub(crate) realtime_runtime: Arc<RealtimeHostRuntime>,
@@ -325,6 +327,12 @@ impl RuntimeHostStateBuilder {
             Arc::clone(&image_cache),
             tasks,
         ));
+        let remote_sync_host = Arc::new(crate::state::remote_sync::RemoteSyncHost::new(
+            Arc::clone(&db),
+            runtime_context.background_jobs.clone(),
+            runtime_context.tasks.clone(),
+            app_version.clone(),
+        ));
         let desktop_assembly =
             RuntimeHostDesktopAssemblyDeps::from_context(Arc::clone(&runtime_context));
         let profile_backup_port = Arc::new(vrcx_0_outbound_adapters::LocalProfileBackupPort::new(
@@ -364,6 +372,7 @@ impl RuntimeHostStateBuilder {
             profile_backup,
             data_dir_migration,
             runtime_context,
+            remote_sync_host,
             desktop_assembly,
             backend_runtime: BackendRuntime::new(profile),
             web,
@@ -643,6 +652,7 @@ impl RuntimeHostStateBuilder {
             profile_backup: self.profile_backup,
             data_dir_migration: self.data_dir_migration,
             runtime_context: self.runtime_context,
+            remote_sync_host: self.remote_sync_host,
             desktop_assembly: self.desktop_assembly,
             backend_runtime: self.backend_runtime,
             realtime_runtime,

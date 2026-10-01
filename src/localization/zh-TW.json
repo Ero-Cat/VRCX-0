@@ -2274,6 +2274,7 @@
                 "vr": "VR",
                 "media": "媒體",
                 "integrations": "整合",
+                "sync": "資料同步",
                 "feedback": "意見回饋"
             },
             "feedback": {
@@ -2442,6 +2443,74 @@
                         "running": "執行中",
                         "error": "錯誤"
                     }
+                }
+            },
+            "sync": {
+                "connection": {
+                    "title": "遠端資料庫同步",
+                    "host_label": "主機",
+                    "port_label": "連接埠",
+                    "user_label": "使用者名稱",
+                    "password_label": "密碼",
+                    "password_saved": "已儲存密碼 — 留空表示不修改",
+                    "database_label": "資料庫名稱",
+                    "description": "將本機資料庫與遠端 PostgreSQL 雙向同步。同步到同一資料庫的所有裝置自動收斂，並發寫入不會遺失資料。",
+                    "tls_verify_label": "驗證 TLS 憑證",
+                    "tls_verify_hint": "僅在使用自簽憑證的自架伺服器時關閉。加密永遠保持開啟。",
+                    "plaintext_label": "允許未加密連線",
+                    "plaintext_hint": "僅限沒有 TLS 的可信區域網路伺服器。「測試連線」回報 TLS 交握失敗時開啟。",
+                    "interval_label": "同步間隔（秒）",
+                    "interval_hint": "推送與拉取變更的頻率（最小 5 秒）。",
+                    "test_button": "測試連線",
+                    "test_ok": "成功 — {version}（{ms} 毫秒）",
+                    "test_failed": "失敗：{error}",
+                    "enable_label": "啟用遠端同步（將套用以上設定）",
+                    "testing": "測試中…"
+                },
+                "enable_toast": "遠端同步已啟用",
+                "disable_toast": "遠端同步已停用",
+                "now_done": "同步完成",
+                "now_running": "同步中…",
+                "now_done_pending": "已同步，仍有 {count} 條變更排隊中",
+                "status": {
+                    "title": "同步狀態",
+                    "description": "同步引擎與共享此資料庫的裝置健康狀況。",
+                    "phase": "狀態",
+                    "device_id": "裝置 ID",
+                    "last_push": "上次推送",
+                    "last_pull": "上次拉取",
+                    "pending": "待推送變更",
+                    "schema_version": "遠端結構版本",
+                    "sync_now": "立即同步",
+                    "devices": "裝置清單",
+                    "this_device": "{id}（本機）",
+                    "bootstrap_running": "首次同步進行中 — 請保持應用程式執行。",
+                    "unavailable": "同步狀態無法使用。",
+                    "last_cycle": "上次同步週期",
+                    "last_moved": "上週期搬運量",
+                    "moved_counts": "推 {pushed} · 拉 {pulled}"
+                },
+                "phase": {
+                    "idle": "閒置",
+                    "running": "同步中",
+                    "bootstrap": "首次同步",
+                    "push": "上傳歷史資料",
+                    "merge": "合併遠端資料",
+                    "reconciling": "對帳中",
+                    "error": "錯誤",
+                    "disabled": "已停用",
+                    "done": "完成"
+                },
+                "progress": {
+                    "rows": "已上傳 {count} 行",
+                    "rows_of": "總計 {done} / {total} 行（{percent}%）",
+                    "tables_of": "資料表 {done}/{total}",
+                    "table_rows_of": "{done} / {total} 行（{percent}%）",
+                    "table_done": "{total} 行"
+                },
+                "options": {
+                    "title": "同步選項",
+                    "description": "背景同步的頻率與歷史範圍。"
                 }
             },
             "advanced_groups": {

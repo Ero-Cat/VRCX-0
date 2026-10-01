@@ -23,6 +23,7 @@ pub mod profile_bio;
 mod profile_config;
 pub mod realtime;
 pub mod social_aggregates;
+pub mod sync;
 pub mod telemetry;
 mod translation;
 pub mod vrchat_api;
@@ -67,6 +68,14 @@ pub use profile_backup::{
     ProfileRestoreValidationOutcome,
 };
 pub use profile_config::{resolve_config_key, ConfigMutation, ConfigReadEntry, ConfigWriteEntry};
+pub use sync::{
+    is_config_key_syncable, looks_like_user_prefix, register_sync_table, register_sync_table_owned,
+    resolve_sync_table, sync_table_descriptor, SyncBootstrapProgress, SyncConnectionFields,
+    SyncConnectionInput, SyncConnectionTestResult, SyncDeviceRecord, SyncFieldSemantic, SyncHlc,
+    SyncOpKind, SyncOpRecord, SyncRowSemantic, SyncStatusSnapshot, SyncTableDescriptor,
+    SyncTableProgress, SyncTableRef, SYNC_EXCLUDED_CONFIG_KEYS, SYNC_PROTOCOL_SCHEMA_VERSION,
+    SYNC_TABLE_CATALOG,
+};
 pub use translation::TranslationProvider;
 pub use vrchat_api::{
     VrchatAuthFailureKind, VrchatFailure, VrchatJsonResponse, VrchatRequest, VrchatRequestBody,

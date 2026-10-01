@@ -16,6 +16,8 @@ test-utils = [
 [dependencies]
 chrono = { workspace = true }
 futures-util = "0.3"
+vrcx-0-application-sync = { path = "../application-sync" }
+vrcx-0-contracts = { path = "../contracts" }
 serde = { workspace = true, features = ["derive", "rc"] }
 serde_json = { workspace = true }
 specta.workspace = true

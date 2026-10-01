@@ -33,6 +33,7 @@ pub mod screenshot_cache;
 pub mod secrets;
 pub mod social_aggregates;
 pub mod storage;
+pub mod sync;
 pub mod worlds;
 
 pub mod maintenance {

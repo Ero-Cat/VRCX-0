@@ -14,8 +14,13 @@ moka = { version = "0.12", features = ["sync"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sys-locale.workspace = true
-tokio = { workspace = true, features = ["sync", "time"] }
+tokio = { workspace = true, features = ["sync", "time", "rt"] }
 tracing = { workspace = true }
+tokio-postgres = { workspace = true }
+tokio-postgres-rustls = { workspace = true }
+rustls = { workspace = true }
+rustls-pki-types = { workspace = true }
+webpki-roots = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true }
 walkdir = { workspace = true }
@@ -24,6 +29,7 @@ vrcx-0-contracts = { path = "../contracts" }
 vrcx-0-application = { path = "../application" }
 vrcx-0-application-activity = { path = "../application-activity" }
 vrcx-0-application-core = { path = "../application-core" }
+vrcx-0-application-sync = { path = "../application-sync" }
 vrcx-0-application-realtime = { path = "../application-realtime" }
 vrcx-0-core = { path = "../core" }
 vrcx-0-integrations = { path = "../integrations" }

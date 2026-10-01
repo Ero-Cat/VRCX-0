@@ -2274,6 +2274,7 @@
                 "vr": "VR",
                 "media": "媒体",
                 "integrations": "集成",
+                "sync": "数据同步",
                 "feedback": "反馈"
             },
             "feedback": {
@@ -2442,6 +2443,74 @@
                         "running": "运行中",
                         "error": "错误"
                     }
+                }
+            },
+            "sync": {
+                "connection": {
+                    "title": "远程数据库同步",
+                    "host_label": "主机",
+                    "port_label": "端口",
+                    "user_label": "用户名",
+                    "password_label": "密码",
+                    "password_saved": "已保存密码 — 留空表示不修改",
+                    "database_label": "数据库名",
+                    "description": "将本地数据库与远程 PostgreSQL 双向同步。同步到同一数据库的所有设备自动收敛，并发写入不会丢数据。",
+                    "tls_verify_label": "校验 TLS 证书",
+                    "tls_verify_hint": "仅在使用自签名证书的自托管服务端时关闭。加密始终保持开启。",
+                    "plaintext_label": "允许不加密连接",
+                    "plaintext_hint": "仅限没有 TLS 的可信局域网服务器。\"测试连接\"报 TLS 握手失败时开启。",
+                    "interval_label": "同步间隔（秒）",
+                    "interval_hint": "推送与拉取变更的频率（最小 5 秒）。",
+                    "test_button": "测试连接",
+                    "test_ok": "成功 — {version}（{ms} 毫秒）",
+                    "test_failed": "失败：{error}",
+                    "enable_label": "启用远程同步（将应用以上设置）",
+                    "testing": "测试中…"
+                },
+                "enable_toast": "远程同步已启用",
+                "disable_toast": "远程同步已停用",
+                "now_done": "同步完成",
+                "now_running": "同步中…",
+                "now_done_pending": "已同步，仍有 {count} 条变更排队中",
+                "status": {
+                    "title": "同步状态",
+                    "description": "同步引擎与共享此数据库的设备健康状况。",
+                    "phase": "状态",
+                    "device_id": "设备 ID",
+                    "last_push": "上次推送",
+                    "last_pull": "上次拉取",
+                    "pending": "待推送变更",
+                    "schema_version": "远程结构版本",
+                    "sync_now": "立即同步",
+                    "devices": "设备列表",
+                    "this_device": "{id}（本机）",
+                    "bootstrap_running": "首次同步进行中 — 请保持应用运行。",
+                    "unavailable": "同步状态不可用。",
+                    "last_cycle": "上次同步周期",
+                    "last_moved": "上周期待送量",
+                    "moved_counts": "推 {pushed} · 拉 {pulled}"
+                },
+                "phase": {
+                    "idle": "空闲",
+                    "running": "同步中",
+                    "bootstrap": "首次同步",
+                    "push": "上传历史数据",
+                    "merge": "合并远程数据",
+                    "reconciling": "对账中",
+                    "error": "错误",
+                    "disabled": "已停用",
+                    "done": "完成"
+                },
+                "progress": {
+                    "rows": "已上传 {count} 行",
+                    "rows_of": "总计 {done} / {total} 行（{percent}%）",
+                    "tables_of": "数据表 {done}/{total}",
+                    "table_rows_of": "{done} / {total} 行（{percent}%）",
+                    "table_done": "{total} 行"
+                },
+                "options": {
+                    "title": "同步选项",
+                    "description": "后台同步的频率与历史窗口。"
                 }
             },
             "advanced_groups": {
