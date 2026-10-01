@@ -27,7 +27,7 @@ import { SettingsCard } from '../SettingsCard';
 import { Field } from '../SettingsField';
 import { SettingsTabContent } from '../SettingsViewParts';
 
-const STATUS_POLL_MS = 15000;
+const STATUS_POLL_MS = 8000;
 const BOOTSTRAP_POLL_MS = 2000;
 
 function formatTime(value: string | null | undefined): string {
@@ -401,13 +401,6 @@ export function SettingsSyncTab() {
                             value={formatTime(
                                 status.lastCycleAt ?? status.lastPullAt ?? null
                             )}
-                        />
-                        <StatusRow
-                            label={t('view.settings.sync.status.last_moved')}
-                            value={t('view.settings.sync.status.moved_counts', {
-                                pushed: status.lastPushedOps ?? 0,
-                                pulled: status.lastPulledOps ?? 0
-                            })}
                         />
                         <StatusRow
                             label={t('view.settings.sync.status.last_push')}

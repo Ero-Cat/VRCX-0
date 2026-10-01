@@ -57,6 +57,8 @@ const PULL_BATCHES_PER_CYCLE: usize = 100;
 const BOOTSTRAP_CHUNK: i64 = 500;
 const BOOTSTRAP_MATERIALIZED_PAGE: i64 = 1000;
 const GC_INTERVAL_HOURS: i64 = 24;
+/// Persistent timestamp of the most recent completed cycle (auto or manual).
+const META_LAST_CYCLE_AT: &str = "sync.lastCycleAt";
 /// Set while a first-time bootstrap should (re)run; cleared on completion.
 const META_BOOTSTRAP_PENDING: &str = "sync.pendingBootstrap";
 /// Written once after the first successful bootstrap.
@@ -229,17 +231,21 @@ impl RemoteSyncEngine {
                 self.set_error(Some(message.clone()));
                 self.set_phase("error");
                 self.background_jobs.mark_failed(JOB_NAME, message);
+                let _ = sync_meta_set(&self.db, META_LAST_CYCLE_AT, &now_iso());
             }
         }
         result.map(|_| ())
     }
 
     fn record_cycle_stats(&self, pushed: u64, pulled: u64) {
+        let finished_at = now_iso();
+        // Persisted so "last sync" survives an app restart.
+        let _ = sync_meta_set(&self.db, META_LAST_CYCLE_AT, &finished_at);
         let mut state = self.state.lock().unwrap();
         state.stats = CycleStats {
             pushed,
             pulled,
-            finished_at: Some(now_iso()),
+            finished_at: Some(finished_at),
         };
     }
 
@@ -716,6 +722,8 @@ impl RemoteSyncEngine {
             }
         };
         let (pushed_ops, pulled_ops, last_cycle_at) = self.stats_snapshot();
+        let last_cycle_at =
+            last_cycle_at.or_else(|| sync_meta_get(&self.db, META_LAST_CYCLE_AT).ok().flatten());
         SyncStatusSnapshot {
             enabled: true,
             configured,

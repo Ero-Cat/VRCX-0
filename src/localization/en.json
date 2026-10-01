@@ -2492,9 +2492,7 @@
                     "this_device": "{id} (this device)",
                     "bootstrap_running": "Initial sync in progress — keep the app running.",
                     "unavailable": "Sync status is unavailable.",
-                    "last_cycle": "Last cycle",
-                    "last_moved": "Last cycle moved",
-                    "moved_counts": "push {pushed} · pull {pulled}"
+                    "last_cycle": "Last cycle"
                 },
                 "phase": {
                     "idle": "Idle",

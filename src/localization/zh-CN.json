@@ -2486,9 +2486,7 @@
                     "this_device": "{id}（本机）",
                     "bootstrap_running": "首次同步进行中 — 请保持应用运行。",
                     "unavailable": "同步状态不可用。",
-                    "last_cycle": "上次同步周期",
-                    "last_moved": "上周期待送量",
-                    "moved_counts": "推 {pushed} · 拉 {pulled}"
+                    "last_cycle": "上次同步周期"
                 },
                 "phase": {
                     "idle": "空闲",
