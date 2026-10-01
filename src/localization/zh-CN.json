@@ -2454,7 +2454,7 @@
                     "password_label": "密码",
                     "password_saved": "已保存密码 — 留空表示不修改",
                     "database_label": "数据库名",
-                    "description": "将本地数据库与远程 PostgreSQL 双向同步。同步到同一数据库的所有设备自动收敛，并发写入不会丢数据。",
+                    "description": "将本机数据与你自己的 PostgreSQL 服务器同步。指向同一数据库的每台设备数据保持一致，不会发送到其他任何地方。",
                     "tls_verify_label": "校验 TLS 证书",
                     "tls_verify_hint": "仅在使用自签名证书的自托管服务端时关闭。加密始终保持开启。",
                     "plaintext_label": "允许不加密连接",
@@ -2462,10 +2462,13 @@
                     "interval_label": "同步间隔（秒）",
                     "interval_hint": "推送与拉取变更的频率（最小 5 秒）。",
                     "test_button": "测试连接",
-                    "test_ok": "成功 — {version}（{ms} 毫秒）",
+                    "test_ok": "连接成功（{ms} 毫秒）",
                     "test_failed": "失败：{error}",
-                    "enable_label": "启用远程同步（将应用以上设置）",
-                    "testing": "测试中…"
+                    "enable_label": "启用同步",
+                    "testing": "测试中…",
+                    "privacy_note": "同步只在你自己的数据库和设备之间共享数据；密码与登录凭据永远不会离开本机。",
+                    "interval_unit": "秒",
+                    "test_failed_short": "连接失败 — 悬停查看详情"
                 },
                 "enable_toast": "远程同步已启用",
                 "disable_toast": "远程同步已停用",
@@ -2474,19 +2477,17 @@
                 "now_done_pending": "已同步，仍有 {count} 条变更排队中",
                 "status": {
                     "title": "同步状态",
-                    "description": "同步引擎与共享此数据库的设备健康状况。",
+                    "description": "本机同步与共享此数据库设备的实时健康状态。",
                     "phase": "状态",
                     "device_id": "设备 ID",
-                    "last_push": "上次推送",
-                    "last_pull": "上次拉取",
-                    "pending": "待推送变更",
-                    "schema_version": "远程结构版本",
+                    "pending": "{count} 条变更待上传",
                     "sync_now": "立即同步",
-                    "devices": "设备列表",
+                    "devices": "已连接的设备",
                     "this_device": "{id}（本机）",
                     "bootstrap_running": "首次同步进行中 — 请保持应用运行。",
                     "unavailable": "同步状态不可用。",
-                    "last_cycle": "上次同步周期"
+                    "last_cycle": "上次同步",
+                    "this_device_tag": "本机"
                 },
                 "phase": {
                     "idle": "空闲",
@@ -2502,13 +2503,14 @@
                 "progress": {
                     "rows": "已上传 {count} 行",
                     "rows_of": "总计 {done} / {total} 行（{percent}%）",
-                    "tables_of": "数据表 {done}/{total}",
+                    "tables_of": "数据表 {percent}%",
                     "table_rows_of": "{done} / {total} 行（{percent}%）",
-                    "table_done": "{total} 行"
+                    "table_done": "{total} 行",
+                    "table_rows": "{done} / {total} 行"
                 },
                 "options": {
-                    "title": "同步选项",
-                    "description": "后台同步的频率与历史窗口。"
+                    "title": "同步频率",
+                    "description": "自动交换变更的频率。"
                 }
             },
             "advanced_groups": {

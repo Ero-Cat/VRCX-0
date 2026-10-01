@@ -2460,7 +2460,7 @@
                     "password_label": "Password",
                     "password_saved": "Password saved — leave empty to keep",
                     "database_label": "Database",
-                    "description": "Sync your local database with a remote PostgreSQL server. All devices syncing to the same database converge automatically; concurrent writes never lose data.",
+                    "description": "Sync this device's data with your own PostgreSQL server. Every device pointed at the same database stays in sync — nothing is sent anywhere else.",
                     "tls_verify_label": "Verify TLS certificate",
                     "tls_verify_hint": "Disable only for self-signed homelab certificates. Encryption always stays on.",
                     "plaintext_label": "Allow unencrypted connection",
@@ -2468,10 +2468,13 @@
                     "interval_label": "Sync interval (seconds)",
                     "interval_hint": "How often to push and pull changes (minimum 5).",
                     "test_button": "Test connection",
-                    "test_ok": "OK — {version} ({ms} ms)",
+                    "test_ok": "Connected ({ms} ms)",
                     "test_failed": "Failed: {error}",
-                    "enable_label": "Enable remote sync (applies the settings above)",
-                    "testing": "Testing…"
+                    "enable_label": "Enable sync",
+                    "testing": "Testing…",
+                    "privacy_note": "Sync only shares data between devices you connect to your own database. Passwords and login credentials never leave this device.",
+                    "interval_unit": "seconds",
+                    "test_failed_short": "Connection failed — hover for details"
                 },
                 "enable_toast": "Remote sync enabled",
                 "disable_toast": "Remote sync disabled",
@@ -2480,19 +2483,17 @@
                 "now_done_pending": "Synced; {count} change(s) still queued",
                 "status": {
                     "title": "Sync Status",
-                    "description": "Health of the sync engine and the devices sharing this database.",
+                    "description": "Live health of this device's sync and the devices sharing your database.",
                     "phase": "Phase",
                     "device_id": "Device ID",
-                    "last_push": "Last push",
-                    "last_pull": "Last pull",
-                    "pending": "Pending changes",
-                    "schema_version": "Remote schema",
+                    "pending": "{count} changes waiting to upload",
                     "sync_now": "Sync now",
-                    "devices": "Devices",
+                    "devices": "Connected devices",
                     "this_device": "{id} (this device)",
                     "bootstrap_running": "Initial sync in progress — keep the app running.",
                     "unavailable": "Sync status is unavailable.",
-                    "last_cycle": "Last cycle"
+                    "last_cycle": "Last sync",
+                    "this_device_tag": "This device"
                 },
                 "phase": {
                     "idle": "Idle",
@@ -2508,13 +2509,14 @@
                 "progress": {
                     "rows": "{count} rows uploaded",
                     "rows_of": "Total {done} / {total} rows ({percent}%)",
-                    "tables_of": "Tables {done}/{total}",
+                    "tables_of": "Tables {percent}%",
                     "table_rows_of": "{done} / {total} rows ({percent}%)",
-                    "table_done": "{total} rows"
+                    "table_done": "{total} rows",
+                    "table_rows": "{done} of {total} rows"
                 },
                 "options": {
-                    "title": "Sync Options",
-                    "description": "Cadence and history window for background synchronization."
+                    "title": "Sync Schedule",
+                    "description": "How often changes are exchanged automatically."
                 }
             },
             "advanced_groups": {

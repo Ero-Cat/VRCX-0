@@ -1,5 +1,19 @@
-import { CloudCogIcon, RefreshCwIcon } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+    CheckCircle2Icon,
+    CloudCogIcon,
+    DatabaseIcon,
+    LaptopIcon,
+    RefreshCwIcon,
+    ShieldCheckIcon,
+    XCircleIcon
+} from 'lucide-react';
+import {
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+    type ReactNode
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type {
@@ -227,62 +241,93 @@ export function SettingsSyncTab() {
 
     return (
         <SettingsTabContent value="sync">
+            {!enabled ? (
+                <div className="text-muted-foreground flex items-start gap-2.5 rounded-md border border-dashed px-4 py-3 text-sm">
+                    <ShieldCheckIcon className="mt-0.5 size-4 shrink-0" />
+                    <span>
+                        {t('view.settings.sync.connection.privacy_note')}
+                    </span>
+                </div>
+            ) : null}
+
             <SettingsCard
                 cardId="sync-connection"
                 title={t('view.settings.sync.connection.title')}
                 description={t('view.settings.sync.connection.description')}
             >
-                <Field label={t('view.settings.sync.connection.host_label')}>
-                    <Input
-                        value={host}
-                        onChange={(event) => setHost(event.target.value)}
-                        placeholder="192.168.1.10"
-                        spellCheck={false}
-                    />
-                </Field>
-                <Field label={t('view.settings.sync.connection.port_label')}>
-                    <Input
-                        value={port}
-                        onChange={(event) => setPort(event.target.value)}
-                        inputMode="numeric"
-                    />
-                </Field>
-                <Field label={t('view.settings.sync.connection.user_label')}>
-                    <Input
-                        value={user}
-                        onChange={(event) => setUser(event.target.value)}
-                        placeholder="vrcx_sync"
-                        spellCheck={false}
-                        autoComplete="off"
-                    />
-                </Field>
-                <Field
-                    label={t('view.settings.sync.connection.password_label')}
-                >
-                    <Input
-                        type="password"
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                        placeholder={
-                            hasPassword
-                                ? t(
-                                      'view.settings.sync.connection.password_saved'
-                                  )
-                                : '••••••••'
-                        }
-                        autoComplete="new-password"
-                    />
-                </Field>
-                <Field
-                    label={t('view.settings.sync.connection.database_label')}
-                >
-                    <Input
-                        value={database}
-                        onChange={(event) => setDatabase(event.target.value)}
-                        placeholder="vrcx0"
-                        spellCheck={false}
-                    />
-                </Field>
+                <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
+                    <Field
+                        label={t('view.settings.sync.connection.host_label')}
+                    >
+                        <Input
+                            value={host}
+                            onChange={(event) => setHost(event.target.value)}
+                            placeholder="192.168.1.10"
+                            spellCheck={false}
+                        />
+                    </Field>
+                    <div className="grid grid-cols-[1fr_5.5rem] gap-3">
+                        <Field
+                            label={t(
+                                'view.settings.sync.connection.database_label'
+                            )}
+                        >
+                            <Input
+                                value={database}
+                                onChange={(event) =>
+                                    setDatabase(event.target.value)
+                                }
+                                placeholder="vrcx0"
+                                spellCheck={false}
+                            />
+                        </Field>
+                        <Field
+                            label={t(
+                                'view.settings.sync.connection.port_label'
+                            )}
+                        >
+                            <Input
+                                value={port}
+                                onChange={(event) =>
+                                    setPort(event.target.value)
+                                }
+                                inputMode="numeric"
+                            />
+                        </Field>
+                    </div>
+                    <Field
+                        label={t('view.settings.sync.connection.user_label')}
+                    >
+                        <Input
+                            value={user}
+                            onChange={(event) => setUser(event.target.value)}
+                            placeholder="vrcx_sync"
+                            spellCheck={false}
+                            autoComplete="off"
+                        />
+                    </Field>
+                    <Field
+                        label={t(
+                            'view.settings.sync.connection.password_label'
+                        )}
+                    >
+                        <Input
+                            type="password"
+                            value={password}
+                            onChange={(event) =>
+                                setPassword(event.target.value)
+                            }
+                            placeholder={
+                                hasPassword
+                                    ? t(
+                                          'view.settings.sync.connection.password_saved'
+                                      )
+                                    : '••••••••'
+                            }
+                            autoComplete="new-password"
+                        />
+                    </Field>
+                </div>
                 <Field
                     label={t('view.settings.sync.connection.tls_verify_label')}
                     description={t(
@@ -305,58 +350,41 @@ export function SettingsSyncTab() {
                         onCheckedChange={setAllowPlaintext}
                     />
                 </Field>
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <Button
-                        variant="outline"
-                        onClick={handleTest}
-                        disabled={testing || !canTest}
-                    >
-                        {testing ? (
-                            <Spinner className="size-4" />
-                        ) : (
-                            <RefreshCwIcon />
-                        )}
-                        {testing
-                            ? t('view.settings.sync.connection.testing')
-                            : t('view.settings.sync.connection.test_button')}
-                    </Button>
-                    {testResult ? (
-                        <span
-                            className={
-                                testResult.ok
-                                    ? 'text-primary text-sm'
-                                    : 'text-destructive text-sm'
-                            }
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={handleTest}
+                            disabled={testing || !canTest}
                         >
-                            {testResult.ok
-                                ? t('view.settings.sync.connection.test_ok', {
-                                      version: testResult.serverVersion
-                                          .split(' ')
-                                          .slice(0, 2)
-                                          .join(' '),
-                                      ms: testResult.latencyMs
-                                  })
+                            {testing ? (
+                                <Spinner className="size-4" />
+                            ) : (
+                                <RefreshCwIcon />
+                            )}
+                            {testing
+                                ? t('view.settings.sync.connection.testing')
                                 : t(
-                                      'view.settings.sync.connection.test_failed',
-                                      {
-                                          error: testResult.error ?? 'unknown'
-                                      }
+                                      'view.settings.sync.connection.test_button'
                                   )}
+                        </Button>
+                        {testResult ? (
+                            <TestResultBadge result={testResult} />
+                        ) : null}
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                        <span className="text-sm">
+                            {t('view.settings.sync.connection.enable_label')}
                         </span>
-                    ) : null}
-                </div>
-                <div className="flex flex-wrap items-center gap-3 pt-2">
-                    <Switch
-                        checked={enabled}
-                        onCheckedChange={(next) => void handleSave(next)}
-                        disabled={saving}
-                        aria-label={t(
-                            'view.settings.sync.connection.enable_label'
-                        )}
-                    />
-                    <span className="text-sm">
-                        {t('view.settings.sync.connection.enable_label')}
-                    </span>
+                        <Switch
+                            checked={enabled}
+                            onCheckedChange={(next) => void handleSave(next)}
+                            disabled={saving}
+                            aria-label={t(
+                                'view.settings.sync.connection.enable_label'
+                            )}
+                        />
+                    </div>
                 </div>
             </SettingsCard>
 
@@ -371,11 +399,19 @@ export function SettingsSyncTab() {
                         'view.settings.sync.connection.interval_hint'
                     )}
                 >
-                    <Input
-                        value={intervalSec}
-                        onChange={(event) => setIntervalSec(event.target.value)}
-                        inputMode="numeric"
-                    />
+                    <div className="flex items-center gap-2">
+                        <Input
+                            value={intervalSec}
+                            onChange={(event) =>
+                                setIntervalSec(event.target.value)
+                            }
+                            inputMode="numeric"
+                            className="w-24"
+                        />
+                        <span className="text-muted-foreground text-sm">
+                            {t('view.settings.sync.connection.interval_unit')}
+                        </span>
+                    </div>
                 </Field>
             </SettingsCard>
 
@@ -383,105 +419,112 @@ export function SettingsSyncTab() {
                 cardId="sync-status"
                 title={t('view.settings.sync.status.title')}
                 description={t('view.settings.sync.status.description')}
+                action={
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSyncNow}
+                        disabled={!status?.enabled || syncingNow}
+                    >
+                        {syncingNow ? (
+                            <Spinner className="size-4" />
+                        ) : (
+                            <RefreshCwIcon />
+                        )}
+                        {syncingNow
+                            ? t('view.settings.sync.now_running')
+                            : t('view.settings.sync.status.sync_now')}
+                    </Button>
+                }
             >
                 {status ? (
-                    <div className="flex flex-col gap-1.5 text-sm">
-                        <div className="flex items-center justify-between gap-4">
-                            <span className="text-muted-foreground">
-                                {t('view.settings.sync.status.phase')}
-                            </span>
+                    <div className="flex flex-col gap-4">
+                        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                             <PhaseBadge phase={status.phase} />
+                            {status.pendingOutbox > 0 ? (
+                                <span className="flex items-center gap-1.5 text-xs text-amber-500">
+                                    <DatabaseIcon className="size-3.5" />
+                                    {t('view.settings.sync.status.pending', {
+                                        count: status.pendingOutbox
+                                    })}
+                                </span>
+                            ) : null}
                         </div>
-                        <StatusRow
-                            label={t('view.settings.sync.status.device_id')}
-                            value={status.deviceId}
-                        />
-                        <StatusRow
-                            label={t('view.settings.sync.status.last_cycle')}
-                            value={formatTime(
-                                status.lastCycleAt ?? status.lastPullAt ?? null
-                            )}
-                        />
-                        <StatusRow
-                            label={t('view.settings.sync.status.last_push')}
-                            value={formatTime(status.lastPushAt)}
-                        />
-                        <StatusRow
-                            label={t('view.settings.sync.status.last_pull')}
-                            value={formatTime(status.lastPullAt)}
-                        />
-                        <div className="flex items-baseline justify-between gap-4">
-                            <span className="text-muted-foreground">
-                                {t('view.settings.sync.status.pending')}
-                            </span>
-                            <span
-                                className={
-                                    status.pendingOutbox > 0
-                                        ? 'font-mono text-xs text-amber-400'
-                                        : 'font-mono text-xs'
-                                }
-                            >
-                                {String(status.pendingOutbox)}
-                            </span>
+
+                        <div className="grid grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-2">
+                            <StatusCell
+                                label={t(
+                                    'view.settings.sync.status.last_cycle'
+                                )}
+                                value={formatTime(
+                                    status.lastCycleAt ??
+                                        status.lastPullAt ??
+                                        null
+                                )}
+                            />
+                            <StatusCell
+                                label={t('view.settings.sync.status.device_id')}
+                                value={status.deviceId.slice(0, 8)}
+                            />
                         </div>
-                        <StatusRow
-                            label={t(
-                                'view.settings.sync.status.schema_version'
-                            )}
-                            value={String(status.remoteSchemaVersion)}
-                        />
+
                         {status.lastError ? (
-                            <p className="text-destructive">
-                                {status.lastError}
-                            </p>
+                            <div className="text-destructive border-destructive/30 bg-destructive/5 flex items-start gap-2 rounded-md border px-3 py-2 text-xs">
+                                <XCircleIcon className="mt-0.5 size-3.5 shrink-0" />
+                                <span className="break-all">
+                                    {status.lastError}
+                                </span>
+                            </div>
                         ) : null}
+
                         {bootstrap?.running ? (
                             <BootstrapProgressView progress={bootstrap} />
                         ) : null}
-                        <div className="flex items-center gap-2 pt-2">
-                            <Button
-                                variant="outline"
-                                onClick={handleSyncNow}
-                                disabled={!status.enabled || syncingNow}
-                            >
-                                {syncingNow ? (
-                                    <Spinner className="size-4" />
-                                ) : (
-                                    <RefreshCwIcon />
-                                )}
-                                {syncingNow
-                                    ? t('view.settings.sync.now_running')
-                                    : t('view.settings.sync.status.sync_now')}
-                            </Button>
-                        </div>
+
                         {status.remoteDevices.length > 0 ? (
-                            <div className="pt-2">
-                                <p className="mb-1 font-medium">
+                            <div>
+                                <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium">
+                                    <LaptopIcon className="size-3.5" />
                                     {t('view.settings.sync.status.devices')}
                                 </p>
-                                <ul className="flex flex-col gap-0.5">
-                                    {status.remoteDevices.map((device) => (
-                                        <li
-                                            key={device.deviceId}
-                                            className="text-muted-foreground"
-                                        >
-                                            <CloudCogIcon className="mr-1 inline size-3.5" />
-                                            {device.deviceId === status.deviceId
-                                                ? t(
-                                                      'view.settings.sync.status.this_device',
-                                                      {
-                                                          id: device.deviceId.slice(
-                                                              0,
-                                                              8
-                                                          )
-                                                      }
-                                                  )
-                                                : device.deviceId.slice(0, 8)}
-                                            {device.appVersion
-                                                ? ` · ${device.appVersion}`
-                                                : ''}
-                                        </li>
-                                    ))}
+                                <ul className="flex flex-col gap-1">
+                                    {status.remoteDevices.map((device) => {
+                                        const isSelf =
+                                            device.deviceId === status.deviceId;
+                                        return (
+                                            <li
+                                                key={device.deviceId}
+                                                className="flex items-center justify-between gap-3 rounded-md border px-2.5 py-1.5 text-xs"
+                                            >
+                                                <span className="flex min-w-0 items-center gap-1.5">
+                                                    {isSelf ? (
+                                                        <CloudCogIcon className="text-primary size-3.5 shrink-0" />
+                                                    ) : (
+                                                        <LaptopIcon className="text-muted-foreground size-3.5 shrink-0" />
+                                                    )}
+                                                    <span className="truncate font-mono">
+                                                        {device.deviceId.slice(
+                                                            0,
+                                                            8
+                                                        )}
+                                                    </span>
+                                                    {isSelf ? (
+                                                        <Badge
+                                                            variant="secondary"
+                                                            className="h-4 px-1.5 text-[10px]"
+                                                        >
+                                                            {t(
+                                                                'view.settings.sync.status.this_device_tag'
+                                                            )}
+                                                        </Badge>
+                                                    ) : null}
+                                                </span>
+                                                <span className="text-muted-foreground shrink-0">
+                                                    {device.appVersion || '—'}
+                                                </span>
+                                            </li>
+                                        );
+                                    })}
                                 </ul>
                             </div>
                         ) : null}
@@ -493,6 +536,31 @@ export function SettingsSyncTab() {
                 )}
             </SettingsCard>
         </SettingsTabContent>
+    );
+}
+
+function TestResultBadge({ result }: { result: SyncConnectionTestResult }) {
+    const { t } = useTranslation();
+    if (result.ok) {
+        return (
+            <span className="text-primary flex items-center gap-1.5 text-sm">
+                <CheckCircle2Icon className="size-4 shrink-0" />
+                {t('view.settings.sync.connection.test_ok', {
+                    ms: result.latencyMs
+                })}
+            </span>
+        );
+    }
+    return (
+        <span
+            className="text-destructive flex min-w-0 items-start gap-1.5 text-sm"
+            title={result.error ?? undefined}
+        >
+            <XCircleIcon className="mt-0.5 size-4 shrink-0" />
+            <span className="truncate">
+                {t('view.settings.sync.connection.test_failed_short')}
+            </span>
+        </span>
     );
 }
 
@@ -511,6 +579,9 @@ function PhaseBadge({ phase }: { phase: string }) {
               : 'bg-muted text-muted-foreground';
     return (
         <Badge className={tone} variant="secondary">
+            {phase === 'idle' ? (
+                <CheckCircle2Icon className="mr-1 size-3" />
+            ) : null}
             {label}
         </Badge>
     );
@@ -541,24 +612,25 @@ function BootstrapProgressView({
               )
             : null;
     return (
-        <div className="mt-2 flex flex-col gap-2 rounded-md border p-3">
+        <div className="flex flex-col gap-2.5 rounded-md border p-3.5">
             <div className="flex items-center justify-between gap-4">
-                <span className="flex items-center gap-2 font-medium">
+                <span className="flex items-center gap-2 text-sm font-medium">
                     <Spinner className="size-3.5" />
                     {t(`view.settings.sync.phase.${progress.phase}`, {
                         defaultValue: progress.phase
                     })}
                 </span>
-                <span className="text-muted-foreground text-xs">
+                <span className="text-muted-foreground shrink-0 text-xs">
                     {t('view.settings.sync.progress.tables_of', {
                         done: progress.tablesDone,
-                        total: progress.tablesTotal
+                        total: progress.tablesTotal,
+                        percent: tablesPercent
                     })}
                 </span>
             </div>
             <Progress value={tablesPercent} />
             <div className="flex items-baseline justify-between gap-4">
-                <p className="text-muted-foreground truncate font-mono text-xs">
+                <p className="text-muted-foreground min-w-0 truncate font-mono text-xs">
                     {progress.currentTable}
                 </p>
                 <span className="text-muted-foreground shrink-0 text-xs">
@@ -588,30 +660,27 @@ function BootstrapProgressView({
                       })}
             </p>
             {(progress.tables?.length ?? 0) > 0 ? (
-                <div className="max-h-44 overflow-y-auto rounded border px-2 py-1">
+                <div className="max-h-44 overflow-y-auto rounded border px-2.5 py-1">
                     {(progress.tables ?? []).map((table) => (
                         <div
                             key={table.name}
                             className="flex items-baseline justify-between gap-3 py-0.5"
                         >
-                            <span className="truncate font-mono text-[11px]">
-                                {table.done ? '✓ ' : ''}
-                                {table.name}
+                            <span className="flex min-w-0 items-baseline gap-1.5">
+                                {table.done ? (
+                                    <CheckCircle2Icon className="text-primary mt-0.5 inline size-3 shrink-0 self-center" />
+                                ) : null}
+                                <span className="truncate font-mono text-[11px]">
+                                    {table.name}
+                                </span>
                             </span>
                             <span className="text-muted-foreground shrink-0 text-[11px]">
-                                {table.done
-                                    ? t(
-                                          'view.settings.sync.progress.table_done',
-                                          {
-                                              total: table.rowsTotal
-                                          }
-                                      )
-                                    : t(
-                                          'view.settings.sync.progress.table_done',
-                                          {
-                                              total: table.rowsTotal
-                                          }
-                                      )}
+                                {t('view.settings.sync.progress.table_rows', {
+                                    done: table.done
+                                        ? (table.rowsTotal ?? 0)
+                                        : (table.rowsDone ?? 0),
+                                    total: table.rowsTotal ?? 0
+                                })}
                             </span>
                         </div>
                     ))}
@@ -621,10 +690,21 @@ function BootstrapProgressView({
     );
 }
 
-function StatusRow({ label, value }: { label: string; value: string }) {
+function StatusCell({
+    label,
+    value,
+    icon
+}: {
+    label: string;
+    value: string;
+    icon?: ReactNode;
+}) {
     return (
         <div className="flex items-baseline justify-between gap-4">
-            <span className="text-muted-foreground">{label}</span>
+            <span className="text-muted-foreground flex items-center gap-1.5 text-sm">
+                {icon}
+                {label}
+            </span>
             <span className="font-mono text-xs">{value}</span>
         </div>
     );
