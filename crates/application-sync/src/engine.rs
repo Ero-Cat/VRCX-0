@@ -9,6 +9,7 @@
 //! 4. reconcile from materialized state if the op log was GC'd past our
 //!    cursor, and run the op GC once per day.
 
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -19,8 +20,8 @@ use vrcx_0_application_core::{
 };
 use vrcx_0_contracts::{
     sync_table_descriptor, SyncBootstrapProgress, SyncConnectionTestResult, SyncDeviceRecord,
-    SyncFieldSemantic, SyncHlc, SyncOpKind, SyncOpRecord, SyncStatusSnapshot, SyncTableProgress,
-    SYNC_PROTOCOL_SCHEMA_VERSION,
+    SyncFieldSemantic, SyncHlc, SyncOpKind, SyncOpRecord, SyncStatusSnapshot, SyncTableOpCount,
+    SyncTableProgress, SYNC_PROTOCOL_SCHEMA_VERSION,
 };
 use vrcx_0_persistence::sync::{
     apply_pulled_ops, bootstrap_set_ops, bootstrap_state_get, bootstrap_state_set, install_capture,
@@ -97,7 +98,28 @@ struct EngineState {
 struct CycleStats {
     pushed: u64,
     pulled: u64,
+    tables: BTreeMap<String, (u64, u64)>,
     finished_at: Option<String>,
+}
+
+/// Op movement tallied while a cycle runs; folded into CycleStats on success.
+#[derive(Clone, Debug, Default)]
+struct CycleCounts {
+    pushed: u64,
+    pulled: u64,
+    tables: BTreeMap<String, (u64, u64)>,
+}
+
+impl CycleCounts {
+    fn count_push(&mut self, table: &str) {
+        self.pushed += 1;
+        self.tables.entry(table.to_string()).or_default().0 += 1;
+    }
+
+    fn count_pull(&mut self, table: &str) {
+        self.pulled += 1;
+        self.tables.entry(table.to_string()).or_default().1 += 1;
+    }
 }
 
 pub struct RemoteSyncEngine {
@@ -219,8 +241,8 @@ impl RemoteSyncEngine {
             .mark_running(JOB_NAME, "Remote sync cycle running.");
         let result = self.cycle_inner().await;
         match &result {
-            Ok((pushed, pulled)) => {
-                self.record_cycle_stats(*pushed, *pulled);
+            Ok(counts) => {
+                self.record_cycle_stats(counts.clone());
                 self.set_error(None);
                 self.set_phase("idle");
                 self.background_jobs
@@ -237,28 +259,24 @@ impl RemoteSyncEngine {
         result.map(|_| ())
     }
 
-    fn record_cycle_stats(&self, pushed: u64, pulled: u64) {
+    fn record_cycle_stats(&self, counts: CycleCounts) {
         let finished_at = now_iso();
         // Persisted so "last sync" survives an app restart.
         let _ = sync_meta_set(&self.db, META_LAST_CYCLE_AT, &finished_at);
         let mut state = self.state.lock().unwrap();
         state.stats = CycleStats {
-            pushed,
-            pulled,
+            pushed: counts.pushed,
+            pulled: counts.pulled,
+            tables: counts.tables,
             finished_at: Some(finished_at),
         };
     }
 
-    fn stats_snapshot(&self) -> (u64, u64, Option<String>) {
-        let state = self.state.lock().unwrap();
-        (
-            state.stats.pushed,
-            state.stats.pulled,
-            state.stats.finished_at.clone(),
-        )
+    fn stats_snapshot(&self) -> CycleStats {
+        self.state.lock().unwrap().stats.clone()
     }
 
-    async fn cycle_inner(self: &Arc<Self>) -> EngineResult<(u64, u64)> {
+    async fn cycle_inner(self: &Arc<Self>) -> EngineResult<CycleCounts> {
         self.reconcile_remote_epoch().await?;
 
         // Register presence so other devices can list us.
@@ -277,50 +295,53 @@ impl RemoteSyncEngine {
             .unwrap_or(false);
         if bootstrap_pending || bootstrap_state_get(&self.db)?.is_some() {
             self.run_bootstrap().await?;
-            return Ok((0, 0));
+            return Ok(CycleCounts::default());
         }
 
         // New per-user tables may have appeared since the last cycle.
         refresh_capture(&self.db, &self.handle)?;
         self.ensure_remote_schema_if_changed().await?;
 
-        let pushed = self.push_until_drained().await?;
-        let pulled = self.pull_until_caught_up().await?;
+        let mut counts = CycleCounts::default();
+        self.push_until_drained(&mut counts).await?;
+        self.pull_until_caught_up(&mut counts).await?;
         self.reconcile_if_gap().await?;
         self.maybe_gc_ops().await?;
-        Ok((pushed, pulled))
+        Ok(counts)
     }
 
-    async fn push_until_drained(self: &Arc<Self>) -> EngineResult<u64> {
-        let mut pushed = 0u64;
+    async fn push_until_drained(self: &Arc<Self>, counts: &mut CycleCounts) -> EngineResult<()> {
         for _ in 0..PUSH_BATCHES_PER_CYCLE {
             let batch = outbox_take(&self.db, &self.handle, PUSH_BATCH)?;
             let Some(batch) = batch else {
-                return Ok(pushed);
+                return Ok(());
             };
             if batch.ops.is_empty() {
                 outbox_trim_pushed(&self.db, batch.max_seq)?;
                 continue;
             }
-            pushed += batch.ops.len() as u64;
+            for op in &batch.ops {
+                counts.count_push(&op.table);
+            }
             self.store.push_ops(&batch.ops).await?;
             outbox_trim_pushed(&self.db, batch.max_seq)?;
         }
-        Ok(pushed)
+        Ok(())
     }
 
-    async fn pull_until_caught_up(self: &Arc<Self>) -> EngineResult<u64> {
-        let mut applied = 0u64;
+    async fn pull_until_caught_up(self: &Arc<Self>, counts: &mut CycleCounts) -> EngineResult<()> {
         for _ in 0..PULL_BATCHES_PER_CYCLE {
             let cursor = self.pull_cursor()?;
             let pulled = self.store.fetch_ops(cursor, PULL_BATCH).await?;
             if pulled.is_empty() {
-                return Ok(applied);
+                return Ok(());
             }
-            applied += pulled.len() as u64;
+            for item in &pulled {
+                counts.count_pull(&item.op.table);
+            }
             self.apply_pulled(pulled)?;
         }
-        Ok(applied)
+        Ok(())
     }
 
     fn apply_pulled(self: &Arc<Self>, pulled: Vec<PulledOp>) -> EngineResult<()> {
@@ -543,8 +564,11 @@ impl RemoteSyncEngine {
             progress.phase = "done".into();
         });
         self.set_phase("idle");
-        self.push_until_drained().await?;
-        self.pull_until_caught_up().await?;
+        // Bootstrap drains any backlog it produced; those ops are already
+        // itemized by the bootstrap progress panel, not the cycle stats.
+        let mut drain_counts = CycleCounts::default();
+        self.push_until_drained(&mut drain_counts).await?;
+        self.pull_until_caught_up(&mut drain_counts).await?;
         Ok(())
     }
 
@@ -721,15 +745,27 @@ impl RemoteSyncEngine {
                 Vec::new()
             }
         };
-        let (pushed_ops, pulled_ops, last_cycle_at) = self.stats_snapshot();
-        let last_cycle_at =
-            last_cycle_at.or_else(|| sync_meta_get(&self.db, META_LAST_CYCLE_AT).ok().flatten());
+        let stats = self.stats_snapshot();
+        let last_cycle_at = stats
+            .finished_at
+            .clone()
+            .or_else(|| sync_meta_get(&self.db, META_LAST_CYCLE_AT).ok().flatten());
+        let last_cycle_tables = stats
+            .tables
+            .iter()
+            .map(|(table, (pushed, pulled))| SyncTableOpCount {
+                table: table.clone(),
+                pushed: *pushed,
+                pulled: *pulled,
+            })
+            .collect();
         SyncStatusSnapshot {
             enabled: true,
             configured,
-            last_pushed_ops: pushed_ops,
-            last_pulled_ops: pulled_ops,
+            last_pushed_ops: stats.pushed,
+            last_pulled_ops: stats.pulled,
             last_cycle_at: last_cycle_at.or(last_pull_at.clone()),
+            last_cycle_tables,
             phase,
             device_id: self.handle.device_id().to_string(),
             last_push_at,

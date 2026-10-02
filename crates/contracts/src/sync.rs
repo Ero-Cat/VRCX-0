@@ -644,6 +644,16 @@ pub struct SyncConnectionFields {
     pub interval_seconds: i64,
 }
 
+/// Per-table ops moved by the most recent completed cycle, so the status
+/// card can show what a sync actually touched.
+#[derive(Clone, Debug, Default, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncTableOpCount {
+    pub table: String,
+    pub pushed: u64,
+    pub pulled: u64,
+}
+
 /// Snapshot of sync health surfaced to the frontend.
 #[derive(Clone, Debug, Default, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -666,6 +676,10 @@ pub struct SyncStatusSnapshot {
     pub last_pulled_ops: u64,
     #[serde(default)]
     pub last_cycle_at: Option<String>,
+    /// Tables touched by the most recent completed cycle (sorted by name),
+    /// empty when the cycle moved nothing.
+    #[serde(default)]
+    pub last_cycle_tables: Vec<SyncTableOpCount>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, specta::Type)]

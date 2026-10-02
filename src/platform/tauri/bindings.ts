@@ -6430,6 +6430,20 @@ export type SyncStatusSnapshot = {
     lastPushedOps?: number;
     lastPulledOps?: number;
     lastCycleAt?: string | null;
+    /**
+     * Tables touched by the most recent completed cycle (sorted by name),
+     * empty when the cycle moved nothing.
+     */
+    lastCycleTables?: SyncTableOpCount[];
+};
+/**
+ * Per-table ops moved by the most recent completed cycle, so the status
+ * card can show what a sync actually touched.
+ */
+export type SyncTableOpCount = {
+    table: string;
+    pushed: number;
+    pulled: number;
 };
 /**
  * One table's upload progress inside a bootstrap.

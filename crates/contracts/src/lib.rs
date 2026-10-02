@@ -73,8 +73,8 @@ pub use sync::{
     resolve_sync_table, sync_table_descriptor, SyncBootstrapProgress, SyncConnectionFields,
     SyncConnectionInput, SyncConnectionTestResult, SyncDeviceRecord, SyncFieldSemantic, SyncHlc,
     SyncOpKind, SyncOpRecord, SyncRowSemantic, SyncStatusSnapshot, SyncTableDescriptor,
-    SyncTableProgress, SyncTableRef, SYNC_EXCLUDED_CONFIG_KEYS, SYNC_PROTOCOL_SCHEMA_VERSION,
-    SYNC_TABLE_CATALOG,
+    SyncTableOpCount, SyncTableProgress, SyncTableRef, SYNC_EXCLUDED_CONFIG_KEYS,
+    SYNC_PROTOCOL_SCHEMA_VERSION, SYNC_TABLE_CATALOG,
 };
 pub use translation::TranslationProvider;
 pub use vrchat_api::{

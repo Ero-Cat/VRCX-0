@@ -1,4 +1,6 @@
 import {
+    ArrowDownIcon,
+    ArrowUpIcon,
     CheckCircle2Icon,
     CloudCogIcon,
     DatabaseIcon,
@@ -52,7 +54,21 @@ function formatTime(value: string | null | undefined): string {
     if (!value) {
         return '—';
     }
-    return value.replace('T', ' ').replace(/([+-]\d{2}:\d{2}|Z)$/, '');
+    // Engine timestamps are UTC ISO strings; render them in the user's
+    // timezone so "last sync" matches the wall clock they are watching.
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+    return date.toLocaleString(undefined, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    });
 }
 
 export function SettingsSyncTab() {
@@ -491,6 +507,69 @@ export function SettingsSyncTab() {
                                 )}
                             />
                         </div>
+
+                        {status.enabled ? (
+                            <div>
+                                <p className="mb-2 flex items-center gap-1.5 text-xs font-medium">
+                                    <DatabaseIcon className="size-3.5" />
+                                    {t(
+                                        'view.settings.sync.status.cycle_tables'
+                                    )}
+                                </p>
+                                {(status.lastCycleTables?.length ?? 0) > 0 ? (
+                                    <div className="max-h-52 overflow-y-auto rounded-md border px-3 py-1.5">
+                                        {(status.lastCycleTables ?? []).map(
+                                            (row) => (
+                                                <div
+                                                    key={row.table}
+                                                    className="flex items-center justify-between gap-3 py-1"
+                                                >
+                                                    <span className="min-w-0 truncate font-mono text-[11px]">
+                                                        {row.table}
+                                                    </span>
+                                                    <span className="flex shrink-0 items-center gap-2.5 text-[11px]">
+                                                        {row.pushed > 0 ? (
+                                                            <span
+                                                                className="text-primary flex items-center gap-0.5"
+                                                                title={t(
+                                                                    'view.settings.sync.status.pushed_tip',
+                                                                    {
+                                                                        count: row.pushed
+                                                                    }
+                                                                )}
+                                                            >
+                                                                <ArrowUpIcon className="size-3" />
+                                                                {row.pushed}
+                                                            </span>
+                                                        ) : null}
+                                                        {row.pulled > 0 ? (
+                                                            <span
+                                                                className="text-muted-foreground flex items-center gap-0.5"
+                                                                title={t(
+                                                                    'view.settings.sync.status.pulled_tip',
+                                                                    {
+                                                                        count: row.pulled
+                                                                    }
+                                                                )}
+                                                            >
+                                                                <ArrowDownIcon className="size-3" />
+                                                                {row.pulled}
+                                                            </span>
+                                                        ) : null}
+                                                    </span>
+                                                </div>
+                                            )
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p className="text-muted-foreground text-xs">
+                                        {t(
+                                            'view.settings.sync.status.cycle_tables_empty'
+                                        )}
+                                    </p>
+                                )}
+                            </div>
+                        ) : null}
 
                         {status.lastError ? (
                             <div className="text-destructive border-destructive/30 bg-destructive/5 flex items-start gap-2 rounded-md border px-3 py-2 text-xs">

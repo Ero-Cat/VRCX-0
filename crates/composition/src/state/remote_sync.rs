@@ -205,6 +205,7 @@ impl RemoteSyncHost {
             last_pushed_ops: 0,
             last_pulled_ops: 0,
             last_cycle_at: None,
+            last_cycle_tables: Vec::new(),
         }
     }
 
