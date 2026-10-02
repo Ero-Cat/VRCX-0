@@ -14,6 +14,7 @@ pub mod deep_link;
 mod external_api;
 mod game_client;
 mod game_log;
+mod game_log_import;
 mod game_media;
 mod game_state_store;
 mod group;

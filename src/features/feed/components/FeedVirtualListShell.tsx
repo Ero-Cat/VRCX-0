@@ -325,7 +325,7 @@ export function FeedVirtualListShell({
                         {t('common.load_more')}...
                     </>
                 ) : hasMore ? (
-                    <span>{t('common.load_more')}...</span>
+                    <span>{t('common.load_more')}</span>
                 ) : (
                     <span>
                         {rows.length} {t('view.feed.label.rows')} ·{' '}

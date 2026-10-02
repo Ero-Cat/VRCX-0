@@ -20,7 +20,6 @@ import { useFeedLiveStore } from '@/state/feedLiveStore';
 import { useFriendLocationTimeStore } from '@/state/friendLocationTimeStore';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
 import { useModalStore } from '@/state/modalStore';
-import { useNotificationStore } from '@/state/notificationStore';
 import {
     createGroupInstancesState,
     useRuntimeStore
@@ -446,7 +445,6 @@ export async function logoutWithoutConfirmation() {
 
     useDialogStore.getState().clearDialogState();
     useModalStore.getState().resetModalState();
-    useNotificationStore.getState().resetNotificationState();
     useVrcNotificationStore.getState().resetVrcNotificationState();
 
     if (!currentUserId && sessionPhase !== 'authenticating') {

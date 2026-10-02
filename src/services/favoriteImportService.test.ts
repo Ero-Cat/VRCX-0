@@ -77,14 +77,11 @@ describe('favoriteImportService typed worker adapter', () => {
         const { useFavoriteImportStore } =
             await import('@/state/favoriteImportStore');
         const { useFavoriteStore } = await import('@/state/favoriteStore');
-        const { useNotificationStore } =
-            await import('@/state/notificationStore');
         const { useRuntimeStore } = await import('@/state/runtimeStore');
 
         useFavoriteImportStore.getState().resetImportState();
         useFavoriteImportStore.getState().closeDialog();
         useFavoriteStore.getState().resetFavorites();
-        useNotificationStore.getState().resetNotificationState();
         useRuntimeStore.getState().resetRuntimeState();
         useRuntimeStore.getState().setAuthBootstrap({
             currentUserId: 'usr_self',

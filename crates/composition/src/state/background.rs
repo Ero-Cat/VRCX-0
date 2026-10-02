@@ -16,7 +16,7 @@ use futures_util::future::BoxFuture;
 use vrcx_0_application::social::{
     AuthenticatedRuntimeOrchestrator, ProfileBioScanPacer, SocialMaintenanceActions,
 };
-use vrcx_0_application_activity::OverlayFavoriteGroups;
+use vrcx_0_application_activity::ActivityFavoriteGroups;
 use vrcx_0_core::OwnerId;
 use vrcx_0_vrchat_client::http_api::normalize_vrchat_api_endpoint;
 
@@ -77,7 +77,7 @@ impl SocialMaintenanceActions for RuntimeHostSocialMaintenanceActions {
         let Some(session) = background_capability_session_identity(&self.session_slot) else {
             return Vec::new();
         };
-        let runtime = self.runtime_context.overlay_activity();
+        let runtime = self.runtime_context.activity_router();
         let revision = runtime.group_notification_inputs_revision();
         if let Ok(cached) = self.group_notification_group_ids.lock() {
             if let Some(cached) = cached.as_ref().filter(|cached| {
@@ -106,9 +106,12 @@ impl SocialMaintenanceActions for RuntimeHostSocialMaintenanceActions {
                 )
             })
             .collect::<HashMap<_, _>>();
-        let favorite_groups = OverlayFavoriteGroups::from_map(memberships);
+        let favorite_groups = ActivityFavoriteGroups::from_map(memberships);
         let group_ids = favorite_groups.group_instance_notification_group_ids(&runtime.filters());
         runtime.set_group_favorite_groups(favorite_groups);
+        self.runtime_context
+            .group_instance_monitor()
+            .set_watched_groups(&group_ids);
         let config_key = format!(
             "groupInstanceNotificationGroupIds:{}",
             session.current_user_id
@@ -449,7 +452,7 @@ mod background_capability_session_identity_tests {
 
     #[test]
     fn notification_scan_ids_follow_enabled_saved_group_scopes() {
-        let favorite_groups = OverlayFavoriteGroups::from_map(HashMap::from([
+        let favorite_groups = ActivityFavoriteGroups::from_map(HashMap::from([
             (
                 "group:collection-a".to_string(),
                 vec!["grp_alpha".to_string(), "grp_shared".to_string()],
@@ -463,7 +466,7 @@ mod background_capability_session_identity_tests {
                 vec!["grp_not_selected".to_string()],
             ),
         ]));
-        let selected = vrcx_0_application_activity::OverlayActivityFilters::from_json(json!({
+        let selected = vrcx_0_application_activity::ActivityFilters::from_json(json!({
             "version": 1,
             "desktop": {
                 "types": {
@@ -484,11 +487,11 @@ mod background_capability_session_identity_tests {
         );
         assert!(favorite_groups
             .group_instance_notification_group_ids(
-                &vrcx_0_application_activity::OverlayActivityFilters::default()
+                &vrcx_0_application_activity::ActivityFilters::default()
             )
             .is_empty());
 
-        let all_favorites = vrcx_0_application_activity::OverlayActivityFilters::from_json(json!({
+        let all_favorites = vrcx_0_application_activity::ActivityFilters::from_json(json!({
             "version": 1,
             "tts": {
                 "types": {

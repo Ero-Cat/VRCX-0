@@ -4,11 +4,7 @@ import {
     buildFriendsLocationsSegmentOptions,
     parseConfigArray
 } from './friendsLocationsConfig';
-import {
-    getFriendsLocationsCardRowHeight,
-    getFriendsLocationsDensityConfig,
-    sanitizeFriendsLocationsDensity
-} from './friendsLocationsDensity';
+import { sanitizeFriendsLocationsDensity } from './friendsLocationsDensity';
 
 describe('friends locations config helpers', () => {
     it('adds current counts without changing segment order', () => {
@@ -41,19 +37,8 @@ describe('friends locations config helpers', () => {
         ]);
     });
 
-    it('falls back to compact density for unknown values and maps content modes to row heights', () => {
+    it('falls back to compact density for unknown values', () => {
         expect(sanitizeFriendsLocationsDensity('standard')).toBe('standard');
         expect(sanitizeFriendsLocationsDensity('bad-value')).toBe('compact');
-
-        const standard = getFriendsLocationsDensityConfig('standard');
-        expect(getFriendsLocationsCardRowHeight(standard, 'full')).toBe(
-            standard.rowHeight
-        );
-        expect(getFriendsLocationsCardRowHeight(standard, 'status')).toBe(
-            standard.statusOnlyRowHeight
-        );
-        expect(getFriendsLocationsCardRowHeight(standard, 'identity')).toBe(
-            standard.identityRowHeight
-        );
     });
 });

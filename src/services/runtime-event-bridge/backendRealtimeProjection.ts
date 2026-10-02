@@ -1,5 +1,4 @@
 import { normalizeString } from '@/shared/utils/string';
-import { useNotificationStore } from '@/state/notificationStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { useSessionStore } from '@/state/sessionStore';
 
@@ -15,6 +14,7 @@ import {
 } from '../realtimePresenceService';
 import { resetRealtimeRosterUpdates } from '../realtimeRosterUpdateQueue';
 import { showSQLiteErrorDialog } from '../sqliteErrorDialogService';
+import { toast } from '../toastService';
 import type { RuntimeEvent } from './types';
 
 type BackendRealtimeProjectionScope = {
@@ -135,10 +135,10 @@ function handleBackendRealtimeProjectionFailure(error: unknown): void {
     showSQLiteErrorDialog(error).catch((dialogError: unknown) => {
         console.warn('Realtime SQLite error dialog failed:', dialogError);
     });
-    useNotificationStore.getState().pushNotification({
-        level: 'warning',
+    toast.add({
+        type: 'warning',
         title: 'Realtime event failed',
-        message: error instanceof Error ? error.message : String(error)
+        description: error instanceof Error ? error.message : String(error)
     });
 }
 

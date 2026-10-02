@@ -6,6 +6,13 @@ use serde::Serialize;
 const LOG_TIME_FORMAT: &str = "%Y.%m.%d %H:%M:%S";
 pub const LOG_LEVELS: [&str; 3] = ["Debug", "Warning", "Error"];
 
+pub fn parse_output_log_file_timestamp(file_name: &str) -> Option<chrono::NaiveDateTime> {
+    let timestamp = file_name
+        .strip_prefix("output_log_")?
+        .strip_suffix(".txt")?;
+    chrono::NaiveDateTime::parse_from_str(timestamp, "%Y-%m-%d_%H-%M-%S").ok()
+}
+
 #[derive(Clone, Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct LogEntry {

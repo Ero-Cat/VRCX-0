@@ -25,3 +25,14 @@ pub struct AvatarUsageRow {
     pub image_url: String,
     pub time_spent: i64,
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AvatarWearSegment {
+    pub avatar_id: String,
+    pub name: String,
+    pub thumbnail_image_url: String,
+    pub image_url: String,
+    pub started_at_ms: i64,
+    pub ended_at_ms: i64,
+}

@@ -54,6 +54,20 @@ export function buildSocialSection({
                 checked
             );
         },
+        onAutoDeclineFriendRequestsChange: (checked: boolean) => {
+            saveBoolPreference(
+                'autoDeclineFriendRequests',
+                'autoDeclineFriendRequests',
+                checked
+            );
+        },
+        onHidePrivateFromFeedChange: (checked: boolean) => {
+            saveBoolPreference(
+                'hidePrivateFromFeed',
+                'hidePrivateFromFeed',
+                checked
+            );
+        },
         setRecentActionCooldownEnabledPreference,
         setRecentActionCooldownMinutesPreference,
         toggleLocalFavoriteFriendsGroup,

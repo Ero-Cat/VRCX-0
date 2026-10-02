@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    buildAvatarLaneSegments,
     buildInfoChartOption,
     buildInfoTimelineRows,
     buildInfoChartTooltipParts
@@ -157,6 +158,114 @@ describe('previousInstancesChart', () => {
             { joinMs: 1000, leaveMs: 3000, durationMs: 2000 },
             { joinMs: 5000, leaveMs: 7000, durationMs: 2000 }
         ]);
+    });
+
+    it('colors each player row from the chart palette', () => {
+        const chartPayload = buildInfoChartOption({
+            hour12: false,
+            rows: [
+                {
+                    userId: 'usr_me',
+                    displayName: 'Me',
+                    joinMs: 0,
+                    leaveMs: 4000,
+                    durationMs: 4000,
+                    isSelf: true
+                },
+                {
+                    userId: 'usr_peer',
+                    displayName: 'Peer',
+                    joinMs: 2000,
+                    leaveMs: 4000,
+                    durationMs: 2000
+                }
+            ]
+        });
+
+        const barSeries = chartPayload?.option.series.filter(
+            (series) => series.name === 'Time'
+        );
+        expect(barSeries?.[0].colorBy).toBe('data');
+        expect(barSeries?.[0].data).toEqual([4000, 2000]);
+    });
+
+    it('shows seconds on the time axis for short visits only', () => {
+        const rowsSpanning = (durationMs: number) => [
+            {
+                userId: 'usr_me',
+                displayName: 'Me',
+                joinMs: Date.UTC(2026, 9, 1, 9, 40, 0),
+                leaveMs: Date.UTC(2026, 9, 1, 9, 40, 0) + durationMs,
+                durationMs,
+                isSelf: true
+            }
+        ];
+        const shortVisit = buildInfoChartOption({
+            hour12: false,
+            rows: rowsSpanning(55_000)
+        });
+        const longVisit = buildInfoChartOption({
+            hour12: false,
+            rows: rowsSpanning(2 * 60 * 60_000)
+        });
+
+        expect(shortVisit?.option.xAxis.axisLabel.formatter(30_000)).toMatch(
+            /\d{2}:\d{2}:\d{2}/
+        );
+        expect(longVisit?.option.xAxis.axisLabel.formatter(0)).not.toMatch(
+            /\d{2}:\d{2}:\d{2}/
+        );
+    });
+
+    it('exposes the time range the x axis spans', () => {
+        const chartPayload = buildInfoChartOption({
+            hour12: false,
+            rows: [
+                {
+                    userId: 'usr_me',
+                    displayName: 'Me',
+                    joinMs: 1000,
+                    leaveMs: 5000,
+                    durationMs: 4000,
+                    isSelf: true
+                },
+                {
+                    userId: 'usr_peer',
+                    displayName: 'Peer',
+                    joinMs: 2000,
+                    leaveMs: 6000,
+                    durationMs: 4000
+                }
+            ]
+        });
+
+        expect(chartPayload?.startMs).toBe(1000);
+        expect(chartPayload?.endMs).toBe(6000);
+    });
+
+    it('lays worn avatars across the axis range, stretching the ends and coloring per avatar', () => {
+        const lane = buildAvatarLaneSegments(
+            [
+                { avatarId: 'a', startedAtMs: 900, endedAtMs: 2000 },
+                { avatarId: 'b', startedAtMs: 2000, endedAtMs: 4000 },
+                { avatarId: 'a', startedAtMs: 4000, endedAtMs: 4900 }
+            ],
+            1000,
+            5000
+        );
+
+        expect(
+            lane.map(({ leftPercent, widthPercent }) => [
+                leftPercent,
+                widthPercent
+            ])
+        ).toEqual([
+            [0, 25],
+            [25, 50],
+            [75, 25]
+        ]);
+        expect(lane[0].color).toBe(lane[2].color);
+        expect(lane[0].color).not.toBe(lane[1].color);
     });
 
     it('builds tooltip content as pure text parts for the page adapter', () => {

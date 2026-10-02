@@ -1,6 +1,6 @@
 use std::sync::Arc;
-use vrcx_0_application_activity::OverlayActivityRuntime;
 
+use serde_json::Value;
 use vrcx_0_application_core::{
     sleep_until_due_or_stopped, BackendRuntimeStatusPublisher, RuntimeAuthIdentity,
     RuntimeAuthScope, RuntimeAuthScopeSnapshot, TaskStopToken,
@@ -30,7 +30,7 @@ pub(super) struct GameLogSideEffectDeps {
     backend_status: BackendRuntimeStatusPublisher,
     side_effect_sink: GameLogSideEffectSink,
     tasks: TaskSupervisor,
-    overlay_activity: OverlayActivityRuntime,
+    activity: Arc<dyn vrcx_0_application_core::ActivityIngress>,
     auth_scope: RuntimeAuthScope,
     auth_scope_snapshot: RuntimeAuthScopeSnapshot,
     media_queue: InstanceMediaQueue,
@@ -55,7 +55,7 @@ impl GameLogSideEffectDeps {
             backend_status: deps.backend_status.clone(),
             side_effect_sink: deps.side_effect_sink.clone(),
             tasks: deps.tasks.clone(),
-            overlay_activity: deps.overlay_activity.clone(),
+            activity: Arc::clone(&deps.activity),
             auth_scope: deps.auth_scope.clone(),
             auth_scope_snapshot,
             media_queue,
@@ -107,7 +107,7 @@ pub(super) fn dispatch_side_effect(
                                     .snapshot()
                                     .generation_matches(&deps.auth_scope_snapshot)
                             {
-                                deps.overlay_activity.ingest_candidate(played.activity);
+                                deps.activity.ingest_activity(vec![played.activity]);
                             }
                             if deps
                                 .now_playing
@@ -198,7 +198,6 @@ pub(super) fn dispatch_side_effect(
             runtime_lifecycle::handle_vrc_quit(
                 deps.store.as_ref(),
                 deps.host_actions.as_ref(),
-                &deps.side_effect_sink,
                 &created_at,
                 is_game_running,
             );
@@ -212,6 +211,19 @@ pub(super) fn dispatch_side_effect(
                 tracing::warn!("GameLog NoVR side effect failed: {error}");
             }
         }
+        GameLogSideEffect::LocationGroupName {
+            created_at,
+            location,
+            group_id,
+        } => {
+            deps.tasks.clone().spawn(async move {
+                if let Err(error) =
+                    fill_location_group_name(&deps, &created_at, &location, &group_id).await
+                {
+                    tracing::warn!("GameLog group name side effect failed: {error}");
+                }
+            });
+        }
         GameLogSideEffect::UdonException { data } => {
             if deps
                 .store
@@ -222,6 +234,32 @@ pub(super) fn dispatch_side_effect(
             }
         }
     }
+}
+
+async fn fill_location_group_name(
+    deps: &GameLogSideEffectDeps,
+    created_at: &str,
+    location: &str,
+    group_id: &str,
+) -> crate::Result<()> {
+    let Some(group) = deps.instance_media.get_group(group_id).await? else {
+        return Ok(());
+    };
+    let group_name = group
+        .get("name")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default();
+    if group_name.is_empty() {
+        return Ok(());
+    }
+    deps.store.fill_location_group_name(
+        &OwnerId::new(deps.auth_identity.user_id.clone()),
+        created_at,
+        location,
+        group_name,
+    )?;
+    Ok(())
 }
 
 fn announce_now_playing(deps: &GameLogSideEffectDeps, payload: NowPlayingPayload) -> Option<i64> {

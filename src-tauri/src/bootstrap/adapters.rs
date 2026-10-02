@@ -76,6 +76,7 @@ impl DesktopNotifier for TauriDesktopNotifier {
                 &self.app_handle,
                 title,
                 body,
+                image,
                 play_sound,
                 action.clone(),
             );
@@ -106,10 +107,11 @@ fn show_actionable_windows_notification(
     app: &tauri::AppHandle,
     title: &str,
     body: Option<&str>,
+    image: Option<&str>,
     play_sound: bool,
     action: DesktopNotificationAction,
 ) -> Result<(), String> {
-    use tauri_winrt_notification::{Sound, Toast};
+    use tauri_winrt_notification::{IconCrop, Sound, Toast};
 
     let app_id = windows_notification_app_id(app)?;
     let app_handle = app.clone();
@@ -125,6 +127,9 @@ fn show_actionable_windows_notification(
         });
     if let Some(body) = body {
         notification = notification.text2(body);
+    }
+    if let Some(image) = image.filter(|value| !value.trim().is_empty()) {
+        notification = notification.icon(std::path::Path::new(image), IconCrop::Circular, "");
     }
     notification
         .show()

@@ -73,7 +73,7 @@ const messages: UIMessage[] = [
 ];
 
 describe('AssistantTranscript', () => {
-    it('uses streaming-aware scrolling and anchors each user turn', () => {
+    it('configures automatic scrolling to user-turn anchors', () => {
         const html = renderToStaticMarkup(
             <AssistantTranscript
                 sessionId="session_1"
@@ -86,7 +86,6 @@ describe('AssistantTranscript', () => {
 
         expect(html).toContain('data-auto-scroll="true"');
         expect(html).toContain('data-default-scroll-position="last-anchor"');
-        expect(html).toContain('data-message-id="user_1"');
         expect(html).toContain(
             'data-message-id="user_1" data-scroll-anchor="true"'
         );
@@ -94,9 +93,11 @@ describe('AssistantTranscript', () => {
             'data-message-id="asst_1" data-scroll-anchor="false"'
         );
         expect(html).toContain('Jump to latest');
+        expect(html).toContain('Who did I see?');
+        expect(html).toContain('You saw Alex.');
     });
 
-    it('keeps the empty state inside a measurable scroller item', () => {
+    it('renders the empty state inside a scroller item', () => {
         const html = renderToStaticMarkup(
             <AssistantTranscript
                 sessionId={null}

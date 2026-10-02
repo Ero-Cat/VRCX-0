@@ -23,11 +23,3 @@ export const DISCORD_BOOL_PREFERENCE_KEYS = new Set<DiscordPreferenceKey>([
     'discordWorldIntegration',
     'discordWorldNameAsDiscordStatus'
 ]);
-export const LEGACY_OVERLAY_NOTIFICATION_KEYS = Object.freeze({
-    xsNotifications: 'VRCX-0_xsNotifications',
-    ovrtHudNotifications: 'VRCX-0_ovrtHudNotifications',
-    ovrtWristNotifications: 'VRCX-0_ovrtWristNotifications',
-    imageNotifications: 'VRCX-0_imageNotifications',
-    notificationTimeout: 'VRCX-0_notificationTimeout',
-    notificationOpacity: 'VRCX-0_notificationOpacity'
-});

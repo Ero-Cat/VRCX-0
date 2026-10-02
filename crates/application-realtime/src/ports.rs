@@ -61,6 +61,12 @@ pub trait RealtimeStore: Send + Sync {
         batch: &RealtimePersistenceBatch,
     ) -> Result<RealtimeWriteCounts>;
     fn lookup_game_log_world_name(&self, world_id: &str) -> Result<String>;
+    fn game_log_join_count(
+        &self,
+        owner: &OwnerId,
+        user_id: &str,
+        display_name: &str,
+    ) -> Result<i64>;
     fn feed_latest(
         &self,
         query: FeedLatestQueryInput,

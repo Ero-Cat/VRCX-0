@@ -5,6 +5,7 @@ use vrcx_0_application_activity::notification::RenderedNotification;
 use vrcx_0_core::vrchat_ids::{is_group_id, is_user_id};
 
 use super::NotificationDeliveryPreferences;
+use vrcx_0_contracts::activity::ActivityKind;
 use vrcx_0_core::OwnerId;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -109,13 +110,13 @@ impl DesktopNotifier for DesktopNotifierSlot {
 pub(super) fn send_desktop_notification(
     notifier: &dyn DesktopNotifier,
     render: &RenderedNotification,
-    activity_type: &str,
+    kind: ActivityKind,
     group_name: &str,
     preferences: &NotificationDeliveryPreferences,
     local_image: Option<&str>,
     action: Option<&DesktopNotificationAction>,
 ) {
-    let title = desktop_notification_title(activity_type, group_name, &render.title);
+    let title = desktop_notification_title(kind, group_name, &render.title);
     if let Err(error) = notifier.show(
         &title,
         non_empty(&render.body),
@@ -128,12 +129,12 @@ pub(super) fn send_desktop_notification(
 }
 
 fn desktop_notification_title<'a>(
-    activity_type: &str,
+    kind: ActivityKind,
     group_name: &str,
     title: &'a str,
 ) -> Cow<'a, str> {
     let group_name = group_name.trim();
-    if activity_type == "group.announcement" && !group_name.is_empty() {
+    if kind == ActivityKind::GroupAnnouncement && !group_name.is_empty() {
         return Cow::Owned(format!("{group_name} · {title}"));
     }
     Cow::Borrowed(title)
@@ -148,20 +149,28 @@ fn non_empty(value: &str) -> Option<&str> {
 mod tests {
     use vrcx_0_core::OwnerId;
 
-    use super::{desktop_notification_title, DesktopNotificationAction};
+    use super::{desktop_notification_title, ActivityKind, DesktopNotificationAction};
 
     #[test]
     fn group_announcement_title_includes_source_group() {
         assert_eq!(
-            desktop_notification_title("group.announcement", "Maple Club", "Group Announcement"),
+            desktop_notification_title(
+                ActivityKind::GroupAnnouncement,
+                "Maple Club",
+                "Group Announcement"
+            ),
             "Maple Club · Group Announcement"
         );
         assert_eq!(
-            desktop_notification_title("group.announcement", "", "Group Announcement"),
+            desktop_notification_title(ActivityKind::GroupAnnouncement, "", "Group Announcement"),
             "Group Announcement"
         );
         assert_eq!(
-            desktop_notification_title("group.informative", "Maple Club", "Group Information"),
+            desktop_notification_title(
+                ActivityKind::GroupInformative,
+                "Maple Club",
+                "Group Information"
+            ),
             "Group Information"
         );
     }

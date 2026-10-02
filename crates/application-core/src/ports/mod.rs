@@ -1,4 +1,4 @@
-mod activity_sink;
+mod activity_ingress;
 mod instance_roster;
 mod local_game_context;
 mod notification_observer;
@@ -7,7 +7,7 @@ mod process_monitor;
 mod session;
 mod updater;
 
-pub use activity_sink::OverlayActivityInputSink;
+pub use activity_ingress::ActivityIngress;
 pub use instance_roster::{InstanceRosterMember, InstanceRosterObserver, InstanceRosterSnapshot};
 pub use local_game_context::{
     LocalGameContextSnapshot, LocalGameContextSource, UnavailableLocalGameContextSource,

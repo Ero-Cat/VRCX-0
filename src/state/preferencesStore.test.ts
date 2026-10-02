@@ -4,7 +4,6 @@ import { TRUST_COLOR_DEFAULTS } from '@/shared/constants/trustColors';
 
 import {
     DEFAULT_PREFERENCES,
-    normalizeOverlayActivityFilters,
     normalizePreferenceSnapshot,
     normalizeTableLimits,
     normalizeTablePageSizes
@@ -203,104 +202,6 @@ describe('preferencesStore normalizers', () => {
         ).toEqual(DEFAULT_PREFERENCES.tableLimits);
     });
 
-    it('normalizes overlay activity filters from persisted snapshots', () => {
-        const filters = normalizeOverlayActivityFilters({
-            wrist: {
-                types: {
-                    OnPlayerJoined: {
-                        scope: 'everyoneInInstance',
-                        favoriteGroupKeys: ['group_2', '', 'group_2']
-                    },
-                    Online: {
-                        scope: 'everyoneInInstance'
-                    },
-                    'group.queueReady': {
-                        scope: 'selectedFavorites',
-                        favoriteGroupKeys: ['group_3']
-                    },
-                    FutureBackendType: {
-                        scope: 'selectedFavorites',
-                        favoriteGroupKeys: ['group_future', '']
-                    }
-                }
-            }
-        });
-
-        expect(filters.wrist.types.OnPlayerJoined).toEqual({
-            scope: 'everyoneInInstance',
-            favoriteGroupKeys: 'all'
-        });
-        expect(filters.wrist.types.Online).toEqual({
-            scope: 'friends',
-            favoriteGroupKeys: 'all'
-        });
-        expect(filters.wrist.types['group.queueReady']).toEqual({
-            scope: 'on',
-            favoriteGroupKeys: 'all'
-        });
-        expect(filters.wrist.types.FutureBackendType).toEqual({
-            scope: 'selectedFavorites',
-            favoriteGroupKeys: ['group_future']
-        });
-        expect(filters.hmd.types.OnPlayerJoined).toEqual({
-            scope: 'off',
-            favoriteGroupKeys: 'all'
-        });
-        expect(filters.hmd.types.Online).toEqual({
-            scope: 'friends',
-            favoriteGroupKeys: 'all'
-        });
-        expect(filters.hmd.types.VideoPlay).toEqual({
-            scope: 'off',
-            favoriteGroupKeys: 'all'
-        });
-    });
-
-    it('uses HMD defaults for standalone HMD activity filter snapshots', () => {
-        const malformed = normalizePreferenceSnapshot({
-            hmdNotificationActivityFilters: '{bad json'
-        }).hmdNotificationActivityFilters.types;
-        const empty = normalizePreferenceSnapshot({
-            hmdNotificationActivityFilters: {}
-        }).hmdNotificationActivityFilters.types;
-
-        for (const types of [malformed, empty]) {
-            expect(types.OnPlayerJoined).toEqual({
-                scope: 'off',
-                favoriteGroupKeys: 'all'
-            });
-            expect(types.Online).toEqual({
-                scope: 'friends',
-                favoriteGroupKeys: 'all'
-            });
-            expect(types.VideoPlay).toEqual({
-                scope: 'off',
-                favoriteGroupKeys: 'all'
-            });
-        }
-    });
-
-    it('uses default wrist filters when overlay activity filters are missing', () => {
-        const snapshot = normalizePreferenceSnapshot({});
-
-        expect(snapshot.overlayActivityFilters.wrist.types.invite).toEqual({
-            scope: 'friends',
-            favoriteGroupKeys: 'all'
-        });
-        expect(
-            snapshot.overlayActivityFilters.wrist.types.OnPlayerJoined
-        ).toEqual({
-            scope: 'everyoneInInstance',
-            favoriteGroupKeys: 'all'
-        });
-        expect(
-            snapshot.overlayActivityFilters.wrist.types.friendRequest
-        ).toEqual({
-            scope: 'on',
-            favoriteGroupKeys: 'all'
-        });
-    });
-
     it('coerces persisted preference snapshots into safe runtime values', () => {
         const snapshot = normalizePreferenceSnapshot({
             notificationLayout: 'table',
@@ -325,23 +226,12 @@ describe('preferencesStore normalizers', () => {
             hmdNotificationTimeout: 999999,
             hmdNotificationOpacity: -1,
             hmdNotificationPosition: 'right',
+            hmdNotificationStyle: 'compact',
             tableLimits: {
                 maxTableSize: 5,
                 searchLimit: 999999
             },
             localFavoriteFriendsGroups: ['VIP', '', null],
-            overlayActivityFilters: JSON.stringify({
-                wrist: {
-                    types: {
-                        DisplayName: { scope: 'allFavorites' },
-                        AvatarChange: { scope: 'off' },
-                        Bio: {
-                            scope: 'selectedFavorites',
-                            favoriteGroupKeys: ['group_3', '']
-                        }
-                    }
-                }
-            }),
             trustColor: {
                 basic: '#abcdef',
                 known: 'bad'
@@ -379,27 +269,12 @@ describe('preferencesStore normalizers', () => {
             hmdNotificationStartMode: 'steamvr',
             hmdNotificationTimeout: 30000,
             hmdNotificationOpacity: 0,
-            hmdNotificationPosition: 'right',
+            hmdNotificationPosition: 'bottom',
+            hmdNotificationStyle: 'compact',
             translationAPIType: 'openai',
             translationAPIEndpoint: DEFAULT_PREFERENCES.translationAPIEndpoint,
             translationAPIModel: DEFAULT_PREFERENCES.translationAPIModel,
             translationAPIPrompt: ''
-        });
-        expect(snapshot.overlayActivityFilters.wrist).toMatchObject({
-            types: {
-                DisplayName: {
-                    scope: 'allFavorites',
-                    favoriteGroupKeys: 'all'
-                },
-                AvatarChange: {
-                    scope: 'off',
-                    favoriteGroupKeys: 'all'
-                },
-                Bio: {
-                    scope: 'selectedFavorites',
-                    favoriteGroupKeys: ['group_3']
-                }
-            }
         });
         expect(snapshot.trustColor.basic).toBe('#ABCDEF');
         expect(snapshot.trustColor.known).toBe(TRUST_COLOR_DEFAULTS.known);

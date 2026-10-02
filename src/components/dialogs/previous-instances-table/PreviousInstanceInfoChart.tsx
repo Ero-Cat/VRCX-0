@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useKnownUserFacts } from '@/lib/useKnownUser';
+import type { AvatarWearSegment } from '@/platform/tauri/bindings';
 import { openUserDialog } from '@/services/dialogService';
 import { getResolvedThemeMode } from '@/services/themeService';
 import { useFavoriteStore } from '@/state/favoriteStore';
@@ -18,10 +19,13 @@ import {
     EmptyTitle
 } from '@/ui/shadcn/empty';
 
+import { AvatarWearLane } from './InstanceAvatarWearSummary';
 import {
-    INFO_CHART_BAR_WIDTH,
+    INFO_CHART_PALETTES,
     buildInfoChartOption,
     buildInfoTimelineRows,
+    infoChartFirstBarTop,
+    infoChartHeight,
     buildInfoChartTooltipParts,
     type InfoChartRow
 } from './previousInstancesChart';
@@ -74,12 +78,18 @@ function createInfoChartTooltipElement(
     return container;
 }
 
+const AVATAR_LANE_TOP_INSET = 14;
+const AVATAR_LANE_HEIGHT = 32;
+const AVATAR_LANE_GAP = 37;
+
 export function PreviousInstanceInfoChart({
     rows,
-    visitWindow
+    visitWindow,
+    avatarSegments
 }: {
     rows: NonNullable<Parameters<typeof normalizeInfoChartRows>[0]>;
     visitWindow: PreviousInstanceVisitWindow | null;
+    avatarSegments: readonly AvatarWearSegment[];
 }) {
     const { t } = useTranslation();
 
@@ -148,14 +158,20 @@ export function PreviousInstanceInfoChart({
         () => buildInfoTimelineRows({ rows: chartRows, visitWindow }),
         [chartRows, visitWindow]
     );
+    const topInset = avatarSegments.length ? AVATAR_LANE_TOP_INSET : 0;
     const chartPayload = useMemo(
         () =>
             buildInfoChartOption({
+                topInset,
                 rows: timelineRows,
                 hour12,
+                palette:
+                    INFO_CHART_PALETTES[
+                        resolvedTheme === 'dark' ? 'dark' : 'light'
+                    ],
                 tooltipFormatter: createInfoChartTooltipElement
             }),
-        [hour12, timelineRows]
+        [hour12, resolvedTheme, timelineRows, topInset]
     );
 
     const setInfoChartElementRef = useCallback(
@@ -234,10 +250,7 @@ export function PreviousInstanceInfoChart({
 
             const chartRowCount =
                 chartPayload?.firstEntries.length || timelineRows.length;
-            const chartHeight = Math.max(
-                220,
-                chartRowCount * (INFO_CHART_BAR_WIDTH + 10) + 200
-            );
+            const chartHeight = infoChartHeight(chartRowCount, topInset);
             chartElement.style.height = `${chartHeight}px`;
             chart.resize({ height: chartHeight });
             chart.off('click');
@@ -283,7 +296,8 @@ export function PreviousInstanceInfoChart({
         chartPayload,
         knownUsersById,
         resolvedTheme,
-        timelineRows.length
+        timelineRows.length,
+        topInset
     ]);
 
     if (!timelineRows.length) {
@@ -300,6 +314,34 @@ export function PreviousInstanceInfoChart({
     }
 
     return (
-        <div ref={setInfoChartElementRef} className="w-full bg-transparent" />
+        <div className="relative w-full">
+            {chartPayload ? (
+                <div
+                    className="absolute inset-x-0 z-10"
+                    style={{
+                        top: Math.max(
+                            0,
+                            infoChartFirstBarTop(
+                                chartPayload.firstEntries.length,
+                                topInset
+                            ) -
+                                AVATAR_LANE_GAP -
+                                AVATAR_LANE_HEIGHT
+                        )
+                    }}
+                >
+                    <AvatarWearLane
+                        segments={avatarSegments}
+                        startMs={chartPayload.startMs}
+                        endMs={chartPayload.endMs}
+                        label={t('table.previous_instances.avatars')}
+                    />
+                </div>
+            ) : null}
+            <div
+                ref={setInfoChartElementRef}
+                className="w-full bg-transparent"
+            />
+        </div>
     );
 }

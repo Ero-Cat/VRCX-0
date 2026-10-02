@@ -27,9 +27,7 @@ impl RuntimeHostState {
             self.runtime_context.event_bus.emit(projection.clone());
         }
         self.authenticated_runtime.stop();
-        self.runtime_context
-            .overlay_activity()
-            .clear_runtime_state();
+        self.runtime_context.clear_activity_runtime_state();
         self.runtime_context.session.clear_realtime_context();
         if let Some((previous, _)) = cleared {
             self.runtime_context
@@ -67,9 +65,7 @@ impl RuntimeHostState {
                 })
                 .unwrap_or(true);
             if scope_changed {
-                self.runtime_context
-                    .overlay_activity()
-                    .clear_runtime_state();
+                self.runtime_context.clear_activity_runtime_state();
             }
             *current = next;
             current.clone()

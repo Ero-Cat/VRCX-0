@@ -45,12 +45,13 @@ import {
     timeToText
 } from '@/lib/dateTime';
 import { entityQueryPolicies, queryKeys } from '@/lib/entityQueryCache';
+import { groupProfileQueryOptions } from '@/lib/groupProfileQuery';
 import { useKnownUserFact, useKnownUserFacts } from '@/lib/useKnownUser';
 import { cn } from '@/lib/utils';
 import gameLogRepository from '@/repositories/gameLogRepository';
 import userProfileRepository from '@/repositories/userProfileRepository';
 import { copyTextToClipboard } from '@/services/clipboardService';
-import { openUserDialog } from '@/services/dialogService';
+import { openGroupDialog, openUserDialog } from '@/services/dialogService';
 import { openGameLogUser } from '@/services/gameLogUserDialogService';
 import { accessTypeLocaleKeyMap } from '@/shared/constants/accessType';
 import {
@@ -75,6 +76,10 @@ import { Spinner } from '@/ui/shadcn/spinner';
 import { Table, TableBody } from '@/ui/shadcn/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/shadcn/tooltip';
 
+import {
+    InstanceAvatarWearSummary,
+    useInstanceAvatarWearSegments
+} from './InstanceAvatarWearSummary';
 import { PreviousInstanceInfoChart } from './PreviousInstanceInfoChart';
 import {
     createdTime,
@@ -86,6 +91,7 @@ import {
     previousInstanceVisitWindow,
     rowDuration,
     rowLocation,
+    rowOwnerGroupId,
     rowOwnerUserId
 } from './previousInstancesRows';
 import type {
@@ -279,6 +285,61 @@ export function InstanceOwnerCell({
             <span className="truncate">{displayName || userId}</span>
         </Button>
     );
+}
+
+export function InstanceGroupOwnerCell({
+    groupId,
+    groupName = '',
+    endpoint = ''
+}: {
+    groupId: string;
+    groupName?: string;
+    endpoint?: string;
+}) {
+    const groupProfileQuery = useQuery({
+        ...groupProfileQueryOptions(groupId, endpoint),
+        enabled: Boolean(groupId && !groupName)
+    });
+    const displayName = String(
+        groupName || groupProfileQuery.data?.name || groupId
+    );
+
+    return (
+        <Button
+            type="button"
+            variant="ghost"
+            className="h-auto max-w-full justify-start p-0 text-left text-xs hover:bg-transparent"
+            onClick={() =>
+                openGroupDialog({
+                    groupId,
+                    title: displayName || undefined
+                })
+            }
+        >
+            <span className="truncate">{displayName}</span>
+        </Button>
+    );
+}
+
+export function InstanceCreatorCell({
+    row,
+    endpoint = ''
+}: {
+    row: PreviousInstanceRow | null | undefined;
+    endpoint?: string;
+}) {
+    const ownerUserId = rowOwnerUserId(row);
+    const ownerGroupId = rowOwnerGroupId(row);
+    if (!ownerUserId && ownerGroupId) {
+        return (
+            <InstanceGroupOwnerCell
+                groupId={ownerGroupId}
+                groupName={row?.groupName || ''}
+                endpoint={endpoint}
+            />
+        );
+    }
+    return <InstanceOwnerCell userId={ownerUserId} endpoint={endpoint} />;
 }
 
 function PreviousInstancePlayerNameButton({
@@ -655,6 +716,10 @@ export function PreviousInstanceDetailsPanel({
     );
     const instanceStartMs = createdTime(row);
     const visitWindow = previousInstanceVisitWindow(row);
+    const avatarSegments = useInstanceAvatarWearSegments(
+        rowLocation(row),
+        visitWindow
+    );
     const [detailsViewMode, setDetailsViewMode] = useState<
         'players' | 'timeline'
     >('players');
@@ -891,9 +956,9 @@ export function PreviousInstanceDetailsPanel({
                             {t('table.previous_instances.instance_creator')}
                         </dt>
                         <dd className="mt-1 min-w-0 font-medium">
-                            {rowOwnerUserId(row) ? (
-                                <InstanceOwnerCell
-                                    userId={rowOwnerUserId(row)}
+                            {rowOwnerUserId(row) || rowOwnerGroupId(row) ? (
+                                <InstanceCreatorCell
+                                    row={row}
                                     endpoint={currentEndpoint}
                                 />
                             ) : (
@@ -903,6 +968,10 @@ export function PreviousInstanceDetailsPanel({
                             )}
                         </dd>
                     </div>
+                    <InstanceAvatarWearSummary
+                        segments={avatarSegments}
+                        label={t('table.previous_instances.avatars')}
+                    />
                 </dl>
                 <div className="flex min-h-0 flex-1 flex-col gap-0">
                     <div className="flex shrink-0 items-center justify-between gap-3">
@@ -975,6 +1044,7 @@ export function PreviousInstanceDetailsPanel({
                                         <PreviousInstanceInfoChart
                                             rows={infoData.details}
                                             visitWindow={visitWindow}
+                                            avatarSegments={avatarSegments}
                                         />
                                     </div>
                                 )}

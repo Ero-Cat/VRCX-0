@@ -8,7 +8,9 @@ use crate::realtime::event_kind::RealtimeWsEventKind;
 use crate::realtime::{RealtimeCurrentUserOutput, RealtimeCurrentUserProjection};
 use vrcx_0_application_core::LocalGameContextSnapshot;
 
-use super::avatar::{apply_avatar_wear_transition, insert_avatar_swap_time};
+use super::avatar::{
+    apply_avatar_wear_transition, checkpoint_avatar_wear, insert_avatar_swap_time,
+};
 use super::game_log::close_remote_game_log_interval;
 use super::patch::{
     apply_current_user_patch, apply_user_location, apply_user_update, insert_presence,
@@ -21,6 +23,7 @@ use super::state::{
 };
 use super::utils::{has_remote_current_user_presence, map_from_json};
 use crate::realtime::event_time::EventTime;
+use vrcx_0_contracts::realtime::RealtimePersistenceBatch;
 use vrcx_0_core::friends::normalize_user_id;
 use vrcx_0_core::OwnerId;
 
@@ -58,6 +61,7 @@ impl RealtimeCurrentUserRuntime {
         state.remote_snapshot = snapshot;
         state.pending_offline = None;
         state.presence = None;
+        state.avatar_wear_checkpoint_ms = 0;
         if !preserves_remote_interval {
             state.remote_game_log_interval = None;
         }
@@ -72,6 +76,33 @@ impl RealtimeCurrentUserRuntime {
         state.pending_offline = None;
         state.remote_game_log_interval = None;
         state.presence = None;
+        state.avatar_wear_checkpoint_ms = 0;
+    }
+
+    pub fn checkpoint_avatar_wear(
+        &self,
+        generation: u64,
+        game: LocalGameContextSnapshot,
+    ) -> Option<(OwnerId, RealtimePersistenceBatch)> {
+        let mut state = self.lock_state();
+        if state.generation != generation || state.current_user_id.is_empty() {
+            return None;
+        }
+        let now = EventTime::now();
+        let upsert = checkpoint_avatar_wear(
+            &state.snapshot,
+            state.avatar_wear_checkpoint_ms,
+            &game,
+            &now,
+        )?;
+        state.avatar_wear_checkpoint_ms = now.timestamp_ms;
+        Some((
+            OwnerId::new(state.current_user_id.clone()),
+            RealtimePersistenceBatch {
+                avatar_time_spent_upserts: vec![upsert],
+                ..RealtimePersistenceBatch::default()
+            },
+        ))
     }
 
     pub fn snapshot_value(&self) -> Option<serde_json::Value> {
@@ -277,8 +308,15 @@ impl RealtimeCurrentUserRuntime {
         let previous = state.snapshot.clone();
         let now = EventTime::now();
         let stopped_game = game.clone().with_game_running(false);
-        let (snapshot, mut persistence) =
-            apply_avatar_wear_transition(previous.clone(), &previous, &stopped_game, &now, false);
+        let (snapshot, mut persistence) = apply_avatar_wear_transition(
+            previous.clone(),
+            &previous,
+            &stopped_game,
+            &now,
+            false,
+            state.avatar_wear_checkpoint_ms,
+        );
+        state.avatar_wear_checkpoint_ms = 0;
         if ends_remote_interval {
             close_remote_game_log_interval(&mut state, &now, &mut persistence);
         }

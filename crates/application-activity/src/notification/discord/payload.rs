@@ -1,4 +1,4 @@
-use crate::{OverlayActivityDelivery, OverlayActivityEntry};
+use crate::{ActivityDelivery, ActivityEntry};
 use serde_json::{json, Value};
 use vrcx_0_core::location::{launch_url, parse_location, region_label};
 use vrcx_0_core::vrchat_endpoints::VRCHAT_SITE_ORIGIN;
@@ -21,13 +21,13 @@ struct DiscordEnrichment {
 
 pub(crate) async fn build_discord_payload(
     deps: &DiscordDeps<'_>,
-    delivery: &OverlayActivityDelivery,
+    delivery: &ActivityDelivery,
     render: &RenderedNotification,
     locale: OverlayLocale,
 ) -> Value {
     let entry = &delivery.entry;
-    let kind = discord_embed_kind(&entry.activity_type);
-    let has_rich = discord_title_key(&entry.activity_type).is_some();
+    let kind = discord_embed_kind(entry.kind);
+    let has_rich = discord_title_key(entry.kind).is_some();
     let actor_icon = resolve_actor_icon_url(deps, delivery);
     let world_image = async {
         if has_rich {
@@ -54,25 +54,25 @@ pub(crate) async fn build_discord_payload(
 }
 
 fn build_discord_payload_with_enrichment(
-    delivery: &OverlayActivityDelivery,
+    delivery: &ActivityDelivery,
     render: &RenderedNotification,
     locale: OverlayLocale,
     enrichment: &DiscordEnrichment,
 ) -> Value {
     let entry = &delivery.entry;
-    if discord_title_key(&entry.activity_type).is_none() {
+    if discord_title_key(entry.kind).is_none() {
         return discord_legacy_embed(delivery, render, enrichment);
     }
     let localizer = OverlayLocalizer::new(locale);
     let parsed = parse_location(&entry.content.location);
 
-    let mut title = localizer.discord_title(&entry.activity_type, &entry.actor_display_name);
+    let mut title = localizer.discord_title(entry.kind, &entry.actor_display_name);
     if title.trim().is_empty() {
         title = render.text.clone();
     }
 
     let mut description = String::new();
-    match discord_embed_kind(&entry.activity_type) {
+    match discord_embed_kind(entry.kind) {
         DiscordEmbedKind::Invite => {
             let message = entry.content.detail.trim();
             if !message.is_empty() && message != render.display_location.trim() {
@@ -165,7 +165,7 @@ fn build_discord_payload_with_enrichment(
 }
 
 fn build_discord_author(
-    entry: &OverlayActivityEntry,
+    entry: &ActivityEntry,
     actor_icon_url: &str,
 ) -> serde_json::Map<String, Value> {
     let mut author = serde_json::Map::new();
@@ -191,7 +191,7 @@ fn build_discord_author(
 }
 
 fn discord_legacy_embed(
-    delivery: &OverlayActivityDelivery,
+    delivery: &ActivityDelivery,
     render: &RenderedNotification,
     enrichment: &DiscordEnrichment,
 ) -> Value {

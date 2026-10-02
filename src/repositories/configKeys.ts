@@ -150,8 +150,10 @@ export const ConfigKeys = defineConfigKeys({
     // ── Settings - Notifications ─────────────────────
     desktopToast: { type: 'string', default: 'Never' },
     afkDesktopToast: { type: 'bool', default: false },
+    overlayToast: { type: 'string', default: 'Game Running' },
     desktopNotificationSound: { type: 'bool', default: false },
     notificationDoNotDisturbEndOnGameStart: { type: 'bool', default: true },
+    busyStatusDoNotDisturb: { type: 'bool', default: true },
     notificationLayout: { type: 'string', default: null },
     notificationTTS: { type: 'string', default: 'Never' },
     notificationTTSVoiceNative: { type: 'string', default: '' },
@@ -170,8 +172,9 @@ export const ConfigKeys = defineConfigKeys({
     hmdNotificationsEnabled: { type: 'bool', default: false },
     hmdNotificationStartMode: { type: 'string', default: 'vrchatVrMode' },
     hmdNotificationTimeout: { type: 'int', default: 5000 },
-    hmdNotificationOpacity: { type: 'int', default: 100 },
+    hmdNotificationOpacity: { type: 'int', default: 90 },
     hmdNotificationPosition: { type: 'string', default: 'bottom' },
+    hmdNotificationStyle: { type: 'string', default: 'standard' },
     webhookEnabled: { type: 'bool', default: false },
     webhookAuthEventsEnabled: { type: 'bool', default: true },
     webhookUrl: { type: 'string', default: '' },
@@ -180,11 +183,6 @@ export const ConfigKeys = defineConfigKeys({
         type: 'string',
         default: DEFAULT_GENERIC_WEBHOOK_FIELDS
     },
-    vrNotificationActivityFilters: { type: 'string', default: '' },
-    desktopNotificationActivityFilters: { type: 'string', default: '' },
-    webhookActivityFilters: { type: 'string', default: '' },
-    ttsNotificationActivityFilters: { type: 'string', default: '' },
-    hmdNotificationActivityFilters: { type: 'string', default: '' },
 
     // ── Settings - Overlay ───────────────────────────
     wristOverlayEnabled: { type: 'bool', default: false },
@@ -200,6 +198,7 @@ export const ConfigKeys = defineConfigKeys({
     // ── Settings - VR Background ─────────────────────
     // ── Auto State Change ────────────────────────────
     autoAcceptInviteRequests: { type: 'string', default: 'Off' },
+    autoDeclineFriendRequests: { type: 'bool', default: false },
     autoAcceptInviteGroups: { type: 'string', default: '[]' },
     presenceAutomationTimeRules: { type: 'string', default: '[]' },
     presenceAutomationContextRules: { type: 'string', default: '[]' },

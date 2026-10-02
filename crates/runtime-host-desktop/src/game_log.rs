@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::log_watcher::{GameLogEvent, GameLogEventOrigin, GameLogEventSink, LogWatcher};
 use crate::{HostFileAccess, Result};
-use vrcx_0_application_activity::OverlayActivityRuntime;
+use vrcx_0_application_activity::ActivityRouter;
 use vrcx_0_application_core::Error as RuntimeError;
 use vrcx_0_application_core::Result as RuntimeResult;
 use vrcx_0_application_core::{
@@ -98,7 +98,7 @@ pub struct GameLogHostRuntimeDeps {
     pub file_access: HostFileAccess,
     pub app_paths: AppPaths,
     pub snapshot: RuntimeSnapshotStore,
-    pub overlay_activity: OverlayActivityRuntime,
+    pub activity_router: ActivityRouter,
     pub instance_roster_observer: Option<Arc<dyn InstanceRosterObserver>>,
     pub backend_status: BackendRuntimeStatusPublisher,
     pub side_effect_sink: GameLogSideEffectSink,
@@ -134,7 +134,7 @@ impl GameLogHostRuntime {
                 file_access: deps.file_access,
                 app_paths: deps.app_paths,
             }),
-            deps.overlay_activity,
+            Arc::new(deps.activity_router),
             Arc::clone(&deps.world_cache),
             deps.instance_roster_observer,
         ));

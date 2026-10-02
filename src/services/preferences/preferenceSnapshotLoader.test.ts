@@ -16,7 +16,16 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/platform/tauri/bindings', () => ({
     commands: {
-        appSystemCulture: mocks.appSystemCulture
+        appSystemCulture: mocks.appSystemCulture,
+        appNotificationActivityFiltersGet: () =>
+            Promise.resolve({
+                wrist: { version: 1, types: {} },
+                vr: { version: 1, types: {} },
+                hmd: { version: 1, types: {} },
+                desktop: { version: 1, types: {} },
+                webhook: { version: 1, types: {} },
+                tts: { version: 1, types: {} }
+            })
     }
 }));
 
@@ -127,7 +136,8 @@ describe('preferenceSnapshotLoader', () => {
                 tableDensity: '',
                 notificationLayout: 'table',
                 hmdNotificationStartMode: 'steamvr',
-                hmdNotificationPosition: 'left',
+                hmdNotificationPosition: 'center',
+                hmdNotificationStyle: 'wide',
                 webhookFields: 'event,displayName',
                 VRCX_fontFamily: 'invalid-font',
                 VRCX_cjkFontPack: 'invalid-cjk',
@@ -185,7 +195,8 @@ describe('preferenceSnapshotLoader', () => {
             hmdNotificationStartMode: 'steamvr',
             hmdNotificationTimeout: 30000,
             hmdNotificationOpacity: 0,
-            hmdNotificationPosition: 'left',
+            hmdNotificationPosition: 'center',
+            hmdNotificationStyle: 'standard',
             webhookFields: 'event,displayName',
             appFontFamily: 'geist',
             appCjkFontPack: 'noto',
@@ -252,6 +263,12 @@ describe('preferenceSnapshotLoader', () => {
             showUserDialogProfileEffect: false,
             showUserDialogNameplateEffect: false
         });
+    });
+
+    it('shows HMD notifications at 90% opacity until the user changes it', async () => {
+        const snapshot = await loadPreferenceSnapshot();
+
+        expect(snapshot.hmdNotificationOpacity).toBe(90);
     });
 
     it('loads an explicit Friend Log notification dot opt-out', async () => {

@@ -279,9 +279,9 @@ describe('authExecutionService characterization', () => {
         expect(mocks.loadVrchatConfigSnapshot).toHaveBeenCalledTimes(1);
         expect(useAssistantChatStore.getState()).toMatchObject({
             open: false,
-            activeSessionId: null,
-            messagesBySession: {}
+            activeSessionId: null
         });
+        expect(useAssistantChatStore.getState().messagesBySession).toEqual({});
         expect(mocks.bootstrapAuthenticatedSession).toHaveBeenCalledWith(
             user(),
             expect.any(Number)

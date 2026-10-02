@@ -372,7 +372,33 @@ pub(super) fn configure_windows_webview_settings(app: &tauri::AppHandle) {
 }
 
 pub(super) fn configure_tray(app: &tauri::App, state: &AppState) -> Result<(), tauri::Error> {
+    #[cfg(target_os = "linux")]
+    {
+        if !appindicator_available(|name| unsafe { libloading::Library::new(name) }.is_ok()) {
+            tracing::warn!(
+                "system tray disabled: libayatana-appindicator3 or libappindicator3 is not installed"
+            );
+            return Ok(());
+        }
+        let mut tray = tauri::tray::TrayIconBuilder::with_id("main").tooltip("VRCX-0");
+        if let Some(icon) = crate::commands::host::window::tray_icon_image(false) {
+            tray = tray.icon(icon.clone());
+        }
+        tray.build(app)?;
+    }
     refresh_tray_menu(app.handle(), state)
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn appindicator_available(can_load: impl Fn(&str) -> bool) -> bool {
+    [
+        "libayatana-appindicator3.so.1",
+        "libappindicator3.so.1",
+        "libayatana-appindicator3.so",
+        "libappindicator3.so",
+    ]
+    .into_iter()
+    .any(can_load)
 }
 
 pub fn refresh_tray_menu(app: &tauri::AppHandle, state: &AppState) -> Result<(), tauri::Error> {
@@ -480,4 +506,36 @@ pub fn refresh_tray_menu(app: &tauri::AppHandle, state: &AppState) -> Result<(),
         let _ = tray.set_show_menu_on_left_click(false);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::appindicator_available;
+
+    #[test]
+    fn appindicator_probe_reports_missing_when_no_library_loads() {
+        assert!(!appindicator_available(|_| false));
+    }
+
+    #[test]
+    fn appindicator_probe_accepts_any_library_name_tray_icon_falls_back_to() {
+        for library in [
+            "libayatana-appindicator3.so.1",
+            "libappindicator3.so.1",
+            "libayatana-appindicator3.so",
+            "libappindicator3.so",
+        ] {
+            assert!(appindicator_available(|name| name == library), "{library}");
+        }
+    }
+
+    #[test]
+    fn only_linux_opts_out_of_the_tauri_config_tray() {
+        let base: serde_json::Value =
+            serde_json::from_str(include_str!("../../tauri.conf.json")).unwrap();
+        let linux: serde_json::Value =
+            serde_json::from_str(include_str!("../../tauri.linux.conf.json")).unwrap();
+        assert!(base["app"]["trayIcon"].is_object());
+        assert_eq!(linux["app"].get("trayIcon"), Some(&serde_json::Value::Null));
+    }
 }

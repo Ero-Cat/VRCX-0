@@ -164,15 +164,14 @@ pub(in crate::state) async fn run_background_group_instance_notification_refresh
                 if !background_capability_session_matches(context.session_slot, &session) {
                     return;
                 }
-                context
-                    .runtime_context
-                    .overlay_activity()
-                    .ingest_group_instance_scan(
-                        &scope_key,
-                        group_id,
-                        &refresh.fetched_at,
-                        &refresh.instances,
-                    );
+                if let Some(event) = context.runtime_context.group_instance_monitor().scan(
+                    &scope_key,
+                    group_id,
+                    &refresh.fetched_at,
+                    &refresh.instances,
+                ) {
+                    context.runtime_context.activity_router().ingest(event);
+                }
             }
             Err(error) => {
                 failed = failed.saturating_add(1);

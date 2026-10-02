@@ -497,7 +497,7 @@ impl RuntimeHostStateBuilder {
             self.runtime_context.auth_scope.clone(),
             Arc::clone(&self.runtime_context.remote_mutations),
             local_game_context,
-            Some(Arc::new(self.runtime_context.overlay_activity())),
+            Some(Arc::new(self.runtime_context.activity_router())),
             Some(Arc::new(
                 self.runtime_context
                     .realtime_notification_projection_observer_registry(),
@@ -519,11 +519,11 @@ impl RuntimeHostStateBuilder {
             current_user_snapshot_sink,
         )));
         let favorites_sink = {
-            let overlay_activity = self.runtime_context.overlay_activity();
+            let activity_router = self.runtime_context.activity_router();
             Some(Arc::new(
                 move |snapshot: &vrcx_0_application_realtime::FavoriteBaselineSnapshot| {
-                    overlay_activity.set_favorite_groups(
-                        vrcx_0_application_activity::OverlayFavoriteGroups::from_map(
+                    activity_router.set_favorite_groups(
+                        vrcx_0_application_activity::ActivityFavoriteGroups::from_map(
                             favorite_group_membership_from_baseline(snapshot),
                         ),
                     );

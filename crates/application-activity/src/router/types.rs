@@ -2,17 +2,17 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
-use vrcx_0_core::json::RawJson;
+use vrcx_0_contracts::activity::ActivityKind;
 use vrcx_0_i18n::{render_overlay_message, OverlayMessage};
 
 use super::definitions::{
-    default_activity_rules, default_rule, disabled_activity_rules, has_persisted_filter_rules,
-    hmd_activity_rules, known_definition_for_type, normalize_filters, normalize_surface,
+    default_activity_rules, default_rule, definition, has_persisted_filter_rules,
+    normalize_filters, normalize_surface_with_default,
 };
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub enum OverlayActivityCategory {
+pub enum ActivityCategory {
     #[default]
     ActionRequired,
     CurrentInstance,
@@ -25,7 +25,7 @@ pub enum OverlayActivityCategory {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub enum OverlayActivityScope {
+pub enum ActivityScope {
     #[default]
     Off,
     On,
@@ -37,23 +37,24 @@ pub enum OverlayActivityScope {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub struct OverlayActivityTypeDefinition {
-    pub key: String,
-    pub category: OverlayActivityCategory,
-    pub allowed_scopes: Vec<OverlayActivityScope>,
-    pub default_scope: OverlayActivityScope,
-    pub hmd_default_scope: OverlayActivityScope,
+pub struct ActivityTypeDefinition {
+    pub key: ActivityKind,
+    pub category: ActivityCategory,
+    pub allowed_scopes: Vec<ActivityScope>,
+    pub wrist_default_scope: ActivityScope,
+    pub alert_default_scope: ActivityScope,
+    pub tts_default_scope: ActivityScope,
     pub aliases: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub enum OverlayActivityFavoriteGroupKeys {
+pub enum ActivityFavoriteGroupKeys {
     #[default]
     All,
     Selected(Vec<String>),
 }
 
-impl Serialize for OverlayActivityFavoriteGroupKeys {
+impl Serialize for ActivityFavoriteGroupKeys {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -65,7 +66,7 @@ impl Serialize for OverlayActivityFavoriteGroupKeys {
     }
 }
 
-impl<'de> Deserialize<'de> for OverlayActivityFavoriteGroupKeys {
+impl<'de> Deserialize<'de> for ActivityFavoriteGroupKeys {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -99,7 +100,7 @@ enum FavoriteGroupKeysShape {
     Selected(Vec<String>),
 }
 
-impl specta::Type for OverlayActivityFavoriteGroupKeys {
+impl specta::Type for ActivityFavoriteGroupKeys {
     fn inline(
         type_map: &mut specta::TypeCollection,
         generics: specta::Generics,
@@ -110,16 +111,16 @@ impl specta::Type for OverlayActivityFavoriteGroupKeys {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub struct OverlayActivityRule {
-    pub scope: OverlayActivityScope,
-    pub favorite_group_keys: OverlayActivityFavoriteGroupKeys,
+pub struct ActivityRule {
+    pub scope: ActivityScope,
+    pub favorite_group_keys: ActivityFavoriteGroupKeys,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum OverlayActivitySurface {
+pub enum NotificationSurface {
     Wrist,
     Desktop,
-    Vr,
+    ExternalOverlay,
     Hmd,
     Webhook,
     Tts,
@@ -127,66 +128,66 @@ pub enum OverlayActivitySurface {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub struct OverlayActivityFilters {
+pub struct ActivityFilters {
     pub version: u32,
-    pub wrist: OverlayActivitySurfaceFilters,
-    #[serde(default = "OverlayActivitySurfaceFilters::default_rules")]
-    pub desktop: OverlayActivitySurfaceFilters,
-    #[serde(default = "OverlayActivitySurfaceFilters::default_rules")]
-    pub vr: OverlayActivitySurfaceFilters,
-    #[serde(default = "OverlayActivitySurfaceFilters::hmd_default_rules")]
-    pub hmd: OverlayActivitySurfaceFilters,
-    #[serde(default = "OverlayActivitySurfaceFilters::disabled_rules")]
-    pub webhook: OverlayActivitySurfaceFilters,
-    #[serde(default = "OverlayActivitySurfaceFilters::default_rules")]
-    pub tts: OverlayActivitySurfaceFilters,
+    pub wrist: ActivitySurfaceFilters,
+    #[serde(default = "ActivitySurfaceFilters::alert_defaults")]
+    pub desktop: ActivitySurfaceFilters,
+    #[serde(default = "ActivitySurfaceFilters::alert_defaults")]
+    pub vr: ActivitySurfaceFilters,
+    #[serde(default = "ActivitySurfaceFilters::alert_defaults")]
+    pub hmd: ActivitySurfaceFilters,
+    #[serde(default = "ActivitySurfaceFilters::webhook_defaults")]
+    pub webhook: ActivitySurfaceFilters,
+    #[serde(default = "ActivitySurfaceFilters::tts_defaults")]
+    pub tts: ActivitySurfaceFilters,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub struct OverlayActivitySurfaceFilters {
-    pub types: BTreeMap<String, OverlayActivityRule>,
+pub struct ActivitySurfaceFilters {
+    pub types: BTreeMap<String, ActivityRule>,
 }
 
-impl OverlayActivitySurfaceFilters {
-    pub(super) fn default_rules() -> Self {
+impl ActivitySurfaceFilters {
+    fn defaults(surface: NotificationSurface) -> Self {
         Self {
-            types: default_activity_rules(),
+            types: default_activity_rules(surface),
         }
     }
 
-    pub(super) fn disabled_rules() -> Self {
-        Self {
-            types: disabled_activity_rules(),
-        }
+    fn alert_defaults() -> Self {
+        Self::defaults(NotificationSurface::Desktop)
     }
 
-    pub(super) fn hmd_default_rules() -> Self {
-        Self {
-            types: hmd_activity_rules(),
-        }
+    fn webhook_defaults() -> Self {
+        Self::defaults(NotificationSurface::Webhook)
     }
 
-    pub fn from_types_json(value: &Value) -> Self {
-        normalize_surface(Some(value))
+    fn tts_defaults() -> Self {
+        Self::defaults(NotificationSurface::Tts)
+    }
+
+    pub fn from_saved_types_json(value: &Value, surface: NotificationSurface) -> Self {
+        normalize_surface_with_default(Some(value), &default_activity_rules(surface))
     }
 }
 
-impl Default for OverlayActivityFilters {
+impl Default for ActivityFilters {
     fn default() -> Self {
         Self {
             version: 1,
-            wrist: OverlayActivitySurfaceFilters::default_rules(),
-            desktop: OverlayActivitySurfaceFilters::default_rules(),
-            vr: OverlayActivitySurfaceFilters::default_rules(),
-            hmd: OverlayActivitySurfaceFilters::hmd_default_rules(),
-            webhook: OverlayActivitySurfaceFilters::disabled_rules(),
-            tts: OverlayActivitySurfaceFilters::default_rules(),
+            wrist: ActivitySurfaceFilters::defaults(NotificationSurface::Wrist),
+            desktop: ActivitySurfaceFilters::defaults(NotificationSurface::Desktop),
+            vr: ActivitySurfaceFilters::defaults(NotificationSurface::ExternalOverlay),
+            hmd: ActivitySurfaceFilters::defaults(NotificationSurface::Hmd),
+            webhook: ActivitySurfaceFilters::defaults(NotificationSurface::Webhook),
+            tts: ActivitySurfaceFilters::defaults(NotificationSurface::Tts),
         }
     }
 }
 
-impl OverlayActivityFilters {
+impl ActivityFilters {
     pub fn from_json(value: Value) -> Self {
         normalize_filters(value)
     }
@@ -195,71 +196,40 @@ impl OverlayActivityFilters {
         has_persisted_filter_rules(value)
     }
 
-    pub fn surface(&self, surface: OverlayActivitySurface) -> &OverlayActivitySurfaceFilters {
+    pub fn surface(&self, surface: NotificationSurface) -> &ActivitySurfaceFilters {
         match surface {
-            OverlayActivitySurface::Wrist => &self.wrist,
-            OverlayActivitySurface::Desktop => &self.desktop,
-            OverlayActivitySurface::Vr => &self.vr,
-            OverlayActivitySurface::Hmd => &self.hmd,
-            OverlayActivitySurface::Webhook => &self.webhook,
-            OverlayActivitySurface::Tts => &self.tts,
+            NotificationSurface::Wrist => &self.wrist,
+            NotificationSurface::Desktop => &self.desktop,
+            NotificationSurface::ExternalOverlay => &self.vr,
+            NotificationSurface::Hmd => &self.hmd,
+            NotificationSurface::Webhook => &self.webhook,
+            NotificationSurface::Tts => &self.tts,
         }
     }
 
-    pub fn rule_for(
-        &self,
-        surface: OverlayActivitySurface,
-        activity_type: &str,
-    ) -> OverlayActivityRule {
-        let Some(definition) = known_definition_for_type(activity_type) else {
-            return OverlayActivityRule::default();
-        };
+    pub fn rule_for(&self, surface: NotificationSurface, kind: ActivityKind) -> ActivityRule {
         self.surface(surface)
             .types
-            .get(definition.key)
+            .get(kind.key())
             .cloned()
-            .unwrap_or_else(|| default_rule(definition))
+            .unwrap_or_else(|| default_rule(&definition(kind), surface))
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct OverlayActivityCandidate {
-    pub source_id: String,
-    pub activity_type: String,
-    pub created_at: String,
-    pub actor_user_id: String,
-    pub actor_display_name: String,
-    pub current_instance: bool,
-    #[serde(default)]
-    pub favorite_subject: OverlayActivityFavoriteSubject,
-    #[serde(default)]
-    pub payload: RawJson,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(tag = "kind", content = "value", rename_all = "camelCase")]
-pub enum OverlayActivityFavoriteSubject {
-    #[default]
-    None,
-    UserId(String),
-    GroupId(String),
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, specta::Type)]
-#[serde(tag = "kind", content = "value", rename_all = "camelCase")]
-pub enum OverlayActivityText {
+pub enum ActivityText {
     Message(OverlayMessage),
     Literal(String),
 }
 
-impl Default for OverlayActivityText {
+impl Default for ActivityText {
     fn default() -> Self {
         Self::Literal(String::new())
     }
 }
 
-impl OverlayActivityText {
+impl ActivityText {
     pub fn message(message: OverlayMessage) -> Self {
         Self::Message(message)
     }
@@ -285,16 +255,17 @@ impl OverlayActivityText {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub struct OverlayActivityContent {
+pub struct ActivityContent {
     pub icon: String,
-    pub title: OverlayActivityText,
-    pub body: OverlayActivityText,
+    pub title: ActivityText,
+    pub body: ActivityText,
     pub summary: String,
     pub detail: String,
     pub location: String,
     pub world_id: String,
     pub display_location: String,
     pub world_name: String,
+    pub group_id: String,
     pub group_name: String,
     pub status: String,
     pub status_description: String,
@@ -304,7 +275,7 @@ pub struct OverlayActivityContent {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub enum OverlayActivityActorRelation {
+pub enum ActivityActorRelation {
     #[default]
     None,
     Friend,
@@ -313,31 +284,29 @@ pub enum OverlayActivityActorRelation {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub struct OverlayActivityEntry {
+pub struct ActivityEntry {
     pub sequence: u64,
     pub source_id: String,
-    pub activity_type: String,
-    pub category: OverlayActivityCategory,
+    pub kind: ActivityKind,
+    pub category: ActivityCategory,
     pub created_at: String,
     pub actor_user_id: String,
     pub actor_display_name: String,
-    pub content: OverlayActivityContent,
+    pub content: ActivityContent,
     #[serde(default)]
-    pub actor_relation: OverlayActivityActorRelation,
-    #[serde(default)]
-    pub payload: RawJson,
+    pub actor_relation: ActivityActorRelation,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub struct OverlayActivitySnapshot {
-    pub entries: Vec<OverlayActivityEntry>,
+pub struct ActivitySnapshot {
+    pub entries: Vec<ActivityEntry>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
-pub struct OverlayActivityDelivery {
-    pub entry: OverlayActivityEntry,
+pub struct ActivityDelivery {
+    pub entry: ActivityEntry,
     pub desktop: bool,
     pub vr: bool,
     pub hmd: bool,

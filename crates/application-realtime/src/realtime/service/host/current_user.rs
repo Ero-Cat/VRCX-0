@@ -17,7 +17,36 @@ pub struct RealtimeCurrentUserRefreshExpectation {
     sequence: u64,
 }
 
+const AVATAR_WEAR_CHECKPOINT_INTERVAL_MS: i64 = 60_000;
+
 impl RealtimeHostRuntime {
+    pub(super) fn spawn_avatar_wear_checkpoints(self: &Arc<Self>, generation: u64) {
+        let runtime = Arc::clone(self);
+        self.deps.tasks.spawn(async move {
+            loop {
+                sleep_until(
+                    chrono::Utc::now().timestamp_millis() + AVATAR_WEAR_CHECKPOINT_INTERVAL_MS,
+                )
+                .await;
+                if !runtime
+                    .active_current_user_context()
+                    .is_some_and(|active| active.generation == generation)
+                {
+                    return;
+                }
+                let Some((owner, batch)) = runtime
+                    .current_user
+                    .checkpoint_avatar_wear(generation, runtime.local_game_context())
+                else {
+                    continue;
+                };
+                if let Err(error) = runtime.deps.store.write_realtime_batch(&owner, &batch) {
+                    tracing::warn!("Avatar wear checkpoint persistence failed: {error}");
+                }
+            }
+        });
+    }
+
     pub(super) fn schedule_current_user_wake(self: &Arc<Self>, generation: u64, at_ms: i64) {
         let runtime = Arc::clone(self);
         self.deps.tasks.spawn(async move {

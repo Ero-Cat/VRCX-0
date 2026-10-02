@@ -1,4 +1,7 @@
-import type { NotificationRow } from '@/repositories/notificationPersistenceRepository';
+import {
+    NOTIFICATION_TYPES,
+    type NotificationRow
+} from '@/repositories/notificationPersistenceRepository';
 import { convertFileUrlToImageUrl } from '@/services/entityMediaService';
 import {
     defaultEmojiName,
@@ -10,7 +13,17 @@ import {
     isUnseenNotification
 } from '@/shared/utils/notificationSeen';
 
-export const NOTIFICATION_TYPE_LABEL_PREFIX = 'view.notification.filters.';
+const NOTIFICATION_TYPE_LABEL_PREFIX = 'view.notification.filters.';
+const NOTIFICATION_TYPE_LABEL_KEY_OVERRIDES: Readonly<Record<string, string>> =
+    Object.freeze({
+        'invite.instance.contentGated': 'inviteInstanceContentGated'
+    });
+
+export function notificationTypeLabelKey(type: string): string {
+    return `${NOTIFICATION_TYPE_LABEL_PREFIX}${
+        NOTIFICATION_TYPE_LABEL_KEY_OVERRIDES[type] ?? type
+    }`;
+}
 
 export type NotificationActor =
     | { kind: 'user'; id: string; name: string; imageUrl: string }
@@ -66,7 +79,12 @@ export type NotificationViewModelOptions = {
 
 const BROADCAST_TYPES = new Set<string>([
     'group.announcement',
-    'group.event.created'
+    'group.event.created',
+    'group.event.starting'
+]);
+const GROUP_EVENT_TYPES = new Set<string>([
+    'group.event.created',
+    'group.event.starting'
 ]);
 const INVITE_TYPES = new Set<string>([
     'invite',
@@ -77,33 +95,7 @@ const INVITE_TYPES = new Set<string>([
     'requestInviteResponse'
 ]);
 const PERSON_TYPES = new Set<string>(['boop', 'message']);
-const KNOWN_TYPES = new Set<string>([
-    'requestInvite',
-    'invite',
-    'requestInviteResponse',
-    'inviteResponse',
-    'friendRequest',
-    'ignoredFriendRequest',
-    'message',
-    'boop',
-    'event.announcement',
-    'groupChange',
-    'group.announcement',
-    'group.event.created',
-    'group.informative',
-    'group.invite',
-    'group.joinRequest',
-    'group.transfer',
-    'group.queueReady',
-    'moderation.warning.group',
-    'moderation.report.closed',
-    'moderation.contentrestriction',
-    'instance.closed',
-    'economy.alert',
-    'economy.received.gift',
-    'badge.earned',
-    'vrcplus.gift'
-]);
+const KNOWN_TYPES = new Set<string>(NOTIFICATION_TYPES);
 const INTERNAL_LINK_SCHEMES = new Set<string>([
     'user',
     'group',
@@ -359,7 +351,7 @@ export function toNotificationViewModel(
     const type = text(notification.type);
     const base = {
         id: text(notification.id),
-        typeLabelKey: `${NOTIFICATION_TYPE_LABEL_PREFIX}${type || 'unknown'}`,
+        typeLabelKey: notificationTypeLabelKey(type || 'unknown'),
         createdAt: firstText(notification.createdAt, notification.created_at),
         unseen: isUnseenNotification(notification),
         expired: isNotificationExpired(notification)
@@ -382,7 +374,7 @@ export function toNotificationViewModel(
 
     if (BROADCAST_TYPES.has(type)) {
         const actor = groupActor(notification);
-        const hasBanner = type === 'group.event.created';
+        const hasBanner = GROUP_EVENT_TYPES.has(type);
         return {
             ...base,
             template: 'broadcast',

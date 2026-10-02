@@ -2,19 +2,9 @@ import { create } from 'zustand';
 
 import type {
     NotificationWebhookFormat,
+    ActivityFilterProfile,
     TranslationProvider
 } from '@/platform/tauri/bindings';
-import {
-    DEFAULT_OVERLAY_ACTIVITY_FILTERS,
-    DEFAULT_HMD_NOTIFICATION_ACTIVITY_FILTERS,
-    DEFAULT_TTS_NOTIFICATION_ACTIVITY_FILTERS,
-    DEFAULT_VR_NOTIFICATION_ACTIVITY_FILTERS,
-    DEFAULT_WEBHOOK_ACTIVITY_FILTERS,
-    normalizeOverlayActivityFilters,
-    parseHmdOverlayActivityFilterProfile,
-    parseOverlayActivityFilterProfile,
-    parseOverlayActivityFilters
-} from '@/shared/constants/overlayActivityFilters';
 import {
     DEFAULT_TABLE_PAGE_SIZE,
     DEFAULT_TABLE_PAGE_SIZES,
@@ -48,11 +38,10 @@ export type WristOverlaySizePreference = 'compact' | 'normal' | 'large';
 export type OverlayStartModePreference = 'steamvr' | 'vrchatVrMode';
 export type WristOverlayStartModePreference = OverlayStartModePreference;
 export type WristOverlayButtonPreference = 'grip' | 'menu';
+const HMD_NOTIFICATION_POSITIONS = ['top', 'center', 'bottom'] as const;
 export type HmdNotificationPositionPreference =
-    | 'top'
-    | 'bottom'
-    | 'left'
-    | 'right';
+    (typeof HMD_NOTIFICATION_POSITIONS)[number];
+export type HmdNotificationStylePreference = 'standard' | 'compact';
 export type TrustColorKey = keyof typeof TRUST_COLOR_DEFAULTS;
 export type DiscordPreferenceKey =
     | 'discordActive'
@@ -64,42 +53,33 @@ export type DiscordPreferenceKey =
     | 'discordWorldIntegration'
     | 'discordWorldNameAsDiscordStatus';
 
-export { normalizeOverlayActivityFilters };
-
-function hasPersistedOverlayActivityFilters(value: unknown): boolean {
-    if (!value) {
-        return false;
-    }
-    if (typeof value === 'string') {
-        try {
-            return hasPersistedOverlayActivityFilters(JSON.parse(value));
-        } catch {
-            return false;
-        }
-    }
-    const source = asRecord(value);
-    const wrist = asRecord(source.wrist);
-    return Boolean(wrist.types);
-}
-
-export function parseOverlayActivityFiltersPreference(value?: unknown) {
-    return hasPersistedOverlayActivityFilters(value)
-        ? parseOverlayActivityFilters(value)
-        : normalizeOverlayActivityFilters();
-}
-
 type BoundedIntOptions = {
     min?: number;
     max?: number;
     fallback?: number;
 };
 type PreferenceInputSnapshot = Record<string, unknown>;
+
+const EMPTY_ACTIVITY_FILTER_PROFILE: ActivityFilterProfile = Object.freeze({
+    version: 1,
+    types: {}
+});
 export type NotificationTtsNameMode = 'username' | 'note' | 'usernameAndNote';
 
 function asRecord(value: unknown): Record<string, unknown> {
     return value && typeof value === 'object'
         ? Object.fromEntries(Object.entries(value))
         : {};
+}
+
+function normalizeActivityFilterProfile(value: unknown): ActivityFilterProfile {
+    const types = asRecord(value).types;
+    return types && typeof types === 'object'
+        ? {
+              version: 1,
+              types: types as ActivityFilterProfile['types']
+          }
+        : EMPTY_ACTIVITY_FILTER_PROFILE;
 }
 
 function normalizeBool(value: unknown): boolean {
@@ -200,12 +180,19 @@ export function normalizeWristOverlayButton(
     return value === 'menu' ? 'menu' : 'grip';
 }
 
+export function normalizeHmdNotificationStyle(
+    value: unknown
+): HmdNotificationStylePreference {
+    return value === 'compact' ? 'compact' : 'standard';
+}
+
 export function normalizeHmdNotificationPosition(
     value: unknown
 ): HmdNotificationPositionPreference {
-    return value === 'top' || value === 'left' || value === 'right'
-        ? value
-        : 'bottom';
+    return (
+        HMD_NOTIFICATION_POSITIONS.find((position) => position === value) ??
+        'bottom'
+    );
 }
 
 export function normalizeTablePageSizes(value: unknown): number[] {
@@ -305,6 +292,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     accessibleStatusIndicators: false,
     showNewDashboardButton: true,
     recentActionCooldownEnabled: false,
+    autoDeclineFriendRequests: false,
     recentActionCooldownMinutes: 60,
     screenshotHelper: true,
     screenshotHelperModifyFilename: false,
@@ -338,8 +326,10 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     autoInstallUpdatesOnStartup: true,
     desktopToast: 'Never',
     afkDesktopToast: false,
+    overlayToast: 'Game Running',
     desktopNotificationSound: false,
     notificationDoNotDisturbEndOnGameStart: true,
+    busyStatusDoNotDisturb: true,
     notificationTTS: 'Never',
     notificationTTSNameMode: 'username',
     notificationTTSNickName: false,
@@ -354,8 +344,9 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     hmdNotificationsEnabled: false,
     hmdNotificationStartMode: 'vrchatVrMode',
     hmdNotificationTimeout: 5000,
-    hmdNotificationOpacity: 100,
+    hmdNotificationOpacity: 90,
     hmdNotificationPosition: 'bottom',
+    hmdNotificationStyle: 'standard',
     webhookEnabled: false,
     webhookAuthEventsEnabled: true,
     webhookUrl: '',
@@ -402,13 +393,13 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     localFavoriteFriendsGroups: [],
     feedHiddenUsers: [],
     feedHiddenUsersHideNotifications: true,
-    overlayActivityFilters: DEFAULT_OVERLAY_ACTIVITY_FILTERS,
-    vrNotificationActivityFilters: DEFAULT_VR_NOTIFICATION_ACTIVITY_FILTERS,
-    hmdNotificationActivityFilters: DEFAULT_HMD_NOTIFICATION_ACTIVITY_FILTERS,
-    desktopNotificationActivityFilters:
-        DEFAULT_VR_NOTIFICATION_ACTIVITY_FILTERS,
-    webhookActivityFilters: DEFAULT_WEBHOOK_ACTIVITY_FILTERS,
-    ttsNotificationActivityFilters: DEFAULT_TTS_NOTIFICATION_ACTIVITY_FILTERS,
+    hidePrivateFromFeed: false,
+    overlayActivityFilters: EMPTY_ACTIVITY_FILTER_PROFILE,
+    vrNotificationActivityFilters: EMPTY_ACTIVITY_FILTER_PROFILE,
+    hmdNotificationActivityFilters: EMPTY_ACTIVITY_FILTER_PROFILE,
+    desktopNotificationActivityFilters: EMPTY_ACTIVITY_FILTER_PROFILE,
+    webhookActivityFilters: EMPTY_ACTIVITY_FILTER_PROFILE,
+    ttsNotificationActivityFilters: EMPTY_ACTIVITY_FILTER_PROFILE,
     feedTimeDisplayMode: 'relative',
     trustColor: { ...TRUST_COLOR_DEFAULTS },
     youtubeAPI: false,
@@ -457,6 +448,9 @@ export function normalizePreferenceSnapshot(snapshot: unknown = {}) {
         showNewDashboardButton: normalizeBool(next.showNewDashboardButton),
         recentActionCooldownEnabled: normalizeBool(
             next.recentActionCooldownEnabled
+        ),
+        autoDeclineFriendRequests: normalizeBool(
+            next.autoDeclineFriendRequests
         ),
         recentActionCooldownMinutes: normalizeBoundedInt(
             next.recentActionCooldownMinutes,
@@ -514,10 +508,12 @@ export function normalizePreferenceSnapshot(snapshot: unknown = {}) {
         ),
         desktopToast: String(next.desktopToast || 'Never'),
         afkDesktopToast: normalizeBool(next.afkDesktopToast),
+        overlayToast: String(next.overlayToast || 'Game Running'),
         desktopNotificationSound: normalizeBool(next.desktopNotificationSound),
         notificationDoNotDisturbEndOnGameStart: normalizeBool(
             next.notificationDoNotDisturbEndOnGameStart
         ),
+        busyStatusDoNotDisturb: normalizeBool(next.busyStatusDoNotDisturb),
         notificationTTS: String(next.notificationTTS || 'Never'),
         notificationTTSNameMode: normalizeNotificationTtsNameMode(
             next.notificationTTSNameMode,
@@ -563,11 +559,14 @@ export function normalizePreferenceSnapshot(snapshot: unknown = {}) {
             {
                 min: 0,
                 max: 100,
-                fallback: 100
+                fallback: 90
             }
         ),
         hmdNotificationPosition: normalizeHmdNotificationPosition(
             next.hmdNotificationPosition
+        ),
+        hmdNotificationStyle: normalizeHmdNotificationStyle(
+            next.hmdNotificationStyle
         ),
         webhookEnabled: normalizeBool(next.webhookEnabled),
         webhookAuthEventsEnabled: normalizeBool(next.webhookAuthEventsEnabled),
@@ -643,24 +642,24 @@ export function normalizePreferenceSnapshot(snapshot: unknown = {}) {
         feedHiddenUsersHideNotifications: normalizeBool(
             next.feedHiddenUsersHideNotifications
         ),
-        overlayActivityFilters: parseOverlayActivityFiltersPreference(
+        hidePrivateFromFeed: normalizeBool(next.hidePrivateFromFeed),
+        overlayActivityFilters: normalizeActivityFilterProfile(
             next.overlayActivityFilters
         ),
-        vrNotificationActivityFilters: parseOverlayActivityFilterProfile(
+        vrNotificationActivityFilters: normalizeActivityFilterProfile(
             next.vrNotificationActivityFilters
         ),
-        hmdNotificationActivityFilters: parseHmdOverlayActivityFilterProfile(
+        hmdNotificationActivityFilters: normalizeActivityFilterProfile(
             next.hmdNotificationActivityFilters
         ),
-        desktopNotificationActivityFilters: parseOverlayActivityFilterProfile(
+        desktopNotificationActivityFilters: normalizeActivityFilterProfile(
             next.desktopNotificationActivityFilters
         ),
-        webhookActivityFilters: parseOverlayActivityFilterProfile(
-            next.webhookActivityFilters || DEFAULT_WEBHOOK_ACTIVITY_FILTERS
+        webhookActivityFilters: normalizeActivityFilterProfile(
+            next.webhookActivityFilters
         ),
-        ttsNotificationActivityFilters: parseOverlayActivityFilterProfile(
-            next.ttsNotificationActivityFilters ||
-                DEFAULT_TTS_NOTIFICATION_ACTIVITY_FILTERS
+        ttsNotificationActivityFilters: normalizeActivityFilterProfile(
+            next.ttsNotificationActivityFilters
         ),
         feedTimeDisplayMode: normalizeFeedTimeDisplayMode(
             next.feedTimeDisplayMode

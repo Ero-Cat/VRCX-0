@@ -72,7 +72,7 @@
         "date_range": "Период",
         "date_range_start": "Начало",
         "date_range_end": "Конец",
-        "loading": "Загрузка истории…",
+        "loading": "Загрузка истории",
         "load_error": "Не удалось загрузить историю просмотров.",
         "empty_title": "История пуста",
         "empty_description": "Открытые пользователи, миры, аватары и группы появятся здесь.",
@@ -133,10 +133,10 @@
         "entities_empty": "Люди и миры, упомянутые в ответах, появляются здесь.",
         "untitled": "Новый разговор",
         "close": "Закрыть",
-        "thinking": "Генерирую ответ…",
+        "thinking": "Генерирую ответ",
         "scroll_to_latest": "Прокрутить до конца",
         "connection": {
-            "checking": "Проверка связи...",
+            "checking": "Проверка связи",
             "ok": "Подключено",
             "error": "Ошибка подключения",
             "unconfigured": "Не настроено"
@@ -221,11 +221,11 @@
             "foreignContent": "В этой папке есть и другие файлы. VRCX-0 изменит только свои файлы."
         },
         "phase": {
-            "preparing": "Подготовка данных…",
-            "freezing": "Подготовка данных…",
-            "copying": "Копирование данных…",
-            "verifying": "Проверка скопированных данных…",
-            "committing": "Завершение смены папки…"
+            "preparing": "Подготовка данных",
+            "freezing": "Подготовка данных",
+            "copying": "Копирование данных",
+            "verifying": "Проверка скопированных данных",
+            "committing": "Завершение смены папки"
         },
         "error": {
             "operationBusy": "Уже выполняется резервное копирование, восстановление или перенос.",
@@ -274,7 +274,7 @@
         "start_existing": "Использовать имеющиеся данные",
         "start_fresh": "Использовать новую папку",
         "new_folder": "Новая папка",
-        "cancelling": "Отмена…",
+        "cancelling": "Отмена",
         "mode_description": {
             "adoptExisting": "Использовать записи и настройки из этой папки, не копируя текущие данные.",
             "freshStart": "Начать заново в новой папке, не копируя текущие данные. Из старой папки ничего не будет удалено."
@@ -526,7 +526,7 @@
         "menu": {
             "app": {
                 "about": "О VRCX-0",
-                "settings": "Настройки...",
+                "settings": "Настройки",
                 "checkUpdates": "Проверить обновления",
                 "restart": "Перезапустить VRCX-0",
                 "startBackgroundMode": "Перейти в фоновый режим",
@@ -548,7 +548,7 @@
             },
             "tools": {
                 "title": "Инструменты",
-                "allTools": "Все инструменты..."
+                "allTools": "Все инструменты"
             },
             "edit": {
                 "title": "Правка",
@@ -605,7 +605,7 @@
         "qq_group": "QQ-группа",
         "changelog": "Изменить журнал",
         "update": "Обновление",
-        "update_downloading": "Загрузка…",
+        "update_downloading": "Загрузка",
         "update_downloaded": "Перезапустить",
         "mark_all_read": "Отметить всё как прочитанное",
         "edit_dashboard": "Правка Dashboard",
@@ -719,7 +719,7 @@
         "help": "Справка",
         "preview_build_badge": "Строка просмотра",
         "devkit_build_badge": "Дев Кит",
-        "settings": "Параметры...",
+        "settings": "Параметры",
         "check_updates": "Проверка обновления",
         "restart": "Перезапустить VRCX-0",
         "start_background_mode": "Переключиться в фоновый режим",
@@ -763,7 +763,7 @@
     "shortcuts": {
         "tray": {
             "recording_failed": "Не удалось начать запись сочетания клавиш. Закройте это окно и попробуйте ещё раз.",
-            "checking": "Проверка сочетания клавиш…",
+            "checking": "Проверка сочетания клавиш",
             "background_hint": "При скрытии применяются настройки фонового режима и задержки.",
             "global": "Глобальные",
             "title": "Показать / Скрыть VRCX-0",
@@ -856,13 +856,13 @@
     },
     "side_panel": {
         "search_placeholder": "Поиск",
-        "search_input_placeholder": "Поиск или переход на страницу…",
+        "search_input_placeholder": "Поиск или переход на страницу",
         "search_pages": "Стр.",
         "search_scope_pages": "Перейти к странице",
         "search_pages_and_tools": "Страницы и инструменты",
         "search_scope_pages_and_tools": "Перейти на страницу или открыть инструмент",
         "search_no_results": "Ничего не найдено",
-        "search_categories": "Ищите...",
+        "search_categories": "Ищите",
         "search_recent": "Недавно открытые",
         "search_scope_all": "Имя, местная нота",
         "search_scope_avatars": "Собственные & избранные",
@@ -1014,7 +1014,7 @@
         "login": {
             "savedAccounts": "Сохраненные аккаунты",
             "login": "Вход",
-            "signingIn": "Подписываюсь...",
+            "signingIn": "Подписываюсь",
             "register": "Регистрация",
             "forgotPassword": "Забыли пароль?",
             "useOtherAccount": "Войти в другой аккаунт",
@@ -1038,7 +1038,7 @@
                 "title": "Удалить сохраненный аккаунт",
                 "description": "{name} будет удален",
                 "confirm": "Удалить",
-                "removing": "Удаление..."
+                "removing": "Удаление"
             }
         },
         "feed": {
@@ -1183,7 +1183,7 @@
                 "dense": "Плотность"
             },
             "show_same_instance_in_online": "Показывать тот же инстанс в статусе «В сети»",
-            "loading_more": "Загрузка больше...",
+            "loading_more": "Загрузка больше",
             "busy": "Занятые",
             "local_group": "Местные: {name}",
             "all_matching_friends": "Все совпадающие друзья",
@@ -1658,8 +1658,10 @@
                     "transfer": "Передача",
                     "queueReady": "Очередь готова",
                     "event": {
-                        "created": "Создано групповое мероприятие"
-                    }
+                        "created": "Создано групповое мероприятие",
+                        "starting": "Групповое мероприятие начинается"
+                    },
+                    "post": "Публикация группы"
                 },
                 "localNotifs": "Система",
                 "event": {
@@ -1672,7 +1674,8 @@
                     "report": {
                         "closed": "Запрос модерации закрыт"
                     },
-                    "contentrestriction": "Ограничение содержания умеренных веществ"
+                    "contentrestriction": "Ограничение содержания умеренных веществ",
+                    "notice": "Уведомление модерации"
                 },
                 "instance": {
                     "closed": "Инстанс закрыт"
@@ -1688,6 +1691,21 @@
                         "gift": "Получен подарок"
                     },
                     "alert": "Оповещение об экономике"
+                },
+                "avatarreview": {
+                    "success": "Аватар прошёл проверку",
+                    "failure": "Аватар не прошёл проверку"
+                },
+                "inviteInstanceContentGated": "Приглашение (ограниченный контент)",
+                "promo": {
+                    "redeem": "Промокод активирован"
+                },
+                "text": {
+                    "adventure": "Текстовое приключение"
+                },
+                "votetokick": "Голосование за исключение",
+                "twitchdrop": {
+                    "fulfilled": "Twitch Drop получен"
                 }
             },
             "description": {
@@ -1793,7 +1811,7 @@
                 "friend_locations_failed_to_load": "Места нахождения друзей не загружены"
             },
             "description": {
-                "cancelling": "Отмена..."
+                "cancelling": "Отмена"
             },
             "dynamic": {
                 "open_value": "Открыть {value}"
@@ -1821,7 +1839,7 @@
                     "stop": "Остановить",
                     "stop_fetching": "Остановить загрузку",
                     "go_to_friend": "Перейти к другу",
-                    "cancelling": "Отмена...",
+                    "cancelling": "Отмена",
                     "find_friend": "Найти друга",
                     "open_profile": "Открыть профиль",
                     "hide_from_graph": "Скрыть с графа",
@@ -1878,7 +1896,7 @@
             },
             "loading": {
                 "loading_instance_activity": "Деятельность, связанная с загрузкой груза",
-                "loading_graph": "Загрузка графика...",
+                "loading_graph": "Загрузка графика",
                 "loading_mutual_graph_snapshot": "Загрузка общих друзей"
             },
             "empty": {
@@ -2290,9 +2308,9 @@
                 "title": "Отправить отзыв",
                 "description": "По умолчанию анонимно. Сообщения об ошибках и предложения приветствуются.",
                 "privacy_note": "Данные аккаунта не прикрепляются.",
-                "placeholder": "Опишите, что произошло, чего вы ожидали и как воспроизвести…",
+                "placeholder": "Опишите, что произошло, чего вы ожидали и как воспроизвести",
                 "submit": "Отправить",
-                "submitting": "Отправка…",
+                "submitting": "Отправка",
                 "thanks": "Спасибо за ваш отзыв!",
                 "cooldown": "Отправить снова можно через {seconds} с",
                 "reply_note": "Если вам нужен ответ, укажите в отзыве адрес электронной почты.",
@@ -2311,7 +2329,9 @@
             },
             "social": {
                 "interaction": {
-                    "header": "Взаимодействие"
+                    "header": "Взаимодействие",
+                    "auto_decline_friend_requests": "Автоматически отклонять заявки в друзья от незнакомых",
+                    "auto_decline_friend_requests_description": "Отклоняет заявку в друзья, если в журнале игры VRCX-0 нет записей о том, что вы были в одном инстансе с отправителем. Встречи до использования VRCX-0 или при выключенном журнале игры не записываются, поэтому может быть отклонён и тот, с кем вы уже встречались."
                 },
                 "favorites": {
                     "header": "Избранное"
@@ -2330,7 +2350,9 @@
                     "remove": "Удалить скрытого друга",
                     "unknown_friend": "Неизвестный друг",
                     "hide_notifications": "Скрывать и в уведомлениях",
-                    "hide_notifications_description": "Смена их местоположения также не будет появляться в уведомлениях рабочего стола, TTS, VR-оверлеях, вебхуках и уведомлениях в приложении."
+                    "hide_notifications_description": "Смена их местоположения также не будет появляться в уведомлениях рабочего стола, TTS, VR-оверлеях, вебхуках и уведомлениях в приложении.",
+                    "hide_private_location_changes": "Не уведомлять о переходах в приватные миры",
+                    "hide_private_location_changes_description": "Когда друг переходит в приватный мир, уведомления на рабочем столе, TTS, VR-уведомления и вебхуки не отправляются. Лента наручного оверлея следует своей настройке скрытия приватных миров."
                 }
             },
             "vr": {
@@ -2343,8 +2365,10 @@
                     "position": "Позиция",
                     "position_bottom": "Снизу",
                     "position_top": "Сверху",
-                    "position_left": "Слева",
-                    "position_right": "Справа",
+                    "position_center": "По центру",
+                    "style": "Стиль баннера",
+                    "style_standard": "Стандартный",
+                    "style_compact": "Компактный",
                     "timeout": "Длительность показа",
                     "opacity": "Непрозрачность",
                     "filters": "Фильтры уведомлений в шлеме"
@@ -2528,7 +2552,7 @@
                     "font_family_geist": "Geist (по умолчанию)",
                     "font_family_system_ui": "Шрифт системы",
                     "font_family_description": "Выберите готовый вариант или используйте шрифты, установленные на этом устройстве.",
-                    "font_family_custom": "Пользовательский шрифт…",
+                    "font_family_custom": "Пользовательский шрифт",
                     "font_family_custom_dialog_title": "Выбор пользовательских шрифтов",
                     "font_family_custom_dialog_description": "Используйте шрифты, установленные на этом устройстве, или введите стек шрифтов CSS.",
                     "font_family_custom_invalid": "Неверный шрифт-семейство. Используйте запятую, разделенные на запятую имена шрифта, например \"Мой шрифт\", \"Ариал\", \"Sans-serif\"",
@@ -2542,8 +2566,8 @@
                     "font_family_custom_mode_label": "Источник шрифта",
                     "font_family_custom_mode_installed": "Установленные шрифты",
                     "font_family_custom_mode_css": "Стек шрифтов CSS",
-                    "font_family_custom_search_placeholder": "Поиск установленных шрифтов…",
-                    "font_family_custom_search_optional_placeholder": "Поиск необязательного резервного шрифта…",
+                    "font_family_custom_search_placeholder": "Поиск установленных шрифтов",
+                    "font_family_custom_search_optional_placeholder": "Поиск необязательного резервного шрифта",
                     "font_family_custom_no_results": "Подходящие шрифты не найдены.",
                     "font_family_custom_preview": "Просмотр",
                     "font_family_custom_preview_sample": "Быстрый коричневый лис / β",
@@ -2673,15 +2697,28 @@
                     "layout_table": "Уведомления Стр.",
                     "post_update_changelog_prompt": "Показывать список изменений после обновления",
                     "post_update_changelog_prompt_description": "Показывает нововведения после установки обновления.",
+                    "test_notification": {
+                        "header": "Тестовое уведомление",
+                        "description": "Отправляет пример события во все каналы уведомлений. Фильтры уведомлений не применяются, но переключатель, условие показа и режим «Не беспокоить» каждого канала продолжают действовать.",
+                        "send": "Отправить тестовое уведомление",
+                        "button": "Отправить",
+                        "message": "Это тестовое уведомление."
+                    },
                     "do_not_disturb": {
                         "header": "Не беспокоить",
                         "description": "Временно приостанавливает уведомления рабочего стола, TTS, XSOverlay, OVR Toolkit и всплывающие уведомления VRCX-0 в шлеме. Вебхуки, лента на запястье и история уведомлений продолжают работать.",
                         "end_on_game_start": "Отключать при запуске VRChat",
-                        "end_on_game_start_description": "Срабатывает только при переходе VRChat из остановленного состояния в запущенное. Режим можно снова включить во время игры."
+                        "end_on_game_start_description": "Срабатывает только при переходе VRChat из остановленного состояния в запущенное. Режим можно снова включить во время игры.",
+                        "busy_status": "Включать при статусе «Занят»",
+                        "busy_status_description": "Пока ваш статус в VRChat — «Занят», уведомления приостанавливаются, как в режиме «Не беспокоить»."
                     },
                     "vr_notifications": {
                         "header": "VR Уведомления о накладных расходах",
+                        "when_to_display": "Показывать уведомления VR-оверлея",
+                        "when_to_display_description": "Действует для уведомлений в шлеме, XSOverlay и OVR Toolkit.",
+                        "when_to_display_description_linux": "Действует для уведомлений в шлеме и WayVR.",
                         "xsoverlay_notifications": "XSOverlay Уведомления",
+                        "wayvr_notifications": "Уведомления WayVR",
                         "ovrtoolkit_hud_notifications": "OVR Toolkit HUD Уведомления",
                         "ovrtoolkit_wrist_notifications": "OVR Toolkit Уведомления о рейсте",
                         "notification_filters": "VR Фильтры уведомления о накладных устройствах",
@@ -2819,7 +2856,7 @@
                     "storage": {
                         "header": "Хранилище и очистка",
                         "data_location": "Расположение данных",
-                        "change_folder": "Изменить папку…",
+                        "change_folder": "Изменить папку",
                         "more": "Другие действия с расположением данных",
                         "restore_default": "Восстановить расположение по умолчанию",
                         "cache_header": "Автоматически очищать кэш VRChat",
@@ -2840,14 +2877,40 @@
                         "online_users": "Пользователи VRChat в сети",
                         "refresh_online_users": "Обновить список пользователей в сети",
                         "vrchat_config": "Конфигурация VRChat",
-                        "view_config": "Просмотреть…",
+                        "view_config": "Просмотреть",
                         "hide_config": "Скрыть"
                     },
                     "import_recovery": {
                         "header": "Импорт и восстановление",
                         "import_from_vrcx": "Импортировать из VRCX",
                         "description": "Заменить текущие конфигурацию и базу данных VRCX-0 данными из фиксированной папки VRCX.",
-                        "review": "Проверить импорт…"
+                        "review": "Проверить импорт",
+                        "game_log": {
+                            "label": "Импорт журнала игры из логов VRChat",
+                            "description": "Восстанавливает историю журнала игры за периоды, когда VRCX-0 не был запущен, по локальным лог-файлам VRChat. Существующие записи пропускаются.",
+                            "select": "Выбрать лог-файлы",
+                            "dialog_title": "Импорт журнала игры",
+                            "integrity_notice": "Выберите исходные лог-файлы, созданные VRChat на этом компьютере. В изменённых, неполных логах и логах из другого часового пояса время будет смещено, а повторяющиеся записи не удастся распознать.",
+                            "backup_notice": "Импортированные записи сразу сохраняются в базе данных, и их нельзя отменить одним действием. Рекомендуется предварительно создать резервную копию.",
+                            "open_backup": "Создать резервную копию",
+                            "status_ready": "Готово к импорту",
+                            "status_account_unverified": "Не удаётся проверить аккаунт",
+                            "status_account_unverified_skipped": "Не удаётся проверить аккаунт · пропущено",
+                            "status_account_mismatch": "Принадлежит другому аккаунту",
+                            "status_account_mismatch_skipped": "Принадлежит другому аккаунту · пропущено",
+                            "status_live_file": "Файл используется VRChat · закройте игру и повторите попытку",
+                            "status_unreadable": "Не удаётся прочитать файл",
+                            "inserted": "Импортировано записей: {{count}}",
+                            "nothing_new": "Все записи уже существуют",
+                            "unverified_warning": "Некоторые логи не содержат сведений об аккаунте, выполнившем вход. Если они созданы вашим аккаунтом, отметьте пункт ниже, чтобы включить их. Если подтвердить это нельзя, оставьте пункт неотмеченным: записи другого аккаунта нарушат вашу историю.",
+                            "confirm_unverified": "Подтверждаю, что эти логи созданы моим аккаунтом",
+                            "mismatch_warning": "Некоторые логи принадлежат другому аккаунту, например дополнительному. При импорте их записи будут добавлены в историю этого аккаунта, смешаются с вашими и впоследствии не смогут быть разделены. При сомнениях оставьте пункт неотмеченным.",
+                            "confirm_mismatch": "Я понимаю последствия и всё равно добавляю логи другого аккаунта в этот аккаунт",
+                            "import": "Импортировать",
+                            "done": "Готово",
+                            "done_hint": "Импортированные записи теперь отображаются в журнале игры.",
+                            "failed": "Не удалось завершить импорт"
+                        }
                     },
                     "usage_data": {
                         "header": "Данные об использовании",
@@ -2856,7 +2919,7 @@
                     },
                     "danger": {
                         "avatar_history": "История аватаров",
-                        "delete": "Удалить…"
+                        "delete": "Удалить"
                     }
                 },
                 "advanced": {
@@ -3651,7 +3714,7 @@
             "global_enabled": "Запускать приложения вместе с VRChat",
             "add_app": "Добавить приложение",
             "choose_target": "Выбрать цель",
-            "loading": "Загрузка…",
+            "loading": "Загрузка",
             "enabled": "Включено",
             "name": "Имя",
             "scope": "Сфера применения",
@@ -3714,7 +3777,7 @@
                 "invite": "Пригласить",
                 "request_invite": "Запросить приглашение",
                 "invite_to_group": "Пригласить в группу",
-                "group_actions": "Группа...",
+                "group_actions": "Группа",
                 "group_moderation": "Модерация группы",
                 "send_boop": "Отправить Буп",
                 "accept_friend_request": "Принять запрос в друзья",
@@ -3733,7 +3796,7 @@
                 "reset_hidden_avatar": "Сбросить скрытый аватар",
                 "reset_shown_avatar": "Сбросить показанный аватар",
                 "reset_avatar_visibility": "Сбросить видимость аватара",
-                "moderation_actions": "Умерение...",
+                "moderation_actions": "Умерение",
                 "moderation_enable_avatar_interaction": "Включить взаимодействие с аватаром",
                 "moderation_disable_avatar_interaction": "Отключить взаимодействие с аватаром",
                 "moderation_enable_chatbox": "Включить Chatbox",
@@ -3747,8 +3810,8 @@
             },
             "group_invite": {
                 "description": "Выберите группу, в которую хотите пригласить {value}.",
-                "select_group": "Выберите группу...",
-                "loading": "Загрузка групп, в которые можно приглашать...",
+                "select_group": "Выберите группу",
+                "loading": "Загрузка групп, в которые можно приглашать",
                 "no_groups": "Нет групп, в которые вы можете приглашать пользователей",
                 "load_failed": "Не удалось загрузить группы",
                 "permissions_degraded": "Не удалось проверить некоторые права в группах. В списке могут быть группы, в которые вы не можете приглашать пользователей."
@@ -3757,13 +3820,13 @@
                 "title": "Управление в ваших группах",
                 "target": "Целевой пользователь",
                 "member": "Член",
-                "loading": "Разрешение группы...",
+                "loading": "Разрешение группы",
                 "kick_section": "Удар по группе",
                 "ban_section": "Запрет на участие в группе",
                 "groups_count": "{count} группы",
                 "no_kickable": "Не состоит ни в одной группе, которой вы управляете",
                 "no_bannable": "Нет групп, где вы можете управлять банами",
-                "select_group": "Выберите группу...",
+                "select_group": "Выберите группу",
                 "select_group_hint": "Выберите группу для бана",
                 "ban_ready": "Забанить этого пользователя в выбранной группе",
                 "detailed": "Подробное руководство",
@@ -3919,13 +3982,13 @@
                 },
                 "most_visited_worlds": {
                     "header": "Большинство посещаемых миров",
-                    "loading": "Загрузка большинства посещенных миров...",
+                    "loading": "Загрузка большинства посещенных миров",
                     "exclude_home_world": "Исключая родной мир",
                     "sort_by_time": "Ко времени",
                     "sort_by_count": "Посещения",
                     "visit_count_label": "{count} посещения"
                 },
-                "preparing_data": "Подготовка данных о деятельности...",
+                "preparing_data": "Подготовка данных о деятельности",
                 "preparing_data_hint": "Это может занять мгновение при первой нагрузке",
                 "failed_to_load": "Не удалось загрузить"
             },
@@ -3949,10 +4012,10 @@
                 "unfriend_was_not_sent_because_the_active_account_changed": "Unfriend wasn't sent because the active account changed. Refresh and try again."
             },
             "loading": {
-                "loading_activity": "Загрузка...",
+                "loading_activity": "Загрузка",
                 "loading_user_profile": "Загрузка профиля пользователя",
                 "loading_languages": "Загрузка языков",
-                "loading": "Загрузка..."
+                "loading": "Загрузка"
             },
             "label": {
                 "please_choose_a_valid_social_status": "Пожалуйста, выберите действительный социальный статус",
@@ -4389,7 +4452,7 @@
             "performance": {
                 "header": "Производительность",
                 "rating": "Оценка",
-                "analysis_loading": "Загрузка подробного анализа производительности…",
+                "analysis_loading": "Загрузка подробного анализа производительности",
                 "analysis_pending": "Подробный анализ производительности ещё не готов. Обновите данные аватара, чтобы повторить попытку.",
                 "analysis_unavailable": "Подробный анализ производительности недоступен для этой платформы.",
                 "yes": "Да",
@@ -4596,7 +4659,7 @@
             "loading": {
                 "loading_group_profile": "Загрузка профиля группы",
                 "fetching_the_current_vrchat_group_snapshot_for_this_dialog": "Загрузка сведений о группе",
-                "loading": "Загрузка..."
+                "loading": "Загрузка"
             },
             "error": {
                 "group_profile_unavailable": "Групповой профиль недоступен",
@@ -5237,6 +5300,7 @@
                 "OnPlayerJoining": "Присоединиться к игроку",
                 "OnPlayerJoined": "Игрок присоединился",
                 "OnPlayerLeft": "Игрок слева",
+                "LobbyAvatarChange": "Смена аватара в инстансе",
                 "AvatarChange": "Аватарная перемена",
                 "Online": "Онлайн",
                 "Offline": "Офлайн",
@@ -5249,16 +5313,14 @@
                 "Bio": "Изменение био",
                 "groupChange": "Изменение группы",
                 "group_announcement": "Групповое объявление",
+                "group_event_created": "Создано групповое мероприятие",
+                "group_event_starting": "Скоро начнётся групповое мероприятие",
                 "group_informative": "Группа Присоединиться",
                 "group_invite": "Приглашение группы",
                 "group_joinRequest": "Запрос на вступление в группу",
                 "group_transfer": "Запрос на передачу группы",
                 "Event": "Мероприятие",
                 "External": "Внешние приложения",
-                "Blocked": "Заблокировано",
-                "Unblocked": "Незаблокировано",
-                "Muted": "Выключено",
-                "Unmuted": "Невзвешенные",
                 "BlockedOnPlayerJoined": "Заблокированный игрок присоединился",
                 "BlockedOnPlayerLeft": "Заблокированный игрок вышел",
                 "MutedOnPlayerJoined": "Заглушённый игрок присоединился",
@@ -5297,7 +5359,7 @@
                 "details": "Подробности"
             },
             "loading": {
-                "loading_instance_details": "Загрузка..."
+                "loading_instance_details": "Загрузка"
             },
             "error": {
                 "failed_to_copy_instance_id": "Не удалось скопировать ID инстанса",
@@ -5345,10 +5407,10 @@
             "select_all": "Выбрать все",
             "selected_users_count": "Выбрано: {count}",
             "notes": "Заметки",
-            "note_placeholder": "Добавьте заметку для выбранных участников...",
+            "note_placeholder": "Добавьте заметку для выбранных участников",
             "selected_roles": "Роли",
             "roles_count": "Выбрано ролей: {count}",
-            "choose_roles_placeholder": "Выберите роли...",
+            "choose_roles_placeholder": "Выберите роли",
             "add_roles": "Добавить роли",
             "remove_roles": "Удалить роли",
             "save_note": "Сохранить заметку",
@@ -5387,12 +5449,12 @@
         },
         "group_calendar": {
             "header": "Календарь группы",
-            "loading_events": "Загрузка событий...",
+            "loading_events": "Загрузка событий",
             "description": "Показать групповые события для выбранной даты.",
             "list_view": "Просмотр списком",
             "calendar_view": "Просмотр календаря",
             "no_events": "Событий не найдено",
-            "search_placeholder": "Поиск групп или событий...",
+            "search_placeholder": "Поиск групп или событий",
             "search_no_matching": "Соответствующих событий не найдено",
             "search_no_this_month": "В этом месяце нет событий",
             "event_card": {
@@ -5441,7 +5503,7 @@
             "support_description": "Звезда на GitHub — самый простой способ поддержать проект.",
             "star_on_github": "Звезда включёна. GitHub",
             "support_development": "Поддержка развития",
-            "loading": "Загрузка журнала изменений...",
+            "loading": "Загрузка журнала изменений",
             "failed_to_load": "Не удалось загрузить журнал изменений.",
             "latest_release": "Последний выпуск",
             "empty": "Для этого выпуска журнал изменений недоступен.",
@@ -5451,7 +5513,7 @@
         },
         "open_source": {
             "header": "Уведомления о сторонних компонентах",
-            "loading": "Загрузка уведомлений третьих сторон...",
+            "loading": "Загрузка уведомлений третьих сторон",
             "unavailable": "В этой сборке нет сгенерированного манифеста уведомлений о сторонних компонентах. Выполните production-сборку, чтобы его создать.",
             "search_placeholder": "Поиск пакетов, версий или лицензий",
             "notice_location_prefix": "Местоположение файла полных уведомлений в каталоге приложений:",
@@ -5525,19 +5587,11 @@
         "tools": {
             "label": {
                 "prompt_value": "Оперативная стоимость",
-                "notifications": "Уведомления",
-                "unread": "непрочитанный",
-                "runtime_events_and_system_messages_land_here": "Здесь появляются текущие события и системные сообщения.",
-                "notifications_are_surfaced_from_the_top_level_status_bar": "Уведомления отображаются в строке состояния сверху",
                 "follow_event": "Последующая деятельность",
                 "unfollow_event": "Неследующие события"
             },
             "action": {
-                "mark_all_read": "Отметить всё как прочитанное",
                 "copy_event_link": "Скопировать ссылку на события"
-            },
-            "empty": {
-                "no_notifications_yet": "Уведомлений пока нет."
             },
             "error": {
                 "failed_to_download_ics_file_invalid_icalendar_content": "Не удалось загрузить файл .ics, неправильное содержание iCalendar"
@@ -5659,7 +5713,7 @@
             "header": "Прямой доступ",
             "description_failed": "Прямой доступ не сработал. Проверьте URL или ID и попробуйте еще раз.",
             "message": {
-                "opening": "Открытие..."
+                "opening": "Открытие"
             }
         },
         "rename_world": {
@@ -5719,7 +5773,7 @@
         }
     },
     "message": {
-        "auto_login_delay_countdown": "Автологин {seconds}С...",
+        "auto_login_delay_countdown": "Автологин {seconds}С",
         "auth": {
             "logout_greeting": "Увидимся. {name}!",
             "account_removed": "Удаление аккаунта",
@@ -5760,7 +5814,7 @@
             "legacy_vrcx_force_migration": "Мигрировать принудительно",
             "migration_skip": "Пропустить",
             "migration_restarting_title": "Миграция данных",
-            "migration_restarting": "VRCX-0 перезапустится для завершения миграции...",
+            "migration_restarting": "VRCX-0 перезапустится для завершения миграции",
             "upgrade_in_progress_title": "Идёт обновление базы данных",
             "maintenance_in_progress_title": "Идёт обслуживание базы данных",
             "maintenance_in_progress_description": "Освобождается место на диске. Доступ к базе данных приостановлен до завершения.",
@@ -5791,7 +5845,7 @@
             "use_new_database": "Использовать новую базу",
             "fresh_start_confirm_title": "Использовать новую базу данных?",
             "fresh_start_confirm_description": "VRCX-0 сохранит текущую базу и файлы неудачного обновления в папке восстановления, а затем перезапустится с новой пустой базой. Настройки, локальная история и сохранённые данные учётных записей не будут перенесены в новую базу.",
-            "fresh_start_restarting": "Текущая база архивируется, VRCX-0 перезапускается...",
+            "fresh_start_restarting": "Текущая база архивируется, VRCX-0 перезапускается",
             "fresh_start_failed": "Не удалось создать новую базу данных.",
             "upgrade_keep_open": "Не закрывайте VRCX-0, пока обновление не завершится.",
             "failure_reason": "Причина",
@@ -5849,7 +5903,7 @@
             "downloading": "Загрузка изображения",
             "copied_to_clipboard": "Фото скопировано в буфер обмена",
             "preview_title": "Просмотр изображения",
-            "loading": "Загрузка изображения...",
+            "loading": "Загрузка изображения",
             "load_failed": "Не удалось загрузить изображение",
             "copy": "Копировать изображение",
             "download": "Загрузить изображение",
@@ -5917,24 +5971,19 @@
         "trust_level": "Уровень доверия теперь: {trustLevel}",
         "display_name": "сменил(а) имя на {displayName}",
         "group_announcement_title": "Групповое объявление",
+        "group_event_created_title": "Создано групповое мероприятие",
+        "group_event_starting_title": "Скоро начнётся групповое мероприятие",
         "group_informative_title": "Информационная группа",
         "group_invite_title": "Приглашение группы",
         "group_join_request_title": "Запрос на вступление в группу",
         "group_transfer_request_title": "Запрос на передачу группы",
         "group_queue_ready_title": "Случай кьюэ готов",
         "instance_closed_title": "Дело закрыто",
-        "portal_spawn_name": "создал(а) портал в {location}",
-        "portal_spawn": "Пользователь создал портал",
         "avatar_change": "сменил(а) аватар на {avatar}",
-        "chat_message": "сказал: {message}",
         "blocked_player_joined": "Заблокированный пользователь присоединился",
         "blocked_player_left": "Заблокированный пользователь ушел",
         "muted_player_joined": "Заглушённый пользователь присоединился",
-        "muted_player_left": "Заглушённый пользователь вышел",
-        "blocked": "это заблокировало тебя",
-        "unblocked": "разблокировал тебя",
-        "muted": "омрачил тебя.",
-        "unmuted": "Отменил(а) ваше заглушение"
+        "muted_player_left": "Заглушённый пользователь вышел"
     },
     "location": {
         "offline": "Офлайн",
@@ -6039,6 +6088,7 @@
             "world": "Мир",
             "instance_name": "Имя инстанса",
             "instance_creator": "Создатель инстанса",
+            "avatars": "Аватары",
             "time": "Время",
             "action": "Действие",
             "joined": "Присоединился",
@@ -6323,7 +6373,7 @@
             },
             "group_moderation": {
                 "picker_description": "Выберите группу для управления участниками, банами, приглашениями и заявками на вступление.",
-                "loading": "Загрузка групп, которые вы модерируете…",
+                "loading": "Загрузка групп, которые вы модерируете",
                 "empty_title": "Нет групп для модерации",
                 "empty_description": "У вас пока нет прав модератора ни в одной из ваших групп.",
                 "permissions_degraded": "Не удалось проверить некоторые права группы. Список ниже может быть неполным.",
@@ -6357,19 +6407,14 @@
             },
             "action": {
                 "refresh_config_failed_after_upgrade": "VRCX-0 обновил базу данных, но не смог обновить локальную конфигурацию. Перезапустите приложение.",
-                "requesting_legacy_migration": "Подготовка к переносу ваших существующих данных VRCX...",
-                "skipping_legacy_migration": "Пропуск миграции, настройка базы данных..."
+                "requesting_legacy_migration": "Подготовка к переносу ваших существующих данных VRCX",
+                "skipping_legacy_migration": "Пропуск миграции, настройка базы данных"
             }
         },
         "favorite_import_service": {
             "dynamic": {
                 "value_import_complete": "{value} импорт завершен",
                 "value_item_s_imported": "Импортировано элементов: {value}"
-            }
-        },
-        "shared_feed_notification_service": {
-            "dynamic": {
-                "feed_value": "Лента: {value}"
             }
         },
         "tool_action_service": {

@@ -5,8 +5,8 @@ use std::sync::{Arc, Mutex};
 use serde_json::Value;
 use tokio::sync::{broadcast, watch};
 use vrcx_0_application_core::{
-    FileCache, HostSessionRuntime, InstanceDwellRegistry, LocalGameContextSnapshot,
-    LocalGameContextSource, OverlayActivityInputSink, PrintCleanupInputSink,
+    ActivityIngress, FileCache, HostSessionRuntime, InstanceDwellRegistry,
+    LocalGameContextSnapshot, LocalGameContextSource, PrintCleanupInputSink,
     RealtimeNotificationProjectionObserver, RemoteMutationGate, RuntimeAuthScope, RuntimeEventBus,
     RuntimeSyncEngine, TaskSupervisor, WebClient, WorldCache,
 };
@@ -215,7 +215,7 @@ pub struct RealtimeHostRuntimeDeps {
     pub auth_scope: RuntimeAuthScope,
     pub remote_mutations: Arc<RemoteMutationGate>,
     pub local_game_context: Arc<dyn LocalGameContextSource>,
-    pub activity_sink: Option<Arc<dyn OverlayActivityInputSink>>,
+    pub activity: Option<Arc<dyn ActivityIngress>>,
     pub notification_projection_observer: Option<Arc<dyn RealtimeNotificationProjectionObserver>>,
     pub world_cache: Arc<WorldCache>,
     pub file_cache: FileCache,
@@ -240,7 +240,7 @@ impl RealtimeHostRuntimeDeps {
         auth_scope: RuntimeAuthScope,
         remote_mutations: Arc<RemoteMutationGate>,
         local_game_context: Arc<dyn LocalGameContextSource>,
-        activity_sink: Option<Arc<dyn OverlayActivityInputSink>>,
+        activity: Option<Arc<dyn ActivityIngress>>,
         notification_projection_observer: Option<Arc<dyn RealtimeNotificationProjectionObserver>>,
         world_cache: Arc<WorldCache>,
         file_cache: FileCache,
@@ -262,7 +262,7 @@ impl RealtimeHostRuntimeDeps {
             auth_scope,
             remote_mutations,
             local_game_context,
-            activity_sink,
+            activity,
             notification_projection_observer,
             world_cache,
             file_cache,

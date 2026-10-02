@@ -1,8 +1,8 @@
-use serde_json::json;
 use vrcx_0_application_activity::{
-    OverlayActivityActorRelation, OverlayActivityCategory, OverlayActivityContent,
-    OverlayActivityEntry, OverlayActivitySnapshot, OverlayActivityText,
+    ActivityActorRelation, ActivityCategory, ActivityContent, ActivityEntry, ActivitySnapshot,
+    ActivityText,
 };
+use vrcx_0_contracts::activity::ActivityKind;
 use vrcx_0_host_desktop::vr_overlay::{VrDeviceSnapshot, VrDeviceStatus};
 use vrcx_0_overlay_runtime::{
     build_wrist_surface_model, WristOverlayFrameInput, WristOverlayRenderOptions,
@@ -14,26 +14,16 @@ use vrcx_0_vr_overlay::{
 
 #[test]
 fn wrist_builder_keeps_renderer_model_free_of_application_entry_shape() {
-    let snapshot = OverlayActivitySnapshot {
+    let snapshot = ActivitySnapshot {
         entries: vec![
             activity_entry(
                 1,
                 "Online",
-                OverlayActivityCategory::FavoriteMovement,
+                ActivityCategory::FavoriteMovement,
                 "Ada online",
             ),
-            activity_entry(
-                2,
-                "invite",
-                OverlayActivityCategory::ActionRequired,
-                "Mika invite",
-            ),
-            activity_entry(
-                3,
-                "Event",
-                OverlayActivityCategory::SystemSafety,
-                "Safety event",
-            ),
+            activity_entry(2, "invite", ActivityCategory::ActionRequired, "Mika invite"),
+            activity_entry(3, "Event", ActivityCategory::SystemSafety, "Safety event"),
         ],
     };
     let model = build_wrist_surface_model(WristOverlayFrameInput {
@@ -74,13 +64,13 @@ fn wrist_builder_keeps_renderer_model_free_of_application_entry_shape() {
 
 #[test]
 fn wrist_builder_maps_feed_icon_types_to_matching_accents() {
-    let snapshot = OverlayActivitySnapshot {
+    let snapshot = ActivitySnapshot {
         entries: [
             "GPS",
             "Online",
             "Offline",
             "Status",
-            "Avatar",
+            "AvatarChange",
             "Bio",
             "OnPlayerJoined",
         ]
@@ -90,7 +80,7 @@ fn wrist_builder_maps_feed_icon_types_to_matching_accents() {
             activity_entry(
                 index as u64,
                 activity_type,
-                OverlayActivityCategory::FavoriteMovement,
+                ActivityCategory::FavoriteMovement,
                 activity_type,
             )
         })
@@ -129,21 +119,21 @@ fn wrist_builder_maps_feed_icon_types_to_matching_accents() {
 
 #[test]
 fn wrist_builder_preserves_actor_relation_for_renderer_highlighting() {
-    let snapshot = OverlayActivitySnapshot {
+    let snapshot = ActivitySnapshot {
         entries: vec![
             activity_entry_with_relation(
                 1,
                 "OnPlayerJoined",
-                OverlayActivityCategory::CurrentInstance,
+                ActivityCategory::CurrentInstance,
                 "Friend User",
-                OverlayActivityActorRelation::Friend,
+                ActivityActorRelation::Friend,
             ),
             activity_entry_with_relation(
                 2,
                 "OnPlayerJoined",
-                OverlayActivityCategory::CurrentInstance,
+                ActivityCategory::CurrentInstance,
                 "Favorite User",
-                OverlayActivityActorRelation::Favorite,
+                ActivityActorRelation::Favorite,
             ),
         ],
     };
@@ -168,13 +158,13 @@ fn wrist_builder_preserves_actor_relation_for_renderer_highlighting() {
 
 #[test]
 fn wrist_builder_keeps_enough_feed_rows_for_expanded_compact_layout() {
-    let snapshot = OverlayActivitySnapshot {
+    let snapshot = ActivitySnapshot {
         entries: (1..=18)
             .map(|sequence| {
                 activity_entry(
                     sequence,
                     "OnPlayerJoined",
-                    OverlayActivityCategory::CurrentInstance,
+                    ActivityCategory::CurrentInstance,
                     &format!("User {sequence} joined"),
                 )
             })
@@ -340,7 +330,7 @@ fn now_playing_input(
     live_now_playing: bool,
 ) -> WristOverlayFrameInput {
     WristOverlayFrameInput {
-        activity: OverlayActivitySnapshot::default(),
+        activity: ActivitySnapshot::default(),
         devices: Vec::new(),
         now_playing: Some(now_playing),
         live_now_playing,
@@ -354,37 +344,37 @@ fn now_playing_input(
 fn activity_entry(
     sequence: u64,
     activity_type: &str,
-    category: OverlayActivityCategory,
+    category: ActivityCategory,
     summary: &str,
-) -> OverlayActivityEntry {
+) -> ActivityEntry {
     activity_entry_with_relation(
         sequence,
         activity_type,
         category,
         summary,
-        OverlayActivityActorRelation::None,
+        ActivityActorRelation::None,
     )
 }
 
 fn activity_entry_with_relation(
     sequence: u64,
     activity_type: &str,
-    category: OverlayActivityCategory,
+    category: ActivityCategory,
     summary: &str,
-    actor_relation: OverlayActivityActorRelation,
-) -> OverlayActivityEntry {
-    OverlayActivityEntry {
+    actor_relation: ActivityActorRelation,
+) -> ActivityEntry {
+    ActivityEntry {
         sequence,
         source_id: format!("source-{sequence}"),
-        activity_type: activity_type.to_string(),
+        kind: ActivityKind::from_key(activity_type).expect("known activity kind"),
         category,
         created_at: "2026-06-01T12:34:56.000Z".to_string(),
         actor_user_id: format!("usr_{sequence}"),
         actor_display_name: format!("User {sequence}"),
-        content: OverlayActivityContent {
+        content: ActivityContent {
             icon: String::new(),
-            title: OverlayActivityText::literal(summary),
-            body: OverlayActivityText::literal(summary),
+            title: ActivityText::literal(summary),
+            body: ActivityText::literal(summary),
             summary: summary.to_string(),
             detail: summary.to_string(),
             location: String::new(),
@@ -394,9 +384,8 @@ fn activity_entry_with_relation(
             status_description: String::new(),
             avatar_name: String::new(),
             image_url: String::new(),
-            ..OverlayActivityContent::default()
+            ..ActivityContent::default()
         },
         actor_relation,
-        payload: json!({}).into(),
     }
 }

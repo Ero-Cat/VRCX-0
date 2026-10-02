@@ -1,14 +1,12 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use serde_json::json;
 use vrcx_0_application_activity::notification::{
     auth_webhook_generic_payload, auth_webhook_is_enabled, auth_webhook_should_recover,
     AuthWebhookEvent, AuthWebhookEventKind,
 };
 use vrcx_0_application_activity::{
-    OverlayActivityActorRelation, OverlayActivityCategory, OverlayActivityContent,
-    OverlayActivityDelivery, OverlayActivityEntry,
+    ActivityActorRelation, ActivityCategory, ActivityContent, ActivityDelivery, ActivityEntry,
 };
 use vrcx_0_application_core::{
     BackendRuntimeAuthStatus, BackendRuntimeGameLogStatus, BackendRuntimeMode, BackendRuntimePhase,
@@ -39,6 +37,7 @@ fn vr_delivery_requires_steamvr_and_enabled_channels() {
             is_game_running: true,
             is_steamvr_running: false,
             is_game_no_vr: true,
+            is_hmd_afk: false,
         },
     );
     assert!(!not_in_vr.xs);
@@ -51,12 +50,67 @@ fn vr_delivery_requires_steamvr_and_enabled_channels() {
             is_game_running: true,
             is_steamvr_running: true,
             is_game_no_vr: false,
+            is_hmd_afk: false,
         },
     );
     assert!(in_vr.xs);
-    assert!(in_vr.ovrt);
-    assert!(in_vr.ovrt_hud);
-    assert!(in_vr.ovrt_wrist);
+    assert_eq!(in_vr.ovrt, cfg!(windows));
+}
+
+#[test]
+fn ovr_toolkit_is_only_planned_on_windows() {
+    let plan = decide_notification_plan(
+        &delivery(false, true, false, false),
+        &NotificationDeliveryPreferences {
+            ovrt_hud_notifications: true,
+            ovrt_wrist_notifications: true,
+            ..NotificationDeliveryPreferences::default()
+        },
+        &NotificationDeliveryGameState {
+            is_game_running: true,
+            is_steamvr_running: true,
+            is_game_no_vr: false,
+            is_hmd_afk: false,
+        },
+    );
+
+    assert_eq!(
+        (
+            plan.ovrt,
+            plan.ovrt_hud,
+            plan.ovrt_wrist,
+            plan.needs_local_image()
+        ),
+        (cfg!(windows), cfg!(windows), cfg!(windows), cfg!(windows))
+    );
+}
+
+#[test]
+fn each_local_channel_only_follows_its_own_router_flag() {
+    let preferences = NotificationDeliveryPreferences {
+        desktop_toast: NotificationDeliveryCondition::Always,
+        overlay_toast: NotificationDeliveryCondition::Always,
+        notification_tts: NotificationDeliveryCondition::Always,
+        xs_notifications: true,
+        ovrt_hud_notifications: true,
+        ..NotificationDeliveryPreferences::default()
+    };
+    let game = NotificationDeliveryGameState {
+        is_game_running: true,
+        is_steamvr_running: true,
+        is_game_no_vr: false,
+        is_hmd_afk: false,
+    };
+    let channels = |desktop, vr, tts| {
+        let plan =
+            decide_notification_plan(&delivery(desktop, vr, false, tts), &preferences, &game);
+        (plan.desktop, plan.xs, plan.tts)
+    };
+
+    assert_eq!(channels(true, false, false), (true, false, false));
+    assert_eq!(channels(false, true, false), (false, true, false));
+    assert_eq!(channels(false, false, true), (false, false, true));
+    assert_eq!(channels(false, false, false), (false, false, false));
 }
 
 #[test]
@@ -171,6 +225,88 @@ fn backend_snapshot(
 }
 
 #[test]
+fn desktop_delivery_follows_the_afk_switch_while_the_headset_is_off() {
+    let afk_in_vr = NotificationDeliveryGameState {
+        is_game_running: true,
+        is_steamvr_running: true,
+        is_game_no_vr: false,
+        is_hmd_afk: true,
+    };
+    let switch = |afk_desktop_toast| NotificationDeliveryPreferences {
+        afk_desktop_toast,
+        ..NotificationDeliveryPreferences::default()
+    };
+
+    assert!(
+        !decide_notification_plan(
+            &delivery(true, false, false, false),
+            &switch(false),
+            &afk_in_vr
+        )
+        .desktop
+    );
+    assert!(
+        decide_notification_plan(
+            &delivery(true, false, false, false),
+            &switch(true),
+            &afk_in_vr
+        )
+        .desktop
+    );
+    assert!(
+        !decide_notification_plan(
+            &delivery(true, false, false, false),
+            &switch(true),
+            &NotificationDeliveryGameState {
+                is_hmd_afk: false,
+                ..afk_in_vr
+            }
+        )
+        .desktop
+    );
+    assert!(
+        !decide_notification_plan(
+            &delivery(true, false, false, false),
+            &switch(true),
+            &NotificationDeliveryGameState {
+                is_game_no_vr: true,
+                ..afk_in_vr
+            }
+        )
+        .desktop
+    );
+}
+
+#[test]
+fn external_vr_overlays_follow_the_overlay_condition() {
+    let in_vr = NotificationDeliveryGameState {
+        is_game_running: false,
+        is_steamvr_running: true,
+        is_game_no_vr: false,
+        is_hmd_afk: false,
+    };
+    let condition = |overlay_toast| NotificationDeliveryPreferences {
+        xs_notifications: true,
+        overlay_toast,
+        ..NotificationDeliveryPreferences::default()
+    };
+
+    for (overlay_toast, expected) in [
+        (NotificationDeliveryCondition::GameRunning, false),
+        (NotificationDeliveryCondition::GameClosed, true),
+        (NotificationDeliveryCondition::Always, true),
+        (NotificationDeliveryCondition::Never, false),
+    ] {
+        let plan = decide_notification_plan(
+            &delivery(false, true, false, false),
+            &condition(overlay_toast),
+            &in_vr,
+        );
+        assert_eq!(plan.xs, expected, "{overlay_toast:?}");
+    }
+}
+
+#[test]
 fn tts_delivery_uses_independent_filter_surface() {
     let preferences = NotificationDeliveryPreferences {
         notification_tts: NotificationDeliveryCondition::Always,
@@ -180,6 +316,7 @@ fn tts_delivery_uses_independent_filter_surface() {
         is_game_running: true,
         is_steamvr_running: true,
         is_game_no_vr: false,
+        is_hmd_afk: false,
     };
 
     let disabled =
@@ -191,19 +328,18 @@ fn tts_delivery_uses_independent_filter_surface() {
     assert!(enabled.tts);
 }
 
-fn delivery(desktop: bool, vr: bool, webhook: bool, tts: bool) -> OverlayActivityDelivery {
-    OverlayActivityDelivery {
-        entry: OverlayActivityEntry {
+fn delivery(desktop: bool, vr: bool, webhook: bool, tts: bool) -> ActivityDelivery {
+    ActivityDelivery {
+        entry: ActivityEntry {
             sequence: 1,
             source_id: "notification:1".into(),
-            activity_type: "Online".into(),
-            category: OverlayActivityCategory::FavoriteMovement,
+            kind: vrcx_0_contracts::activity::ActivityKind::Online,
+            category: ActivityCategory::FavoriteMovement,
             created_at: "2026-06-18T08:30:00.000Z".into(),
             actor_user_id: "usr_123".into(),
             actor_display_name: "Pizza".into(),
-            content: OverlayActivityContent::default(),
-            actor_relation: OverlayActivityActorRelation::Friend,
-            payload: json!({}).into(),
+            content: ActivityContent::default(),
+            actor_relation: ActivityActorRelation::Friend,
         },
         desktop,
         vr,

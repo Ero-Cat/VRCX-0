@@ -1,15 +1,16 @@
 use super::*;
-use crate::game_log::video::VideoInput;
 use crate::GameLogSideEffect;
-use vrcx_0_application_activity::OverlayActivityRuntime;
 use vrcx_0_contracts::game_log::{
     GameLogEventEntry, GameLogExternalEntry, GameLogJoinLeaveEntry, GameLogWriteBatch,
 };
 
+fn all_events(output: &GameLogIngestOutput) -> Vec<ActivityEvent> {
+    game_log_activity_events(output, |_| true, |_| PlayerModeration::default())
+}
+
 #[test]
-fn game_log_join_leave_batch_ingests_current_instance_activity() {
-    let runtime = OverlayActivityRuntime::new();
-    let output = crate::GameLogIngestOutput {
+fn game_log_join_leave_batch_becomes_current_instance_activity() {
+    let output = GameLogIngestOutput {
         batch: GameLogWriteBatch {
             join_leave: vec![GameLogJoinLeaveEntry {
                 created_at: "2026-05-31T00:04:00.000Z".to_string(),
@@ -22,21 +23,21 @@ fn game_log_join_leave_batch_ingests_current_instance_activity() {
             }],
             ..GameLogWriteBatch::default()
         },
-        ..crate::GameLogIngestOutput::default()
+        ..GameLogIngestOutput::default()
     };
 
-    runtime.ingest_game_log_output(&output);
+    let events = all_events(&output);
 
-    let entries = runtime.snapshot().entries;
-    assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].activity_type, "OnPlayerJoined");
-    assert_eq!(entries[0].actor_display_name, "Joining User");
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].kind, ActivityKind::OnPlayerJoined);
+    assert_eq!(events[0].actor.display_name, "Joining User");
+    assert!(events[0].in_current_instance);
+    assert_eq!(events[0].facts.world_id, "wrld_1");
 }
 
 #[test]
-fn game_log_event_and_external_batches_ingest_system_activity() {
-    let runtime = OverlayActivityRuntime::new();
-    let output = crate::GameLogIngestOutput {
+fn game_log_event_and_external_batches_become_system_activity() {
+    let output = GameLogIngestOutput {
         batch: GameLogWriteBatch {
             events: vec![GameLogEventEntry {
                 created_at: "2026-05-31T00:05:00.000Z".to_string(),
@@ -51,27 +52,22 @@ fn game_log_event_and_external_batches_ingest_system_activity() {
             }],
             ..GameLogWriteBatch::default()
         },
-        ..crate::GameLogIngestOutput::default()
+        ..GameLogIngestOutput::default()
     };
 
-    runtime.ingest_game_log_output(&output);
+    let events = all_events(&output);
 
-    let entries = runtime.snapshot().entries;
     assert_eq!(
-        entries
-            .iter()
-            .map(|entry| entry.activity_type.as_str())
-            .collect::<Vec<_>>(),
-        vec!["Event", "External"]
+        events.iter().map(|event| event.kind).collect::<Vec<_>>(),
+        vec![ActivityKind::Event, ActivityKind::External]
     );
-    assert_eq!(entries[0].content.body.source_text(), "Something happened");
-    assert_eq!(entries[1].actor_display_name, "External User");
+    assert_eq!(events[0].facts.message, "Something happened");
+    assert_eq!(events[1].actor.display_name, "External User");
 }
 
 #[test]
-fn game_log_system_and_video_entries_with_same_timestamp_do_not_collide() {
-    let runtime = OverlayActivityRuntime::new();
-    let output = crate::GameLogIngestOutput {
+fn game_log_system_and_video_events_with_same_timestamp_do_not_collide() {
+    let output = GameLogIngestOutput {
         batch: GameLogWriteBatch {
             events: vec![
                 GameLogEventEntry {
@@ -121,35 +117,34 @@ fn game_log_system_and_video_entries_with_same_timestamp_do_not_collide() {
                 ..VideoInput::default()
             }),
         ],
-        ..crate::GameLogIngestOutput::default()
+        ..GameLogIngestOutput::default()
     };
 
-    for side_effect in &output.side_effects {
-        if let GameLogSideEffect::Video(input) = side_effect {
-            runtime.ingest_candidate(video_activity_candidate(input));
-        }
-    }
-    runtime.ingest_game_log_output(&output);
+    let mut events = output
+        .side_effects
+        .iter()
+        .filter_map(|side_effect| match side_effect {
+            GameLogSideEffect::Video(input) => Some(video_activity_event(input)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    events.extend(all_events(&output));
 
-    let entries = runtime.snapshot().entries;
-    assert_eq!(entries.len(), 6);
+    assert_eq!(events.len(), 6);
     assert_eq!(
-        entries
-            .iter()
-            .map(|entry| entry.activity_type.as_str())
-            .collect::<Vec<_>>(),
+        events.iter().map(|event| event.kind).collect::<Vec<_>>(),
         vec![
-            "VideoPlay",
-            "VideoPlay",
-            "Event",
-            "Event",
-            "External",
-            "External"
+            ActivityKind::VideoPlay,
+            ActivityKind::VideoPlay,
+            ActivityKind::Event,
+            ActivityKind::Event,
+            ActivityKind::External,
+            ActivityKind::External
         ]
     );
-    let source_ids = entries
+    let source_ids = events
         .iter()
-        .map(|entry| entry.source_id.as_str())
+        .map(|event| event.source_id.as_str())
         .collect::<std::collections::HashSet<_>>();
-    assert_eq!(source_ids.len(), entries.len());
+    assert_eq!(source_ids.len(), events.len());
 }

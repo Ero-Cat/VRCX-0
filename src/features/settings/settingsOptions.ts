@@ -34,6 +34,19 @@ export const desktopToastOptions = [
     ['Always', 'view.settings.notifications.notifications.conditions.always']
 ] as const;
 
+export const overlayToastOptions = [
+    ['Never', 'view.settings.notifications.notifications.conditions.never'],
+    [
+        'Game Running',
+        'view.settings.notifications.notifications.conditions.inside_vrchat'
+    ],
+    [
+        'Game Closed',
+        'view.settings.notifications.notifications.conditions.outside_vrchat'
+    ],
+    ['Always', 'view.settings.notifications.notifications.conditions.always']
+] as const;
+
 export const notificationTtsOptions = [
     ['Never', 'view.settings.notifications.notifications.conditions.never'],
     [

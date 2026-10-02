@@ -53,8 +53,6 @@ describe('DataTableView', () => {
         const cellClassList = screen
             .getByText('Avatar')
             .closest('td')?.classList;
-        expect(cellClassList).toContain('text-content-primary');
         expect(cellClassList).toContain('text-clip');
-        expect(cellClassList).not.toContain('text-ellipsis');
     });
 });

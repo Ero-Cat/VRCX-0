@@ -22,6 +22,7 @@ tracing = { workspace = true }
 vrcx-0-application-activity = { path = "../application-activity" }
 vrcx-0-application-core = { path = "../application-core" }
 vrcx-0-application-game = { path = "../application-game" }
+vrcx-0-contracts = { path = "../contracts" }
 vrcx-0-core = { path = "../core" }
 vrcx-0-host-desktop = { path = "../host-desktop" }
 vrcx-0-i18n = { path = "../i18n" }

@@ -3,13 +3,6 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AppToastOptions } from '@/services/toastService';
 
 import { createDefaultSettingsPrefs } from './settingsDefaultPrefs';
-import {
-    DEFAULT_HMD_NOTIFICATION_ACTIVITY_FILTERS,
-    DEFAULT_OVERLAY_ACTIVITY_FILTERS,
-    DEFAULT_TTS_NOTIFICATION_ACTIVITY_FILTERS,
-    DEFAULT_VR_NOTIFICATION_ACTIVITY_FILTERS,
-    DEFAULT_WEBHOOK_ACTIVITY_FILTERS
-} from './settingsValues';
 import { createSettingsMaintenanceActions } from './useSettingsMaintenanceActions';
 
 function createMaintenanceActions({
@@ -57,17 +50,7 @@ function createMaintenanceActions({
         getUgcPhotoLocation: async () => '',
         prefs: {
             ...prefs,
-            desktopNotificationActivityFilters:
-                DEFAULT_VR_NOTIFICATION_ACTIVITY_FILTERS,
-            hmdNotificationActivityFilters:
-                DEFAULT_HMD_NOTIFICATION_ACTIVITY_FILTERS,
-            notificationTTS: 'Never',
-            overlayActivityFilters: DEFAULT_OVERLAY_ACTIVITY_FILTERS,
-            ttsNotificationActivityFilters:
-                DEFAULT_TTS_NOTIFICATION_ACTIVITY_FILTERS,
-            vrNotificationActivityFilters:
-                DEFAULT_VR_NOTIFICATION_ACTIVITY_FILTERS,
-            webhookActivityFilters: DEFAULT_WEBHOOK_ACTIVITY_FILTERS
+            notificationTTS: 'Never'
         },
         prompt: async () => ({ ok: false }),
         purgePeriod: '180',

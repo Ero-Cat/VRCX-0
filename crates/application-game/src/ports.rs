@@ -35,6 +35,7 @@ pub trait BackgroundRemoteApi: Send + Sync {
 pub trait InstanceMediaPort: Send + Sync {
     async fn get_print(&self, print_id: &str) -> Result<Option<Value>>;
     async fn get_inventory_item(&self, user_id: &str, inventory_id: &str) -> Result<Option<Value>>;
+    async fn get_group(&self, group_id: &str) -> Result<Option<Value>>;
     async fn save_ugc_image(
         &self,
         url: &str,
@@ -51,6 +52,12 @@ pub trait VideoMetadataPort: Send + Sync {
     async fn youtube_metadata(&self, video_id: &str, api_key: &str) -> Result<Option<Value>>;
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PlayerModeration {
+    pub blocked: bool,
+    pub muted: bool,
+}
+
 pub trait GameStateStore: Send + Sync {
     fn get_bool(&self, key: &str, default: bool) -> Result<bool>;
     fn get_string(&self, key: &str, default: &str) -> Result<String>;
@@ -59,6 +66,13 @@ pub trait GameStateStore: Send + Sync {
     fn set_string(&self, key: &str, value: &str) -> Result<()>;
     fn set_json(&self, key: &str, value: &Value) -> Result<()>;
     fn write_game_log(&self, owner: &OwnerId, batch: &GameLogWriteBatch) -> Result<u64>;
+    fn fill_location_group_name(
+        &self,
+        owner: &OwnerId,
+        created_at: &str,
+        location: &str,
+        group_name: &str,
+    ) -> Result<u64>;
     fn join_leave_for_location(
         &self,
         owner: &OwnerId,
@@ -110,6 +124,7 @@ pub trait GameStateStore: Send + Sync {
         owner: &OwnerId,
         user_ids: &[String],
     ) -> Result<Vec<String>>;
+    fn player_moderation(&self, owner: &OwnerId, user_id: &str) -> Result<PlayerModeration>;
 }
 
 #[cfg(test)]
@@ -127,6 +142,7 @@ struct TestGameState {
     locations: Vec<Owned<vrcx_0_contracts::game_log::GameLogLocationEntry>>,
     join_leave: Vec<Owned<vrcx_0_contracts::game_log::GameLogJoinLeaveEntry>>,
     video_plays: Vec<Owned<vrcx_0_contracts::game_log::GameLogVideoPlayEntry>>,
+    player_moderations: std::collections::HashMap<String, PlayerModeration>,
 }
 
 #[cfg(test)]
@@ -176,11 +192,33 @@ impl TestGameStateStore {
         rows.into_iter().map(|(_, row)| row).collect()
     }
 
+    pub(crate) fn video_plays(
+        &self,
+        owner: &OwnerId,
+    ) -> Vec<vrcx_0_contracts::game_log::GameLogVideoPlayEntry> {
+        self.state
+            .lock()
+            .expect("test game state lock")
+            .video_plays
+            .iter()
+            .filter(|row| owner_can_read(&row.owner, owner))
+            .map(|row| row.value.clone())
+            .collect()
+    }
+
     pub(crate) fn tables_exist(&self) -> bool {
         self.state
             .lock()
             .expect("test game state lock")
             .tables_exist
+    }
+
+    pub(crate) fn set_player_moderation(&self, user_id: &str, moderation: PlayerModeration) {
+        self.state
+            .lock()
+            .expect("test game state lock")
+            .player_moderations
+            .insert(user_id.to_string(), moderation);
     }
 
     pub(crate) fn set_fail_reads(&self, fail: bool) {
@@ -273,6 +311,26 @@ impl GameStateStore for TestGameStateStore {
             .config
             .insert(key.to_string(), value.clone());
         Ok(())
+    }
+
+    fn fill_location_group_name(
+        &self,
+        owner: &OwnerId,
+        created_at: &str,
+        location: &str,
+        group_name: &str,
+    ) -> Result<u64> {
+        let mut state = self.state.lock().expect("test game state lock");
+        let Some(row) = state.locations.iter_mut().find(|row| {
+            owner_can_read(&row.owner, owner)
+                && row.value.created_at == created_at
+                && row.value.location == location
+                && row.value.group_name.is_empty()
+        }) else {
+            return Ok(0);
+        };
+        row.value.group_name = group_name.to_string();
+        Ok(1)
     }
 
     fn write_game_log(&self, owner: &OwnerId, batch: &GameLogWriteBatch) -> Result<u64> {
@@ -603,11 +661,24 @@ impl GameStateStore for TestGameStateStore {
     ) -> Result<Vec<String>> {
         Ok(Vec::new())
     }
+
+    fn player_moderation(&self, _owner: &OwnerId, user_id: &str) -> Result<PlayerModeration> {
+        Ok(self
+            .state
+            .lock()
+            .expect("test game state lock")
+            .player_moderations
+            .get(user_id)
+            .copied()
+            .unwrap_or_default())
+    }
 }
 
 #[cfg(test)]
 #[derive(Default)]
-pub(crate) struct TestGameMediaPort;
+pub(crate) struct TestGameMediaPort {
+    pub(crate) groups: std::collections::HashMap<String, Value>,
+}
 
 #[cfg(test)]
 #[async_trait::async_trait]
@@ -621,6 +692,9 @@ impl InstanceMediaPort for TestGameMediaPort {
         _inventory_id: &str,
     ) -> Result<Option<Value>> {
         Ok(None)
+    }
+    async fn get_group(&self, group_id: &str) -> Result<Option<Value>> {
+        Ok(self.groups.get(group_id).cloned())
     }
     async fn save_ugc_image(
         &self,

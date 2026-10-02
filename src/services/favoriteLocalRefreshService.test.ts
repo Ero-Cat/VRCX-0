@@ -114,9 +114,8 @@ describe('favoriteLocalRefreshService', () => {
         ]);
         await refresh;
 
-        expect(useFavoriteStore.getState()).toMatchObject({
-            currentUserId: 'usr_new',
-            localFriendFavorites: {}
-        });
+        const state = useFavoriteStore.getState();
+        expect(state.currentUserId).toBe('usr_new');
+        expect(state.localFriendFavorites).toEqual({});
     });
 });

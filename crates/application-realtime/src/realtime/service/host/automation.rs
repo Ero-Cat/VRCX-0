@@ -10,6 +10,7 @@ use vrcx_0_application_core::{
 use vrcx_0_contracts::vrchat_api::VrchatScope as ApiScope;
 use vrcx_0_core::json::JsonExt;
 use vrcx_0_core::json::RawJson;
+use vrcx_0_core::OwnerId;
 
 use crate::realtime::invite_automation::decision::{
     context_gates, cooldown_gate, evaluate_invite_automation, normalize_invite_automation_mode,
@@ -28,6 +29,12 @@ use super::message_dispatch::json_string_field;
 use super::RealtimeHostRuntime;
 
 const INVITE_AUTOMATION_REMOTE_MUTATION_INTERVAL: Duration = Duration::from_millis(250);
+const AUTO_DECLINE_FRIEND_REQUESTS_CONFIG_KEY: &str = "autoDeclineFriendRequests";
+
+pub(super) struct FriendRequestAutoDecline {
+    pub(super) facts: InviteNotificationFacts,
+    session: RealtimeSessionContext,
+}
 
 impl RealtimeHostRuntime {
     pub(super) fn schedule_invite_automation(
@@ -45,6 +52,112 @@ impl RealtimeHostRuntime {
                     .await;
             });
         }
+    }
+
+    pub(super) fn friend_requests_to_auto_decline(
+        &self,
+        projection: &RealtimeNotificationProjection,
+    ) -> Vec<FriendRequestAutoDecline> {
+        let enabled = match self
+            .deps
+            .store
+            .get_bool(AUTO_DECLINE_FRIEND_REQUESTS_CONFIG_KEY, false)
+        {
+            Ok(enabled) => enabled,
+            Err(error) => {
+                tracing::warn!("friend request auto-decline config read failed: {error}");
+                return Vec::new();
+            }
+        };
+        if !enabled {
+            return Vec::new();
+        }
+        let Some(session) = self.active_invite_session() else {
+            return Vec::new();
+        };
+        projection
+            .upserts
+            .iter()
+            .filter(|upsert| {
+                upsert.run_automation && notification_type(&upsert.notification) == "friendRequest"
+            })
+            .filter_map(|upsert| {
+                match self.never_met_friend_request(&session, &upsert.notification) {
+                    Ok(facts) => facts.map(|facts| FriendRequestAutoDecline {
+                        facts,
+                        session: session.clone(),
+                    }),
+                    Err(error) => {
+                        tracing::warn!("friend request auto-decline lookup failed: {error}");
+                        None
+                    }
+                }
+            })
+            .collect()
+    }
+
+    fn never_met_friend_request(
+        &self,
+        session: &RealtimeSessionContext,
+        notification: &Value,
+    ) -> Result<Option<InviteNotificationFacts>> {
+        let facts = notification_facts(notification);
+        if facts.id.is_empty() || facts.sender_user_id.is_empty() {
+            return Ok(None);
+        }
+        let sender_display_name = json_string_field(notification.get("senderUsername"));
+        let join_count = self.deps.store.game_log_join_count(
+            &OwnerId::new(session.user_id.clone()),
+            &facts.sender_user_id,
+            &sender_display_name,
+        )?;
+        Ok((join_count == 0).then_some(facts))
+    }
+
+    pub(super) fn schedule_friend_request_auto_decline(
+        self: &Arc<Self>,
+        declines: Vec<FriendRequestAutoDecline>,
+    ) {
+        for decline in declines {
+            let runtime = Arc::clone(self);
+            self.deps.tasks.spawn(async move {
+                if let Err(error) = runtime.decline_friend_request(decline).await {
+                    tracing::warn!("friend request auto-decline failed: {error}");
+                    runtime
+                        .deps
+                        .sync
+                        .record_failure("friendRequestAutoDecline", error.to_string());
+                }
+            });
+        }
+    }
+
+    async fn decline_friend_request(&self, decline: FriendRequestAutoDecline) -> Result<()> {
+        let FriendRequestAutoDecline { facts, session } = decline;
+        let mutation = AuthenticatedMutationContext::capture(
+            &self.deps.auth_scope,
+            self.deps.remote_mutations.as_ref(),
+            "Friend request auto-decline",
+        )?;
+        if mutation.scope().current_user_id != session.user_id
+            || mutation.scope().endpoint != session.endpoint
+        {
+            return Err(Error::Custom(
+                "Friend request auto-decline authentication scope changed.".into(),
+            ));
+        }
+        self.hide_automation_notification(&mutation, &facts, "friend request auto-decline")
+            .await?;
+        self.deps.sync.record(
+            "friendRequestAutoDecline",
+            RuntimeOperationStatus::Sent,
+            format!(
+                "Auto-declined a friend request from {} who was never met.",
+                facts.sender_user_id
+            ),
+            1,
+        );
+        Ok(())
     }
 
     async fn run_invite_automation(self: Arc<Self>, notification: Value) {
@@ -299,45 +412,60 @@ impl RealtimeHostRuntime {
         mutation: &AuthenticatedMutationContext<'_>,
         facts: &InviteNotificationFacts,
     ) {
-        let Ok((_, request)) = self.deps.remote_requests.notification_hide(
+        if let Err(error) = self
+            .hide_automation_notification(mutation, facts, "invite automation")
+            .await
+        {
+            tracing::warn!("invite automation notification hide failed: {error}");
+        }
+    }
+
+    async fn hide_automation_notification(
+        &self,
+        mutation: &AuthenticatedMutationContext<'_>,
+        facts: &InviteNotificationFacts,
+        label: &str,
+    ) -> Result<()> {
+        let (_, request) = self.deps.remote_requests.notification_hide(
             mutation.scope().endpoint.clone(),
             facts.id.clone(),
             facts.version,
             facts.notification_type.clone(),
             facts.sender_user_id.clone(),
-        ) else {
-            return;
-        };
+        )?;
         let mut request = request;
         mutation.apply_scope_to_request(&mut request);
-        let result = mutation
+        mutation
             .run_after_wait(INVITE_AUTOMATION_REMOTE_MUTATION_INTERVAL, || async {
                 self.deps.web.execute_api(request, ApiScope::Vrchat).await
             })
-            .await;
-        if let Err(error) = result {
-            tracing::warn!("invite automation notification hide failed: {error}");
-            return;
-        }
-        if let Err(error) =
-            self.expire_notification(mutation.scope().current_user_id.clone(), facts.id.clone())
-        {
-            tracing::warn!("invite automation local notification expiration failed: {error}");
+            .await?;
+        let projection = RealtimeNotificationProjection {
+            generation: 0,
+            expired_ids: vec![facts.id.clone()],
+            seen_ids: vec![facts.id.clone()],
+            clear_menu_if_no_unseen: true,
+            ..RealtimeNotificationProjection::default()
+        };
+        match self.expire_notification(mutation.scope().current_user_id.clone(), facts.id.clone()) {
+            Ok(()) => {
+                if let Some(observer) = &self.deps.notification_projection_observer {
+                    observer.observe_realtime_notification_projection(&projection);
+                }
+            }
+            Err(error) => {
+                tracing::warn!("{label} local notification expiration failed: {error}");
+            }
         }
         self.deps
             .event_bus
-            .emit_realtime_notification_projection(RealtimeNotificationProjection {
-                generation: 0,
-                expired_ids: vec![facts.id.clone()],
-                seen_ids: vec![facts.id.clone()],
-                clear_menu_if_no_unseen: true,
-                ..RealtimeNotificationProjection::default()
-            });
+            .emit_realtime_notification_projection(projection);
         tracing::debug!(
             notification_id = facts.id,
             notification_type = facts.notification_type,
-            "invite automation cleaned notification"
+            "{label} cleaned notification"
         );
+        Ok(())
     }
 
     fn record_invite_automation_skip(&self, reason: InviteAutomationSkipReason) {
@@ -427,3 +555,6 @@ fn json_array_contains_user(value: Option<&Value>, sender_user_id: &str) -> bool
         .flatten()
         .any(|value| json_string_field(Some(value)) == sender_user_id)
 }
+
+#[cfg(test)]
+mod tests;

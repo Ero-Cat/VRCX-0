@@ -9,7 +9,7 @@ use vrcx_0_contracts::realtime::{FriendLogDelete, FriendLogUpsert, RealtimePersi
 use vrcx_0_core::friends::{FriendBaselineEntry, FriendRecord, StateBucket};
 use vrcx_0_core::trust::{trust_level_changed, trust_level_differs};
 
-use crate::realtime::friends::trust_level_feed_entry;
+use crate::realtime::friends::{display_name_feed_entry, trust_level_feed_entry};
 
 use super::super::{
     auth_scope_matches, execute_vrchat_json_request, fetch_friend_statuses_concurrent,
@@ -423,6 +423,18 @@ pub(crate) fn reconcile_friend_roster_records(
             created_at: created_at.clone(),
             force_history: false,
         });
+        if let Some(previous_display_name) = existing_row
+            .map(|row| row.display_name.trim())
+            .filter(|name| name_changed && !name.is_empty() && *name != "Unknown")
+        {
+            batch.feed_entries.push(display_name_feed_entry(
+                &created_at,
+                friend_id,
+                &display_name,
+                previous_display_name,
+                friend_number,
+            ));
+        }
         if existing_row.is_some_and(|row| trust_level_changed(&row.trust_level, &trust_level)) {
             let previous_trust_level = existing_row
                 .map(|row| row.trust_level.clone())

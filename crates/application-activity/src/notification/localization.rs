@@ -1,6 +1,7 @@
 use std::{borrow::Cow, collections::BTreeMap, sync::OnceLock};
 
-use crate::OverlayActivityText;
+use crate::ActivityText;
+use vrcx_0_contracts::activity::ActivityKind;
 use vrcx_0_core::location::{
     access_type_label, format_display_location_with_labels_and_instance, parse_location,
     DisplayLocationLabels, ParsedLocation,
@@ -18,30 +19,6 @@ const ACCESS_LABEL_KEYS: [OverlayMessageKey; 8] = [
     OverlayMessageKey::OverlayAccessGroup,
     OverlayMessageKey::OverlayAccessGroupPublic,
     OverlayMessageKey::OverlayAccessGroupPlus,
-];
-
-const DISCORD_TITLE_KEYS: &[(&str, OverlayMessageKey)] = &[
-    ("invite", OverlayMessageKey::OverlayDiscordTitleInvite),
-    (
-        "requestInvite",
-        OverlayMessageKey::OverlayDiscordTitleRequestInvite,
-    ),
-    (
-        "inviteResponse",
-        OverlayMessageKey::OverlayDiscordTitleInviteResponse,
-    ),
-    (
-        "requestInviteResponse",
-        OverlayMessageKey::OverlayDiscordTitleRequestInviteResponse,
-    ),
-    ("GPS", OverlayMessageKey::OverlayDiscordTitleGps),
-    ("Status", OverlayMessageKey::OverlayDiscordTitleStatus),
-    (
-        "AvatarChange",
-        OverlayMessageKey::OverlayDiscordTitleAvatarChange,
-    ),
-    ("Online", OverlayMessageKey::OverlayDiscordTitleOnline),
-    ("Offline", OverlayMessageKey::OverlayDiscordTitleOffline),
 ];
 
 const STATUS_LABEL_KEYS: &[(&[&str], OverlayMessageKey)] = &[
@@ -109,18 +86,16 @@ impl OverlayLocalizer {
         }
     }
 
-    pub fn text(&self, text: &OverlayActivityText) -> String {
+    pub fn text(&self, text: &ActivityText) -> String {
         match text {
-            OverlayActivityText::Message(message) => {
-                self.message_text(message.key(), message.params())
-            }
-            OverlayActivityText::Literal(value) => collapse_whitespace(value),
+            ActivityText::Message(message) => self.message_text(message.key(), message.params()),
+            ActivityText::Literal(value) => collapse_whitespace(value),
         }
     }
 
     pub fn activity_text(
         &self,
-        text: &OverlayActivityText,
+        text: &ActivityText,
         location: &str,
         world_name: &str,
         group_name: &str,
@@ -166,9 +141,9 @@ impl OverlayLocalizer {
         localizer.display_location(location, world_name, group_name)
     }
 
-    pub fn discord_title(&self, activity_type: &str, name: &str) -> String {
+    pub fn discord_title(&self, kind: ActivityKind, name: &str) -> String {
         let name = name.trim();
-        let Some(key) = discord_title_key(activity_type) else {
+        let Some(key) = discord_title_key(kind) else {
             return name.to_string();
         };
         let params = BTreeMap::from([("name".to_string(), name.to_string())]);
@@ -305,22 +280,34 @@ pub enum DiscordEmbedKind {
     Other,
 }
 
-pub fn discord_embed_kind(activity_type: &str) -> DiscordEmbedKind {
-    match activity_type {
-        "invite" | "requestInvite" | "inviteResponse" | "requestInviteResponse" => {
-            DiscordEmbedKind::Invite
-        }
-        "GPS" => DiscordEmbedKind::Gps,
-        "Status" => DiscordEmbedKind::Status,
-        "AvatarChange" => DiscordEmbedKind::AvatarChange,
+pub fn discord_embed_kind(kind: ActivityKind) -> DiscordEmbedKind {
+    match kind {
+        ActivityKind::Invite
+        | ActivityKind::RequestInvite
+        | ActivityKind::InviteResponse
+        | ActivityKind::RequestInviteResponse => DiscordEmbedKind::Invite,
+        ActivityKind::Gps => DiscordEmbedKind::Gps,
+        ActivityKind::Status => DiscordEmbedKind::Status,
+        ActivityKind::AvatarChange => DiscordEmbedKind::AvatarChange,
         _ => DiscordEmbedKind::Other,
     }
 }
 
-pub fn discord_title_key(activity_type: &str) -> Option<OverlayMessageKey> {
-    DISCORD_TITLE_KEYS
-        .iter()
-        .find_map(|(candidate, key)| (*candidate == activity_type).then_some(*key))
+pub fn discord_title_key(kind: ActivityKind) -> Option<OverlayMessageKey> {
+    match kind {
+        ActivityKind::Invite => Some(OverlayMessageKey::OverlayDiscordTitleInvite),
+        ActivityKind::RequestInvite => Some(OverlayMessageKey::OverlayDiscordTitleRequestInvite),
+        ActivityKind::InviteResponse => Some(OverlayMessageKey::OverlayDiscordTitleInviteResponse),
+        ActivityKind::RequestInviteResponse => {
+            Some(OverlayMessageKey::OverlayDiscordTitleRequestInviteResponse)
+        }
+        ActivityKind::Gps => Some(OverlayMessageKey::OverlayDiscordTitleGps),
+        ActivityKind::Status => Some(OverlayMessageKey::OverlayDiscordTitleStatus),
+        ActivityKind::AvatarChange => Some(OverlayMessageKey::OverlayDiscordTitleAvatarChange),
+        ActivityKind::Online => Some(OverlayMessageKey::OverlayDiscordTitleOnline),
+        ActivityKind::Offline => Some(OverlayMessageKey::OverlayDiscordTitleOffline),
+        _ => None,
+    }
 }
 
 fn status_label_key(status: &str) -> Option<OverlayMessageKey> {

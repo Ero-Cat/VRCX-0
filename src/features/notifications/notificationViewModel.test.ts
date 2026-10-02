@@ -265,6 +265,50 @@ describe('notification view model', () => {
         });
     });
 
+    it('renders a starting group event like a created one, with its banner', () => {
+        const view = toNotificationViewModel(
+            row({
+                type: 'group.event.starting',
+                message: 'Starts in 15 minutes.',
+                imageUrl: 'file_banner',
+                data: {
+                    ownerId: 'grp_2',
+                    ownerName: 'Oak Club',
+                    title: 'Movie night'
+                }
+            })
+        );
+
+        expect(view.template).toBe('broadcast');
+        expect(view.typeLabelKey).toBe(
+            'view.notification.filters.group.event.starting'
+        );
+        expect(view.media).toBe('file_banner');
+        expect(view.headline).toBe('Movie night');
+    });
+
+    it('renders newer VRChat notification types with their own labels instead of the fallback', () => {
+        const kick = toNotificationViewModel(
+            row({ type: 'votetokick', title: 'Vote to kick', message: 'X' })
+        );
+        const gated = toNotificationViewModel(
+            row({
+                type: 'invite.instance.contentGated',
+                senderUserId: 'usr_friend',
+                senderUsername: 'Friend',
+                message: 'Join me'
+            })
+        );
+
+        expect(kick.template).toBe('compact');
+        expect(kick.typeLabelKey).toBe('view.notification.filters.votetokick');
+        expect(gated.template).toBe('compact');
+        expect(gated.body).toBe('Join me');
+        expect(gated.typeLabelKey).toBe(
+            'view.notification.filters.inviteInstanceContentGated'
+        );
+    });
+
     it('falls back to a system actor for empty or unknown types', () => {
         const empty = toNotificationViewModel(
             row({ type: '', message: '', title: '' }),

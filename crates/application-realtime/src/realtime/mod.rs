@@ -1,3 +1,4 @@
+pub(crate) mod activity_events;
 pub mod connection;
 pub(crate) mod current_user;
 pub(crate) mod event_kind;

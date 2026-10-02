@@ -62,8 +62,9 @@ impl Drop for TestDir {
 #[test]
 fn update_tracks_only_vrchat_output_logs_and_removes_deleted_contexts() {
     let dir = TestDir::new("scan");
-    std::fs::write(dir.path().join("output_log_2026-08-02.txt"), []).unwrap();
+    std::fs::write(dir.path().join("output_log_2026-08-02_00-00-00.txt"), []).unwrap();
     std::fs::write(dir.path().join("output_log_ignored.log"), []).unwrap();
+    std::fs::write(dir.path().join("output_log_vrcx-replay.txt"), []).unwrap();
     std::fs::write(dir.path().join("other.txt"), []).unwrap();
     let watcher = LogWatcher::new(None);
     let mut reader = LogReader::new();
@@ -79,9 +80,9 @@ fn update_tracks_only_vrchat_output_logs_and_removes_deleted_contexts() {
     ));
     assert!(!first_run);
     assert_eq!(contexts.len(), 1);
-    assert!(contexts.contains_key("output_log_2026-08-02.txt"));
+    assert!(contexts.contains_key("output_log_2026-08-02_00-00-00.txt"));
 
-    std::fs::remove_file(dir.path().join("output_log_2026-08-02.txt")).unwrap();
+    std::fs::remove_file(dir.path().join("output_log_2026-08-02_00-00-00.txt")).unwrap();
     assert!(!update(
         &watcher.inner,
         dir.path(),
@@ -95,7 +96,7 @@ fn update_tracks_only_vrchat_output_logs_and_removes_deleted_contexts() {
 #[test]
 fn update_skips_files_older_than_the_requested_cutoff() {
     let dir = TestDir::new("cutoff");
-    std::fs::write(dir.path().join("output_log_2026-08-02.txt"), []).unwrap();
+    std::fs::write(dir.path().join("output_log_2026-08-02_00-00-00.txt"), []).unwrap();
     let watcher = LogWatcher::new(None);
     watcher.set_date_till("2999-01-01T00:00:00.000Z");
     let mut reader = LogReader::new();
@@ -136,8 +137,8 @@ fn update_handles_a_missing_directory_as_an_empty_completed_scan() {
 #[test]
 fn initial_scan_can_limit_replay_to_latest_output_log() {
     let dir = TestDir::new("latest-only");
-    std::fs::write(dir.path().join("output_log_first.txt"), []).unwrap();
-    std::fs::write(dir.path().join("output_log_second.txt"), []).unwrap();
+    std::fs::write(dir.path().join("output_log_2026-08-01_00-00-00.txt"), []).unwrap();
+    std::fs::write(dir.path().join("output_log_2026-08-02_00-00-00.txt"), []).unwrap();
     let watcher = LogWatcher::new(None);
     watcher.set_initial_scan_latest_file_only(true);
     let mut reader = LogReader::new();
@@ -153,7 +154,7 @@ fn initial_scan_can_limit_replay_to_latest_output_log() {
     );
 
     assert_eq!(contexts.len(), 1);
-    assert!(contexts.contains_key("output_log_second.txt"));
+    assert!(contexts.contains_key("output_log_2026-08-02_00-00-00.txt"));
     assert!(!first_run);
 }
 
@@ -209,8 +210,12 @@ fn latest_only_replay_does_not_ingest_older_files_on_later_polls() {
     let older = Local::now() - Duration::minutes(5);
     let latest = older + Duration::minutes(1);
     for (name, time, location) in [
-        ("output_log_01.txt", older, "wrld_old:1"),
-        ("output_log_02.txt", latest, "wrld_current:2"),
+        ("output_log_2026-08-01_00-00-00.txt", older, "wrld_old:1"),
+        (
+            "output_log_2026-08-02_00-00-00.txt",
+            latest,
+            "wrld_current:2",
+        ),
     ] {
         std::fs::write(
             dir.path().join(name),
@@ -261,7 +266,7 @@ fn latest_only_replay_does_not_ingest_older_files_on_later_polls() {
 #[test]
 fn truncated_current_log_is_read_again_from_its_new_beginning() {
     let dir = TestDir::new("truncate-current");
-    let path = dir.path().join("output_log_current.txt");
+    let path = dir.path().join("output_log_2026-08-03_00-00-00.txt");
     let old = "2020.01.01 00:00:00 Log        -  [Behaviour] Joining wrld_old:1\n";
     std::fs::write(&path, old.repeat(2)).unwrap();
     let sink = Arc::new(RecordingSink::default());
@@ -320,7 +325,7 @@ fn regression_failed_scan_retains_cursor_and_initial_origin() {
     }
     let dir = TestDir::new("scan-retry");
     std::fs::write(
-        dir.path().join("output_log_current.txt"),
+        dir.path().join("output_log_2026-08-03_00-00-00.txt"),
         "2020.01.01 00:00:00 Log        -  [Behaviour] Joining wrld_retry:1\n",
     )
     .unwrap();
@@ -337,12 +342,12 @@ fn regression_failed_scan_retains_cursor_and_initial_origin() {
         &mut first,
     );
     assert!(first);
-    assert_eq!(contexts["output_log_current.txt"].position, 0);
+    assert_eq!(contexts["output_log_2026-08-03_00-00-00.txt"].position, 0);
     use std::io::Write;
     writeln!(
         std::fs::OpenOptions::new()
             .append(true)
-            .open(dir.path().join("output_log_current.txt"))
+            .open(dir.path().join("output_log_2026-08-03_00-00-00.txt"))
             .unwrap(),
         "2020.01.01 00:00:01 Log        -  [Behaviour] Joining wrld_next:2"
     )
@@ -385,7 +390,10 @@ fn retry_in_later_file_does_not_revisit_completed_earlier_files() {
         }
     }
     let dir = TestDir::new("retry-multiple-files");
-    for name in ["output_log_01.txt", "output_log_02.txt"] {
+    for name in [
+        "output_log_2026-08-01_00-00-00.txt",
+        "output_log_2026-08-02_00-00-00.txt",
+    ] {
         std::fs::write(
             dir.path().join(name),
             "2020.01.01 00:00:00 Log        -  [Behaviour] Joining wrld_retry:1\n",
@@ -417,7 +425,7 @@ fn retry_in_later_file_does_not_revisit_completed_earlier_files() {
             .lock()
             .unwrap()
             .iter()
-            .filter(|name| name.as_str() == "output_log_01.txt")
+            .filter(|name| name.as_str() == "output_log_2026-08-01_00-00-00.txt")
             .count(),
         1
     );

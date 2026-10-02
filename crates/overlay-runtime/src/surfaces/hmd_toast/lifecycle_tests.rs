@@ -1,4 +1,5 @@
 use super::*;
+use vrcx_0_contracts::activity::ActivityKind;
 
 #[test]
 fn hmd_toast_refresh_hint_waits_until_expiry_without_card_animation() {
@@ -29,22 +30,21 @@ fn hmd_toast_expires_at_timeout_without_card_fade_out() {
     assert_eq!(runtime.hmd_toast_refresh_hint(expires_at), None);
 }
 
-fn hmd_entry(source_id: &str) -> OverlayActivityEntry {
-    OverlayActivityEntry {
+fn hmd_entry(source_id: &str) -> ActivityEntry {
+    ActivityEntry {
         sequence: 1,
         source_id: source_id.to_string(),
-        activity_type: "Status".to_string(),
-        category: vrcx_0_application_activity::OverlayActivityCategory::CurrentInstance,
+        kind: ActivityKind::Status,
+        category: vrcx_0_application_activity::ActivityCategory::CurrentInstance,
         created_at: "2026-01-01T00:00:00Z".to_string(),
         actor_user_id: "usr_actor".to_string(),
         actor_display_name: source_id.to_string(),
-        content: vrcx_0_application_activity::OverlayActivityContent {
-            title: vrcx_0_application_activity::OverlayActivityText::literal(source_id),
-            body: vrcx_0_application_activity::OverlayActivityText::literal("Status"),
+        content: vrcx_0_application_activity::ActivityContent {
+            title: vrcx_0_application_activity::ActivityText::literal(source_id),
+            body: vrcx_0_application_activity::ActivityText::literal("Status"),
             location: "wrld_a:123".to_string(),
-            ..vrcx_0_application_activity::OverlayActivityContent::default()
+            ..vrcx_0_application_activity::ActivityContent::default()
         },
-        actor_relation: OverlayActivityActorRelation::Favorite,
-        payload: serde_json::json!({}).into(),
+        actor_relation: ActivityActorRelation::Favorite,
     }
 }

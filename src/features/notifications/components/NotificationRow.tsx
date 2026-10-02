@@ -26,10 +26,7 @@ import {
     getNotificationLinkIcon,
     type NotificationRowActionHandlers
 } from '../notificationRowActions';
-import {
-    NOTIFICATION_TYPE_LABEL_PREFIX,
-    toNotificationViewModel
-} from '../notificationViewModel';
+import { toNotificationViewModel } from '../notificationViewModel';
 import { useNotificationActorImage } from '../useNotificationActorImage';
 import { NotificationMessage } from './NotificationMessage';
 import {
@@ -67,9 +64,7 @@ export function NotificationRow({
         [notification, unknownLabel]
     );
     const typeLabel = t(view.typeLabelKey, {
-        defaultValue: view.typeLabelKey.slice(
-            NOTIFICATION_TYPE_LABEL_PREFIX.length
-        )
+        defaultValue: notification.type || 'unknown'
     });
     const actorName =
         view.actor.kind === 'system'

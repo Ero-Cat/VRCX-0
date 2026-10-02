@@ -4,12 +4,12 @@ import type {
     HostSessionProjection
 } from '@/platform/tauri/bindings';
 import { useModalStore } from '@/state/modalStore';
-import { useNotificationStore } from '@/state/notificationStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 
 import { applyRuntimeGameLogProjection } from '../gameLogIngestService';
 import { handleGameRunningUpdate } from '../gameStateService';
 import { isHostCapabilityAvailable } from '../hostCapabilityService';
+import { toast } from '../toastService';
 import { handleBrowserFocus } from '../vrcStatusService';
 import type { RuntimeEventPayloadMap } from './types';
 
@@ -68,11 +68,6 @@ export function handleGameLogSideEffect(
                 isGameNoVR: event.payload.isGameNoVR
             });
             break;
-        case 'notification':
-            useNotificationStore
-                .getState()
-                .pushNotification({ ...event.payload });
-            break;
     }
 }
 
@@ -83,7 +78,11 @@ export function handleGameClientEvent(
         return;
     }
     if (event.kind === 'notification') {
-        useNotificationStore.getState().pushNotification({ ...event.payload });
+        toast.add({
+            type: event.payload.level,
+            title: event.payload.title,
+            description: event.payload.message
+        });
     } else if (event.kind === 'debugLoggingOutcome') {
         handleDebugLoggingOutcome(event.payload);
     }
@@ -94,14 +93,7 @@ export function handleDebugLoggingOutcome(outcome: DebugLoggingOutcome): void {
         return;
     }
     lastDebugLoggingCheckId = outcome.checkId;
-    if (outcome.kind === 'repaired') {
-        useNotificationStore.getState().pushNotification({
-            level: 'info',
-            title: 'Enabled debug logging',
-            message:
-                'VRChat debug logging was disabled and has been re-enabled for game-log ingestion.'
-        });
-    } else if (outcome.kind === 'needsUserAction') {
+    if (outcome.kind === 'needsUserAction') {
         if (outcome.error) {
             console.error(
                 'Failed to enable VRChat debug logging:',
@@ -125,10 +117,10 @@ export function handleUpdateIsGameRunning(
         return;
     }
     handleGameRunningUpdate(payload).catch((error: unknown) => {
-        useNotificationStore.getState().pushNotification({
-            level: 'warning',
+        toast.add({
+            type: 'warning',
             title: 'Game state update failed',
-            message: error instanceof Error ? error.message : String(error)
+            description: error instanceof Error ? error.message : String(error)
         });
     });
 }

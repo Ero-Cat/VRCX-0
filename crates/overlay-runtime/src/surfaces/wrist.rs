@@ -1,7 +1,6 @@
 use chrono::{DateTime, Local, Timelike};
 use vrcx_0_application_activity::{
-    OverlayActivityActorRelation, OverlayActivityCategory, OverlayActivityEntry,
-    OverlayActivitySnapshot, OverlayActivityText,
+    ActivityActorRelation, ActivityCategory, ActivityEntry, ActivitySnapshot, ActivityText,
 };
 use vrcx_0_core::location::world_id_from_location;
 use vrcx_0_core::text::first_non_empty_owned;
@@ -13,6 +12,7 @@ use vrcx_0_vr_overlay::{
 };
 
 use super::super::localization::{OverlayLocale, OverlayLocalizer, OverlayPanelLocalizer};
+use vrcx_0_contracts::activity::ActivityKind;
 
 const MAX_FEED_ROWS: usize = 24;
 
@@ -86,7 +86,7 @@ impl Default for WristOverlayRenderOptions {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct WristOverlayFrameInput {
-    pub activity: OverlayActivitySnapshot,
+    pub activity: ActivitySnapshot,
     pub devices: Vec<VrDeviceSnapshot>,
     pub now_playing: Option<WristRuntimeNowPlaying>,
     pub live_now_playing: bool,
@@ -222,7 +222,7 @@ pub fn build_wrist_surface_model(input: WristOverlayFrameInput) -> WristSurfaceM
             now_playing_model(now_playing, input.captured_at_ms, input.live_now_playing)
         }),
         footer: OverlayFooter {
-            left: localizer.text(&OverlayActivityText::message(
+            left: localizer.text(&ActivityText::message(
                 OverlayMessage::overlay_footer_players(input.footer.player_count),
             )),
             center: localized_instance_duration(&localizer, &input.footer.instance_duration),
@@ -236,7 +236,7 @@ fn localized_instance_duration(localizer: &OverlayLocalizer, duration: &str) -> 
     if duration.is_empty() {
         return String::new();
     }
-    localizer.text(&OverlayActivityText::message(
+    localizer.text(&ActivityText::message(
         OverlayMessage::overlay_footer_instance_duration(duration),
     ))
 }
@@ -288,7 +288,7 @@ fn device_role(label: &str) -> DeviceRole {
     }
 }
 
-fn feed_line_from_activity(entry: &OverlayActivityEntry, localizer: &OverlayLocalizer) -> FeedLine {
+fn feed_line_from_activity(entry: &ActivityEntry, localizer: &OverlayLocalizer) -> FeedLine {
     FeedLine {
         time_text: time_text(&entry.created_at),
         kind: feed_kind(entry),
@@ -300,7 +300,7 @@ fn feed_line_from_activity(entry: &OverlayActivityEntry, localizer: &OverlayLoca
     }
 }
 
-fn feed_actor(entry: &OverlayActivityEntry, localizer: &OverlayLocalizer) -> String {
+fn feed_actor(entry: &ActivityEntry, localizer: &OverlayLocalizer) -> String {
     let localized_title = localized_entry_text(entry, localizer, &entry.content.title);
     let source_title = entry.content.title.source_text();
     first_non_empty_owned([
@@ -310,15 +310,15 @@ fn feed_actor(entry: &OverlayActivityEntry, localizer: &OverlayLocalizer) -> Str
     ])
 }
 
-fn feed_relation(relation: OverlayActivityActorRelation) -> FeedRelation {
+fn feed_relation(relation: ActivityActorRelation) -> FeedRelation {
     match relation {
-        OverlayActivityActorRelation::Favorite => FeedRelation::Favorite,
-        OverlayActivityActorRelation::Friend => FeedRelation::Friend,
-        OverlayActivityActorRelation::None => FeedRelation::None,
+        ActivityActorRelation::Favorite => FeedRelation::Favorite,
+        ActivityActorRelation::Friend => FeedRelation::Friend,
+        ActivityActorRelation::None => FeedRelation::None,
     }
 }
 
-fn feed_detail(entry: &OverlayActivityEntry, localizer: &OverlayLocalizer) -> String {
+fn feed_detail(entry: &ActivityEntry, localizer: &OverlayLocalizer) -> String {
     let localized_summary = localized_activity_summary(entry, localizer);
     let localized_body = localized_entry_text(entry, localizer, &entry.content.body);
     let localized_title = localized_entry_text(entry, localizer, &entry.content.title);
@@ -363,10 +363,7 @@ fn feed_detail(entry: &OverlayActivityEntry, localizer: &OverlayLocalizer) -> St
     }
 }
 
-fn localized_activity_summary(
-    entry: &OverlayActivityEntry,
-    localizer: &OverlayLocalizer,
-) -> String {
+fn localized_activity_summary(entry: &ActivityEntry, localizer: &OverlayLocalizer) -> String {
     let title = localized_entry_text(entry, localizer, &entry.content.title);
     let body = localized_entry_text(entry, localizer, &entry.content.body);
     if !body.trim().is_empty() {
@@ -379,9 +376,9 @@ fn localized_activity_summary(
 }
 
 fn localized_entry_text(
-    entry: &OverlayActivityEntry,
+    entry: &ActivityEntry,
     localizer: &OverlayLocalizer,
-    text: &OverlayActivityText,
+    text: &ActivityText,
 ) -> String {
     localizer.activity_text(
         text,
@@ -391,7 +388,7 @@ fn localized_entry_text(
     )
 }
 
-fn meaningful_world_name(entry: &OverlayActivityEntry) -> Option<&str> {
+fn meaningful_world_name(entry: &ActivityEntry) -> Option<&str> {
     let world_name = entry.content.world_name.trim();
     if world_name.is_empty() || is_location_id_like(world_name) {
         None
@@ -400,7 +397,7 @@ fn meaningful_world_name(entry: &OverlayActivityEntry) -> Option<&str> {
     }
 }
 
-fn replace_location_ids(value: &str, entry: &OverlayActivityEntry, world_name: &str) -> String {
+fn replace_location_ids(value: &str, entry: &ActivityEntry, world_name: &str) -> String {
     let mut output = value.trim().to_string();
     let location_world_id = world_id_from_location(entry.content.location.trim());
     for location in [
@@ -416,28 +413,28 @@ fn replace_location_ids(value: &str, entry: &OverlayActivityEntry, world_name: &
 }
 
 fn location_id_free_detail(
-    entry: &OverlayActivityEntry,
+    entry: &ActivityEntry,
     localized_title: &str,
     fallback_title: &str,
     actor: &str,
     localizer: &OverlayLocalizer,
 ) -> String {
     let subject = first_non_empty_owned([localized_title, fallback_title, actor]);
-    match entry.activity_type.as_str() {
-        "GPS" if !subject.is_empty() => {
-            let action = localizer.text(&OverlayActivityText::message(
-                OverlayMessage::notifications_gps(localizer.generic_instance_location()),
-            ));
+    match entry.kind {
+        ActivityKind::Gps if !subject.is_empty() => {
+            let action = localizer.text(&ActivityText::message(OverlayMessage::notifications_gps(
+                localizer.generic_instance_location(),
+            )));
             join_non_empty([subject.as_str(), action.as_str()])
         }
-        "Online" if !subject.is_empty() => {
-            let action = localizer.text(&OverlayActivityText::message(
+        ActivityKind::Online if !subject.is_empty() => {
+            let action = localizer.text(&ActivityText::message(
                 OverlayMessage::notifications_online(),
             ));
             join_non_empty([subject.as_str(), action.as_str()])
         }
-        "invite" if !subject.is_empty() => {
-            let action = localizer.text(&OverlayActivityText::message(
+        ActivityKind::Invite if !subject.is_empty() => {
+            let action = localizer.text(&ActivityText::message(
                 OverlayMessage::notifications_invite(localizer.generic_instance_location(), ""),
             ));
             join_non_empty([subject.as_str(), action.as_str()])
@@ -446,8 +443,8 @@ fn location_id_free_detail(
     }
 }
 
-pub fn should_hide_private_world(entry: &OverlayActivityEntry, enabled: bool) -> bool {
-    if !enabled || !is_private_filtered_activity_type(&entry.activity_type) {
+pub fn should_hide_private_world(entry: &ActivityEntry, enabled: bool) -> bool {
+    if !enabled || !is_private_filtered_activity_type(entry.kind) {
         return false;
     }
     let has_visible_location =
@@ -455,8 +452,11 @@ pub fn should_hide_private_world(entry: &OverlayActivityEntry, enabled: bool) ->
     has_visible_location && is_private_location(&entry.content.location)
 }
 
-fn is_private_filtered_activity_type(activity_type: &str) -> bool {
-    matches!(activity_type, "GPS" | "Online" | "invite")
+fn is_private_filtered_activity_type(kind: ActivityKind) -> bool {
+    matches!(
+        kind,
+        ActivityKind::Gps | ActivityKind::Online | ActivityKind::Invite
+    )
 }
 
 fn is_private_location(location: &str) -> bool {
@@ -487,32 +487,32 @@ fn is_location_id_like(value: &str) -> bool {
     trimmed.starts_with("wrld_")
 }
 
-fn feed_kind(entry: &OverlayActivityEntry) -> FeedKind {
+fn feed_kind(entry: &ActivityEntry) -> FeedKind {
     match entry.category {
-        OverlayActivityCategory::ActionRequired => FeedKind::Invite,
-        OverlayActivityCategory::CurrentInstance => FeedKind::Instance,
-        OverlayActivityCategory::FavoriteMovement => FeedKind::Friend,
-        OverlayActivityCategory::ProfileChange => FeedKind::Profile,
-        OverlayActivityCategory::GroupSocial => FeedKind::Group,
-        OverlayActivityCategory::SystemSafety => FeedKind::System,
-        OverlayActivityCategory::Media => FeedKind::Media,
+        ActivityCategory::ActionRequired => FeedKind::Invite,
+        ActivityCategory::CurrentInstance => FeedKind::Instance,
+        ActivityCategory::FavoriteMovement => FeedKind::Friend,
+        ActivityCategory::ProfileChange => FeedKind::Profile,
+        ActivityCategory::GroupSocial => FeedKind::Group,
+        ActivityCategory::SystemSafety => FeedKind::System,
+        ActivityCategory::Media => FeedKind::Media,
     }
 }
 
-fn feed_severity(entry: &OverlayActivityEntry) -> FeedSeverity {
+fn feed_severity(entry: &ActivityEntry) -> FeedSeverity {
     match entry.category {
-        OverlayActivityCategory::ActionRequired => FeedSeverity::Important,
-        OverlayActivityCategory::SystemSafety => FeedSeverity::Warning,
+        ActivityCategory::ActionRequired => FeedSeverity::Important,
+        ActivityCategory::SystemSafety => FeedSeverity::Warning,
         _ => FeedSeverity::Normal,
     }
 }
 
-fn feed_accent(entry: &OverlayActivityEntry) -> FeedAccent {
-    match entry.activity_type.as_str() {
-        "Online" => FeedAccent::Online,
-        "GPS" => FeedAccent::Location,
-        "Offline" => FeedAccent::Offline,
-        "Status" | "Avatar" | "Bio" => FeedAccent::Muted,
+fn feed_accent(entry: &ActivityEntry) -> FeedAccent {
+    match entry.kind {
+        ActivityKind::Online => FeedAccent::Online,
+        ActivityKind::Gps => FeedAccent::Location,
+        ActivityKind::Offline => FeedAccent::Offline,
+        ActivityKind::Status | ActivityKind::AvatarChange | ActivityKind::Bio => FeedAccent::Muted,
         _ => FeedAccent::None,
     }
 }
@@ -559,10 +559,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use serde_json::Value;
     use vrcx_0_application_activity::{
-        OverlayActivityActorRelation, OverlayActivityCategory, OverlayActivityContent,
-        OverlayActivityEntry, OverlayActivityText,
+        ActivityActorRelation, ActivityCategory, ActivityContent, ActivityEntry, ActivityText,
     };
 
     use super::*;
@@ -606,7 +604,7 @@ mod tests {
     #[test]
     fn feed_detail_replaces_world_id_with_meaningful_world_name() {
         let mut entry = entry("Online", "wrld_1:123", "Test World");
-        entry.content.title = OverlayActivityText::literal("Ada");
+        entry.content.title = ActivityText::literal("Ada");
         entry.content.summary = "Ada online in wrld_1".to_string();
 
         assert_eq!(feed_line(&entry, "en").detail, "Ada online in Test World");
@@ -631,7 +629,7 @@ mod tests {
     fn feed_detail_does_not_render_raw_world_id_when_world_name_is_unknown() {
         let mut entry = entry("Online", "wrld_1:123", "wrld_1");
         entry.actor_display_name = "Ada".to_string();
-        entry.content.title = OverlayActivityText::literal("Ada");
+        entry.content.title = ActivityText::literal("Ada");
         entry.content.summary = "Ada online in wrld_1".to_string();
 
         assert_eq!(feed_line(&entry, "en").detail, "Ada has logged in");
@@ -640,10 +638,9 @@ mod tests {
     #[test]
     fn feed_detail_uses_runtime_locale_for_notification_body() {
         let mut entry = entry("OnPlayerJoined", "", "");
-        entry.category = OverlayActivityCategory::CurrentInstance;
-        entry.content.title = OverlayActivityText::literal("Ada");
-        entry.content.body =
-            OverlayActivityText::message(OverlayMessage::notifications_has_joined());
+        entry.category = ActivityCategory::CurrentInstance;
+        entry.content.title = ActivityText::literal("Ada");
+        entry.content.body = ActivityText::message(OverlayMessage::notifications_has_joined());
 
         assert_eq!(feed_line(&entry, "zh-CN").detail, "Ada 加入了房间");
     }
@@ -651,9 +648,9 @@ mod tests {
     #[test]
     fn feed_detail_replaces_world_id_after_localization() {
         let mut entry = entry("Online", "wrld_1:123", "Test World");
-        entry.content.title = OverlayActivityText::literal("Ada");
+        entry.content.title = ActivityText::literal("Ada");
         entry.content.body =
-            OverlayActivityText::message(OverlayMessage::notifications_online_location("wrld_1"));
+            ActivityText::message(OverlayMessage::notifications_online_location("wrld_1"));
 
         assert_eq!(
             feed_line(&entry, "zh-CN").detail,
@@ -664,9 +661,8 @@ mod tests {
     #[test]
     fn feed_detail_uses_localized_generic_location_when_world_name_is_unknown() {
         let mut entry = entry("GPS", "wrld_1:123", "wrld_1");
-        entry.content.title = OverlayActivityText::literal("Ada");
-        entry.content.body =
-            OverlayActivityText::message(OverlayMessage::notifications_gps("wrld_1"));
+        entry.content.title = ActivityText::literal("Ada");
+        entry.content.body = ActivityText::message(OverlayMessage::notifications_gps("wrld_1"));
 
         assert_eq!(feed_line(&entry, "zh-CN").detail, "Ada 现在位于 某个房间");
     }
@@ -679,8 +675,8 @@ mod tests {
             "Group World",
         );
         entry.content.group_name = "Group Name".to_string();
-        entry.content.title = OverlayActivityText::literal("Ada");
-        entry.content.body = OverlayActivityText::message(OverlayMessage::notifications_gps(
+        entry.content.title = ActivityText::literal("Ada");
+        entry.content.body = ActivityText::message(OverlayMessage::notifications_gps(
             "Group World groupPlus(Group Name)",
         ));
 
@@ -693,9 +689,8 @@ mod tests {
     #[test]
     fn feed_detail_appends_instance_id_when_enabled() {
         let mut entry = entry("GPS", "wrld_1:12345~region(use)", "Test World");
-        entry.content.title = OverlayActivityText::literal("Ada");
-        entry.content.body =
-            OverlayActivityText::message(OverlayMessage::notifications_gps("Test World"));
+        entry.content.title = ActivityText::literal("Ada");
+        entry.content.body = ActivityText::message(OverlayMessage::notifications_gps("Test World"));
 
         assert_eq!(
             feed_line_with_instance_id(&entry, "en", true).detail,
@@ -707,38 +702,37 @@ mod tests {
         );
     }
 
-    fn entry(activity_type: &str, location: &str, world_name: &str) -> OverlayActivityEntry {
-        OverlayActivityEntry {
+    fn entry(activity_type: &str, location: &str, world_name: &str) -> ActivityEntry {
+        ActivityEntry {
             sequence: 1,
             source_id: format!("source:{activity_type}"),
-            activity_type: activity_type.to_string(),
-            category: OverlayActivityCategory::FavoriteMovement,
+            kind: ActivityKind::from_key(activity_type).expect("known activity kind"),
+            category: ActivityCategory::FavoriteMovement,
             created_at: "2026-06-01T12:34:56.000Z".to_string(),
             actor_user_id: "usr_1".to_string(),
             actor_display_name: "User".to_string(),
-            content: OverlayActivityContent {
+            content: ActivityContent {
                 location: location.to_string(),
                 world_name: world_name.to_string(),
                 title: text(),
                 body: text(),
-                ..OverlayActivityContent::default()
+                ..ActivityContent::default()
             },
-            actor_relation: OverlayActivityActorRelation::None,
-            payload: Value::Null.into(),
+            actor_relation: ActivityActorRelation::None,
         }
     }
 
-    fn text() -> OverlayActivityText {
-        OverlayActivityText::default()
+    fn text() -> ActivityText {
+        ActivityText::default()
     }
 
-    fn feed_line(entry: &OverlayActivityEntry, locale: &str) -> FeedLine {
+    fn feed_line(entry: &ActivityEntry, locale: &str) -> FeedLine {
         let localizer = OverlayLocalizer::new(OverlayLocale::from_config(locale));
         feed_line_from_activity(entry, &localizer)
     }
 
     fn feed_line_with_instance_id(
-        entry: &OverlayActivityEntry,
+        entry: &ActivityEntry,
         locale: &str,
         show_instance_id: bool,
     ) -> FeedLine {

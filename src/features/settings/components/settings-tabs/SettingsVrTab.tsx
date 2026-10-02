@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import type { HostPlatform } from '@/platform/tauri/bindings';
 import type { PreferencesSnapshot } from '@/state/preferencesStore';
 import { Button } from '@/ui/shadcn/button';
 import {
@@ -20,6 +22,7 @@ import {
 import { Slider } from '@/ui/shadcn/slider';
 import { Switch } from '@/ui/shadcn/switch';
 
+import { overlayToastOptions } from '../../settingsOptions';
 import { SettingsCard } from '../SettingsCard';
 import { Field } from '../SettingsField';
 import { SettingsTabContent } from '../SettingsViewParts';
@@ -29,12 +32,14 @@ type SettingsVrPrefs = Pick<
     PreferencesSnapshot,
     | 'hmdNotificationOpacity'
     | 'hmdNotificationPosition'
+    | 'hmdNotificationStyle'
     | 'hmdNotificationStartMode'
     | 'hmdNotificationTimeout'
     | 'hmdNotificationsEnabled'
     | 'imageNotifications'
     | 'notificationOpacity'
     | 'notificationTimeout'
+    | 'overlayToast'
     | 'ovrtHudNotifications'
     | 'ovrtWristNotifications'
     | 'wristOverlayButton'
@@ -50,6 +55,7 @@ type SettingsVrPrefs = Pick<
 >;
 
 type HmdNotificationPosition = SettingsVrPrefs['hmdNotificationPosition'];
+type HmdNotificationStyle = SettingsVrPrefs['hmdNotificationStyle'];
 type HmdNotificationStartMode = SettingsVrPrefs['hmdNotificationStartMode'];
 type WristOverlayButton = SettingsVrPrefs['wristOverlayButton'];
 type WristOverlayHand = SettingsVrPrefs['wristOverlayHand'];
@@ -58,17 +64,20 @@ type WristOverlayStartMode = SettingsVrPrefs['wristOverlayStartMode'];
 
 type SettingsVrTabContentProps = {
     prefs: SettingsVrPrefs;
+    hostPlatform: HostPlatform;
     overlayTestMode: boolean;
     overlayTestModeDisabled: boolean;
     onOverlayTestModeChange: (checked: boolean) => void;
     onImageNotificationsChange: (checked: boolean) => void;
     onHmdNotificationOpacityChange: (value: number) => void;
     onHmdNotificationPositionChange: (value: HmdNotificationPosition) => void;
+    onHmdNotificationStyleChange: (value: HmdNotificationStyle) => void;
     onHmdNotificationStartModeChange: (value: HmdNotificationStartMode) => void;
     onHmdNotificationTimeoutSecondsChange: (value: string) => void;
     onHmdNotificationsEnabledChange: (checked: boolean) => void;
     onNotificationOpacityChange: (value: number) => void;
     onNotificationTimeoutSecondsChange: (value: string) => void;
+    onOverlayToastChange: (value: string) => void;
     onOpenHmdNotificationFiltersDialog: () => void;
     onOpenVrNotificationFiltersDialog: () => void;
     onOpenWristFeedNotificationsDialog: () => void;
@@ -95,10 +104,14 @@ const hmdStartModeOptions = [
 ] as const;
 
 const hmdPositionOptions = [
-    ['bottom', 'view.settings.vr.hmd_notifications.position_bottom'],
     ['top', 'view.settings.vr.hmd_notifications.position_top'],
-    ['left', 'view.settings.vr.hmd_notifications.position_left'],
-    ['right', 'view.settings.vr.hmd_notifications.position_right']
+    ['center', 'view.settings.vr.hmd_notifications.position_center'],
+    ['bottom', 'view.settings.vr.hmd_notifications.position_bottom']
+] as const;
+
+const hmdStyleOptions = [
+    ['standard', 'view.settings.vr.hmd_notifications.style_standard'],
+    ['compact', 'view.settings.vr.hmd_notifications.style_compact']
 ] as const;
 
 const wristStartModeOptions = [
@@ -130,9 +143,11 @@ export function SettingsVrTab() {
 
 function SettingsVrTabContent({
     prefs,
+    hostPlatform,
     overlayTestMode,
     overlayTestModeDisabled,
     onOverlayTestModeChange,
+    onOverlayToastChange,
     onXsNotificationsChange,
     onOvrtHudNotificationsChange,
     onOvrtWristNotificationsChange,
@@ -144,6 +159,7 @@ function SettingsVrTabContent({
     onHmdNotificationTimeoutSecondsChange,
     onHmdNotificationOpacityChange,
     onHmdNotificationPositionChange,
+    onHmdNotificationStyleChange,
     onHmdNotificationStartModeChange,
     onOpenHmdNotificationFiltersDialog,
     onWristOverlayEnabledChange,
@@ -158,26 +174,38 @@ function SettingsVrTabContent({
     onOpenWristFeedNotificationsDialog
 }: SettingsVrTabContentProps) {
     const { t } = useTranslation();
+    const [draftNotificationTimeout, setDraftNotificationTimeout] = useState<
+        number | null
+    >(null);
+    const [draftNotificationOpacity, setDraftNotificationOpacity] = useState<
+        number | null
+    >(null);
+    const [draftHmdNotificationTimeout, setDraftHmdNotificationTimeout] =
+        useState<number | null>(null);
+    const [draftHmdNotificationOpacity, setDraftHmdNotificationOpacity] =
+        useState<number | null>(null);
+    const isLinux = hostPlatform === 'linux';
+    const vrNotificationsEnabled =
+        prefs.xsNotifications ||
+        (!isLinux &&
+            (prefs.ovrtHudNotifications || prefs.ovrtWristNotifications)) ||
+        prefs.hmdNotificationsEnabled;
     const hmdNotificationsEnabled = prefs.hmdNotificationsEnabled;
     const wristOverlayEnabled = prefs.wristOverlayEnabled;
     const vrDeviceStatusEnabled =
         wristOverlayEnabled && prefs.wristOverlayShowDevices;
-    const notificationTimeoutSeconds = Math.max(
-        0,
-        Math.floor(prefs.notificationTimeout / 1000)
-    );
-    const notificationOpacity = Math.min(
-        100,
-        Math.max(0, Math.round(prefs.notificationOpacity))
-    );
-    const hmdNotificationTimeoutSeconds = Math.max(
-        1,
-        Math.floor(prefs.hmdNotificationTimeout / 1000)
-    );
-    const hmdNotificationOpacity = Math.min(
-        100,
-        Math.max(0, Math.round(prefs.hmdNotificationOpacity))
-    );
+    const notificationTimeoutSeconds =
+        draftNotificationTimeout ??
+        Math.max(0, Math.floor(prefs.notificationTimeout / 1000));
+    const notificationOpacity =
+        draftNotificationOpacity ??
+        Math.min(100, Math.max(0, Math.round(prefs.notificationOpacity)));
+    const hmdNotificationTimeoutSeconds =
+        draftHmdNotificationTimeout ??
+        Math.max(1, Math.floor(prefs.hmdNotificationTimeout / 1000));
+    const hmdNotificationOpacity =
+        draftHmdNotificationOpacity ??
+        Math.min(100, Math.max(0, Math.round(prefs.hmdNotificationOpacity)));
 
     return (
         <SettingsTabContent value="vr">
@@ -189,7 +217,52 @@ function SettingsVrTabContent({
             >
                 <Field
                     label={t(
-                        'view.settings.notifications.notifications.vr_notifications.xsoverlay_notifications'
+                        'view.settings.notifications.notifications.vr_notifications.when_to_display'
+                    )}
+                    description={t(
+                        isLinux
+                            ? 'view.settings.notifications.notifications.vr_notifications.when_to_display_description_linux'
+                            : 'view.settings.notifications.notifications.vr_notifications.when_to_display_description'
+                    )}
+                    controlId="settings-overlay-toast"
+                    disabled={!vrNotificationsEnabled}
+                >
+                    <Select
+                        value={prefs.overlayToast}
+                        items={overlayToastOptions.map(([value, labelKey]) => ({
+                            value,
+                            label: t(labelKey)
+                        }))}
+                        disabled={!vrNotificationsEnabled}
+                        onValueChange={(value) =>
+                            onOverlayToastChange(value ?? '')
+                        }
+                    >
+                        <SelectTrigger
+                            id="settings-overlay-toast"
+                            className="w-56"
+                        >
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectGroup>
+                                {overlayToastOptions.map(
+                                    ([value, labelKey]) => (
+                                        <SelectItem key={value} value={value}>
+                                            {t(labelKey)}
+                                        </SelectItem>
+                                    )
+                                )}
+                            </SelectGroup>
+                        </SelectContent>
+                    </Select>
+                </Field>
+
+                <Field
+                    label={t(
+                        isLinux
+                            ? 'view.settings.notifications.notifications.vr_notifications.wayvr_notifications'
+                            : 'view.settings.notifications.notifications.vr_notifications.xsoverlay_notifications'
                     )}
                 >
                     <Switch
@@ -198,27 +271,31 @@ function SettingsVrTabContent({
                     />
                 </Field>
 
-                <Field
-                    label={t(
-                        'view.settings.notifications.notifications.vr_notifications.ovrtoolkit_hud_notifications'
-                    )}
-                >
-                    <Switch
-                        checked={prefs.ovrtHudNotifications}
-                        onCheckedChange={onOvrtHudNotificationsChange}
-                    />
-                </Field>
+                {isLinux ? null : (
+                    <>
+                        <Field
+                            label={t(
+                                'view.settings.notifications.notifications.vr_notifications.ovrtoolkit_hud_notifications'
+                            )}
+                        >
+                            <Switch
+                                checked={prefs.ovrtHudNotifications}
+                                onCheckedChange={onOvrtHudNotificationsChange}
+                            />
+                        </Field>
 
-                <Field
-                    label={t(
-                        'view.settings.notifications.notifications.vr_notifications.ovrtoolkit_wrist_notifications'
-                    )}
-                >
-                    <Switch
-                        checked={prefs.ovrtWristNotifications}
-                        onCheckedChange={onOvrtWristNotificationsChange}
-                    />
-                </Field>
+                        <Field
+                            label={t(
+                                'view.settings.notifications.notifications.vr_notifications.ovrtoolkit_wrist_notifications'
+                            )}
+                        >
+                            <Switch
+                                checked={prefs.ovrtWristNotifications}
+                                onCheckedChange={onOvrtWristNotificationsChange}
+                            />
+                        </Field>
+                    </>
+                )}
 
                 <Field
                     label={t(
@@ -259,11 +336,13 @@ function SettingsVrTabContent({
                             step={1}
                             value={notificationTimeoutSeconds}
                             className="w-32"
-                            onValueChange={(value) =>
+                            onValueChange={setDraftNotificationTimeout}
+                            onValueCommitted={(value) => {
+                                setDraftNotificationTimeout(null);
                                 onNotificationTimeoutSecondsChange(
                                     value === null ? '' : String(value)
-                                )
-                            }
+                                );
+                            }}
                         >
                             <NumberFieldGroup>
                                 <NumberFieldDecrement />
@@ -289,10 +368,16 @@ function SettingsVrTabContent({
                             max={100}
                             step={1}
                             onValueChange={(value) =>
-                                onNotificationOpacityChange(
+                                setDraftNotificationOpacity(
                                     Array.isArray(value) ? value[0] : value
                                 )
                             }
+                            onValueCommitted={(value) => {
+                                setDraftNotificationOpacity(null);
+                                onNotificationOpacityChange(
+                                    Array.isArray(value) ? value[0] : value
+                                );
+                            }}
                         />
                         <span className="text-muted-foreground w-10 text-right text-sm">
                             {notificationOpacity}%
@@ -391,6 +476,42 @@ function SettingsVrTabContent({
                 </Field>
 
                 <Field
+                    label={t('view.settings.vr.hmd_notifications.style')}
+                    controlId="settings-hmd-notification-style"
+                    disabled={!hmdNotificationsEnabled}
+                >
+                    <Select<HmdNotificationStyle>
+                        value={prefs.hmdNotificationStyle}
+                        items={hmdStyleOptions.map(([value, labelKey]) => ({
+                            value,
+                            label: t(labelKey)
+                        }))}
+                        disabled={!hmdNotificationsEnabled}
+                        onValueChange={(value) => {
+                            if (value) {
+                                onHmdNotificationStyleChange(value);
+                            }
+                        }}
+                    >
+                        <SelectTrigger
+                            id="settings-hmd-notification-style"
+                            className="w-56"
+                        >
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectGroup>
+                                {hmdStyleOptions.map(([value, labelKey]) => (
+                                    <SelectItem key={value} value={value}>
+                                        {t(labelKey)}
+                                    </SelectItem>
+                                ))}
+                            </SelectGroup>
+                        </SelectContent>
+                    </Select>
+                </Field>
+
+                <Field
                     label={t('view.settings.vr.hmd_notifications.timeout')}
                     controlId="settings-hmd-notification-timeout"
                     disabled={!hmdNotificationsEnabled}
@@ -404,11 +525,13 @@ function SettingsVrTabContent({
                             value={hmdNotificationTimeoutSeconds}
                             disabled={!hmdNotificationsEnabled}
                             className="w-32"
-                            onValueChange={(value) =>
+                            onValueChange={setDraftHmdNotificationTimeout}
+                            onValueCommitted={(value) => {
+                                setDraftHmdNotificationTimeout(null);
                                 onHmdNotificationTimeoutSecondsChange(
                                     value === null ? '' : String(value)
-                                )
-                            }
+                                );
+                            }}
                         >
                             <NumberFieldGroup>
                                 <NumberFieldDecrement />
@@ -434,10 +557,16 @@ function SettingsVrTabContent({
                             step={1}
                             disabled={!hmdNotificationsEnabled}
                             onValueChange={(value) =>
-                                onHmdNotificationOpacityChange(
+                                setDraftHmdNotificationOpacity(
                                     Array.isArray(value) ? value[0] : value
                                 )
                             }
+                            onValueCommitted={(value) => {
+                                setDraftHmdNotificationOpacity(null);
+                                onHmdNotificationOpacityChange(
+                                    Array.isArray(value) ? value[0] : value
+                                );
+                            }}
                         />
                         <span className="text-muted-foreground w-10 text-right text-sm">
                             {hmdNotificationOpacity}%

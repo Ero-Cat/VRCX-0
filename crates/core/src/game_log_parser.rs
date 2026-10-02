@@ -42,6 +42,16 @@ pub fn parse_log_line_header(line: &str) -> Option<(chrono::NaiveDateTime, &str)
     Some((line_date, content))
 }
 
+pub fn parse_authenticated_user(content: &str) -> Option<(&str, &str)> {
+    let (display_name, user_id) = content
+        .strip_prefix("User Authenticated: ")?
+        .strip_suffix(')')?
+        .rsplit_once(" (")?;
+    user_id
+        .starts_with("usr_")
+        .then_some((display_name, user_id))
+}
+
 pub fn parse_room_log_event<'a>(line: &'a str, content: &str) -> Option<RoomLogEvent<'a>> {
     if content.contains("[Behaviour] Entering Room: ") {
         let position = line.rfind("] Entering Room: ")?;
@@ -350,10 +360,34 @@ impl GameLogEventKind {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_room_log_event, GameLogEvent, GameLogEventKind, RoomLogEvent};
+    use super::{
+        parse_authenticated_user, parse_log_line_header, parse_room_log_event, GameLogEvent,
+        GameLogEventKind, RoomLogEvent,
+    };
 
     fn row(fields: &[&str]) -> Vec<String> {
         fields.iter().map(|field| (*field).to_string()).collect()
+    }
+
+    #[test]
+    fn parses_authenticated_user_lines() {
+        let line = "2026.10.01 00:24:52 Debug      -  User Authenticated: Name (with) parens (usr_63f57413-1470-4703-b655-50b7c0845414)";
+        let (_, content) = parse_log_line_header(line).unwrap();
+        assert_eq!(
+            parse_authenticated_user(content),
+            Some((
+                "Name (with) parens",
+                "usr_63f57413-1470-4703-b655-50b7c0845414"
+            ))
+        );
+
+        for content in [
+            "User Authenticated: Name",
+            "User Authenticated: Name (grp_1)",
+            "[Behaviour] User Authenticated: Name (usr_1)",
+        ] {
+            assert_eq!(parse_authenticated_user(content), None);
+        }
     }
 
     #[test]

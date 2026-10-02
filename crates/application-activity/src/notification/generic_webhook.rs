@@ -1,6 +1,6 @@
 use std::sync::LazyLock;
 
-use crate::OverlayActivityDelivery;
+use crate::ActivityDelivery;
 use serde_json::{json, Value};
 
 use super::{webhook_local_time_string, RenderedNotification};
@@ -16,14 +16,14 @@ pub(crate) fn default_webhook_fields() -> Vec<String> {
 }
 
 pub fn generic_webhook_payload(
-    delivery: &OverlayActivityDelivery,
+    delivery: &ActivityDelivery,
     render: &RenderedNotification,
     fields: &[String],
 ) -> Value {
     let entry = &delivery.entry;
     let payload = json!({
         "version": 1,
-        "event": &entry.activity_type,
+        "event": entry.kind,
         "category": entry.category,
         "title": &render.title,
         "message": &render.text,

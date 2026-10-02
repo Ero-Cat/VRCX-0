@@ -84,6 +84,7 @@ export const NOTIFICATION_TYPES = Object.freeze([
     'invite',
     'requestInviteResponse',
     'inviteResponse',
+    'invite.instance.contentGated',
     'friendRequest',
     'ignoredFriendRequest',
     'message',
@@ -92,6 +93,8 @@ export const NOTIFICATION_TYPES = Object.freeze([
     'groupChange',
     'group.announcement',
     'group.event.created',
+    'group.event.starting',
+    'group.post',
     'group.informative',
     'group.invite',
     'group.joinRequest',
@@ -100,11 +103,18 @@ export const NOTIFICATION_TYPES = Object.freeze([
     'moderation.warning.group',
     'moderation.report.closed',
     'moderation.contentrestriction',
+    'moderation.notice',
+    'votetokick',
     'instance.closed',
     'economy.alert',
     'economy.received.gift',
     'badge.earned',
-    'vrcplus.gift'
+    'vrcplus.gift',
+    'avatarreview.success',
+    'avatarreview.failure',
+    'promo.redeem',
+    'twitchdrop.fulfilled',
+    'text.adventure'
 ]);
 
 function normalizeUserId(value?: string | null): string {

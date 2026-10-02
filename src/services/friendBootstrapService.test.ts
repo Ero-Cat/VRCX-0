@@ -308,9 +308,9 @@ describe('friendBootstrapService baseline reconciliation', () => {
 
         expect(useFriendRosterStore.getState()).toMatchObject({
             loadStatus: 'error',
-            detail: 'baseline failed',
-            friendsById: {}
+            detail: 'baseline failed'
         });
+        expect(useFriendRosterStore.getState().friendsById).toEqual({});
         expect(useSessionStore.getState().isFriendsLoaded).toBe(false);
     });
 
@@ -336,9 +336,9 @@ describe('friendBootstrapService baseline reconciliation', () => {
 
         expect(useFriendRosterStore.getState()).toMatchObject({
             loadStatus: 'error',
-            detail: 'Friend roster baseline was stale for usr_self.',
-            friendsById: {}
+            detail: 'Friend roster baseline was stale for usr_self.'
         });
+        expect(useFriendRosterStore.getState().friendsById).toEqual({});
         expect(useSessionStore.getState().isFriendsLoaded).toBe(false);
     });
 });

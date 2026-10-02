@@ -6,7 +6,6 @@ import {
     type AppUpdateStatusSnapshot,
     type NormalizedRelease
 } from '@/services/updateService';
-import { useNotificationStore } from '@/state/notificationStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 
 type UpdaterReleaseSnapshotSource = NormalizedRelease | null;
@@ -59,7 +58,7 @@ function setUpdaterCheckResult(
     });
 }
 
-function notifyAvailableUpdate(release: NormalizedRelease, version: string) {
+function recordAvailableUpdate(release: NormalizedRelease, version: string) {
     const displayVersion = formatReleaseDisplayVersion(version);
     const channelLabel = i18n.t(
         release.channel === 'beta'
@@ -70,13 +69,6 @@ function notifyAvailableUpdate(release: NormalizedRelease, version: string) {
         'service.background_maintenance_service.dynamic.version_value_is_available_on_the_value_branch',
         { value: displayVersion, value2: channelLabel }
     );
-    useNotificationStore.getState().pushNotification({
-        level: 'info',
-        title: i18n.t(
-            'service.background_maintenance.label.vrcx_update_available'
-        ),
-        message
-    });
     setUpdaterCheckResult(true, message, release);
 }
 
@@ -102,7 +94,7 @@ async function applyAppUpdateCheckSnapshot(
         return;
     }
 
-    notifyAvailableUpdate(release, release.canonicalVersion);
+    recordAvailableUpdate(release, release.canonicalVersion);
 }
 
 export async function handleAppUpdateStatusEvent(

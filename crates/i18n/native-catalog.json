@@ -89,6 +89,14 @@
                     "source": "notifications.group_announcement_title"
                 },
                 {
+                    "key": "notifications.group_event_created_title",
+                    "source": "notifications.group_event_created_title"
+                },
+                {
+                    "key": "notifications.group_event_starting_title",
+                    "source": "notifications.group_event_starting_title"
+                },
+                {
                     "key": "notifications.group_informative_title",
                     "source": "notifications.group_informative_title"
                 },
@@ -107,6 +115,10 @@
                 {
                     "key": "notifications.group_queue_ready_title",
                     "source": "notifications.group_queue_ready_title"
+                },
+                {
+                    "key": "notifications.group_queue_ready_location",
+                    "source": "status_bar.instance_queue_ready_to_join"
                 },
                 {
                     "key": "notifications.group_instance_opened",
@@ -135,22 +147,6 @@
                 {
                     "key": "notifications.video_play_title",
                     "source": "notifications.video_play_title"
-                },
-                {
-                    "key": "notifications.blocked",
-                    "source": "notifications.blocked"
-                },
-                {
-                    "key": "notifications.unblocked",
-                    "source": "notifications.unblocked"
-                },
-                {
-                    "key": "notifications.muted",
-                    "source": "notifications.muted"
-                },
-                {
-                    "key": "notifications.unmuted",
-                    "source": "notifications.unmuted"
                 },
                 {
                     "key": "notifications.blocked_player_joined",

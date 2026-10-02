@@ -8,6 +8,7 @@ use vrcx_0_core::game_log_parser::{
     clean_location, convert_log_time_to_iso8601, parse_log_line_header, parse_room_log_event,
     LogLocationSnapshot, RoomLogEvent,
 };
+use vrcx_0_core::vrchat_log_reader::parse_output_log_file_timestamp;
 
 #[derive(Clone)]
 struct LogFileCandidate {
@@ -62,13 +63,6 @@ fn latest_output_log_candidate(log_dir: &Path) -> Option<LogFileCandidate> {
                 .into_iter()
                 .max_by_key(|candidate| candidate.modified)
         })
-}
-
-fn parse_output_log_file_timestamp(file_name: &str) -> Option<NaiveDateTime> {
-    let timestamp = file_name
-        .strip_prefix("output_log_")?
-        .strip_suffix(".txt")?;
-    NaiveDateTime::parse_from_str(timestamp, "%Y-%m-%d_%H-%M-%S").ok()
 }
 
 fn scan_log_file_location_snapshot(path: &Path, file_name: &str) -> Option<LogLocationSnapshot> {

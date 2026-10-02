@@ -4,9 +4,11 @@ use chrono::DateTime;
 use serde_json::json;
 use vrcx_0_core::OwnerId;
 use vrcx_0_persistence::activity::{
-    activity_self_sessions_refresh, activity_sessions_get, activity_sync_state_get,
+    activity_bucket_cache_get, activity_bucket_cache_upsert, activity_self_caches_invalidate,
+    activity_self_sessions_refresh, activity_self_sessions_warmup, activity_sessions_get,
+    activity_sync_state_get, ActivityBucketCacheInput, ActivityBucketCacheQueryInput,
     ActivityRefreshMode, ActivitySelfSessionsRefreshInput, ActivitySelfSessionsRefreshOutput,
-    ActivitySessionOutput,
+    ActivitySessionOutput, ActivityViewKind,
 };
 use vrcx_0_persistence::game_log::{write_batch, GameLogLocationEntry, GameLogWriteBatch};
 use vrcx_0_persistence::DatabaseService;
@@ -194,4 +196,60 @@ fn expand_refresh_backfills_older_rows_and_ignores_narrower_ranges() {
     assert_eq!(spans(&narrower.sessions), expected);
     assert_eq!(narrower.source_count, 0);
     assert_eq!(narrower.sync.cached_range_days, 60);
+}
+
+#[test]
+fn invalidating_self_caches_lets_the_next_refresh_see_backfilled_history() {
+    let (_dir, db) = test_db("activity-self-invalidate");
+    seed(&db, vec![location("2025-01-09T20:00:00Z", 3_600_000)]);
+    refresh(&db, ActivityRefreshMode::Full, 30);
+    activity_bucket_cache_upsert(
+        &db,
+        ActivityBucketCacheInput {
+            owner_user_id: OwnerId::new(OWNER),
+            target_user_id: "usr_friend".to_string(),
+            range_days: json!(30),
+            view_kind: ActivityViewKind::Overlap,
+            exclude_key: String::new(),
+            bucket_version: json!(1),
+            built_from_cursor: "2025-01-09T20:00:00Z".to_string(),
+            raw_buckets: json!([]),
+            normalized_buckets: json!([]),
+            summary: json!({}),
+            built_at: NOW.to_string(),
+        },
+    )
+    .unwrap();
+    seed(&db, vec![location("2025-01-08T10:00:00Z", 3_600_000)]);
+
+    activity_self_caches_invalidate(&db, &OwnerId::new(OWNER)).unwrap();
+
+    assert!(activity_sync_state_get(&db, OWNER.to_string())
+        .unwrap()
+        .is_none());
+    assert!(activity_bucket_cache_get(
+        &db,
+        ActivityBucketCacheQueryInput {
+            owner_user_id: OwnerId::new(OWNER),
+            target_user_id: "usr_friend".to_string(),
+            range_days: json!(30),
+            view_kind: ActivityViewKind::Overlap,
+            exclude_key: String::new(),
+        },
+    )
+    .unwrap()
+    .is_none());
+    let output =
+        activity_self_sessions_warmup(&db, OwnerId::new(OWNER), 30, Some(ms(NOW))).unwrap();
+    assert_eq!(
+        spans(&output.sessions),
+        vec![
+            (
+                ms("2025-01-08T10:00:00Z"),
+                ms("2025-01-08T11:00:00Z"),
+                false
+            ),
+            (ms("2025-01-09T20:00:00Z"), ms("2025-01-09T21:00:00Z"), true),
+        ]
+    );
 }

@@ -16,7 +16,6 @@ vi.mock('@/services/gameLogIngestService', () => ({
     resetGameLogSessionState: mocks.resetGameLogSessionState
 }));
 
-import { useNotificationStore } from '@/state/notificationStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { useSessionStore } from '@/state/sessionStore';
 
@@ -29,7 +28,6 @@ describe('gameStateService lifecycle transitions', () => {
         vi.clearAllMocks();
         useRuntimeStore.getState().resetRuntimeState();
         useSessionStore.getState().resetSessionState();
-        useNotificationStore.getState().resetNotificationState();
         useSessionStore.getState().setSessionState({
             sessionPhase: 'ready',
             isLoggedIn: true
@@ -89,11 +87,6 @@ describe('gameStateService lifecycle transitions', () => {
         expect(mocks.appRuntimeDiscordReconcileRequest).toHaveBeenCalledTimes(
             1
         );
-        expect(useNotificationStore.getState().items[0]).toMatchObject({
-            level: 'info',
-            title: 'VRChat running',
-            message: 'SteamVR is running.'
-        });
     });
 
     it('stops a game session by clearing the local game state', async () => {
@@ -139,10 +132,5 @@ describe('gameStateService lifecycle transitions', () => {
         expect(mocks.appRuntimeDiscordReconcileRequest).toHaveBeenCalledTimes(
             1
         );
-        expect(useNotificationStore.getState().items[0]).toMatchObject({
-            level: 'info',
-            title: 'VRChat stopped',
-            message: 'SteamVR is not running.'
-        });
     });
 });

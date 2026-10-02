@@ -100,37 +100,76 @@ pub fn write_realtime_batch(
 
 fn validate_friend_log_backed_feed_entries(batch: &RealtimePersistenceBatch) -> Result<(), Error> {
     for entry in &batch.feed_entries {
-        let FeedLiveEntry::TrustLevel {
-            created_at,
-            user_id,
-            display_name,
-            trust_level,
-            previous_trust_level,
-            friend_number,
-            ..
-        } = entry
-        else {
-            continue;
+        let valid = match entry {
+            FeedLiveEntry::TrustLevel {
+                created_at,
+                user_id,
+                display_name,
+                trust_level,
+                previous_trust_level,
+                friend_number,
+                ..
+            } => {
+                !trust_level.is_empty()
+                    && !previous_trust_level.is_empty()
+                    && has_matching_friend_log_upsert(
+                        batch,
+                        user_id,
+                        created_at,
+                        display_name,
+                        *friend_number,
+                        Some(trust_level),
+                    )
+            }
+            FeedLiveEntry::DisplayName {
+                created_at,
+                user_id,
+                display_name,
+                previous_display_name,
+                friend_number,
+                ..
+            } => {
+                !previous_display_name.trim().is_empty()
+                    && has_matching_friend_log_upsert(
+                        batch,
+                        user_id,
+                        created_at,
+                        display_name,
+                        *friend_number,
+                        None,
+                    )
+            }
+            _ => continue,
         };
-        let user_id = normalize_user_id(user_id);
-        let valid = !created_at.is_empty()
-            && !user_id.is_empty()
-            && !trust_level.is_empty()
-            && !previous_trust_level.is_empty()
-            && batch.friend_log_upserts.iter().any(|upsert| {
-                normalize_user_id(&upsert.target_user_id) == user_id
-                    && upsert.created_at.trim() == created_at
-                    && upsert.display_name.trim() == display_name.trim()
-                    && upsert.trust_level.trim() == trust_level.trim()
-                    && upsert.friend_number == *friend_number
-            });
         if !valid {
-            return Err(Error::InvalidData(
-                "TrustLevel feed entry requires a matching friend-log upsert.".into(),
-            ));
+            return Err(Error::InvalidData(format!(
+                "{} feed entry requires a matching friend-log upsert.",
+                entry.entry_type()
+            )));
         }
     }
     Ok(())
+}
+
+fn has_matching_friend_log_upsert(
+    batch: &RealtimePersistenceBatch,
+    user_id: &str,
+    created_at: &str,
+    display_name: &str,
+    friend_number: i64,
+    trust_level: Option<&str>,
+) -> bool {
+    let user_id = normalize_user_id(user_id);
+    !created_at.is_empty()
+        && !user_id.is_empty()
+        && batch.friend_log_upserts.iter().any(|upsert| {
+            normalize_user_id(&upsert.target_user_id) == user_id
+                && upsert.created_at.trim() == created_at
+                && upsert.display_name.trim() == display_name.trim()
+                && trust_level
+                    .is_none_or(|trust_level| upsert.trust_level.trim() == trust_level.trim())
+                && upsert.friend_number == friend_number
+        })
 }
 
 fn upsert_friend_log_current(
@@ -397,7 +436,8 @@ fn insert_feed_entry(
                 .set("previous_current_avatar_image_url", previous_current_avatar_image_url.clone())
                 .build(),
         )?,
-        FeedLiveEntry::TrustLevel { .. }
+        FeedLiveEntry::DisplayName { .. }
+        | FeedLiveEntry::TrustLevel { .. }
         | FeedLiveEntry::Friend { .. }
         | FeedLiveEntry::Unfriend { .. } => return Ok(0),
         FeedLiveEntry::OnPlayerJoining { .. } | FeedLiveEntry::InstanceClosed { .. } => {
@@ -659,32 +699,45 @@ fn upsert_avatar_time_spent(
     entry: &AvatarTimeSpentUpsert,
 ) -> Result<u64, Error> {
     let avatar_id = normalize_user_id(&entry.avatar_id);
-    if avatar_id.is_empty() || entry.time_spent <= 0 {
+    if avatar_id.is_empty() || entry.ended_at_ms <= entry.started_at_ms {
         return Ok(0);
+    }
+    if entry.time_spent > 0 {
+        tx.execute_non_query(
+            &format!(
+                "INSERT INTO {user_prefix}_avatar_history (avatar_id, created_at, time)
+                 VALUES (@avatar_id, @created_at, @time_spent)
+                 ON CONFLICT(avatar_id) DO UPDATE SET time = time + @time_spent"
+            ),
+            &ParamsBuilder::new()
+                .set("avatar_id", avatar_id.clone())
+                .set("created_at", entry.created_at.clone())
+                .set("time_spent", entry.time_spent)
+                .build(),
+        )?;
+    }
+    let params = ParamsBuilder::new()
+        .set("avatar_id", avatar_id)
+        .set("started_at", activity_iso_from_ms(entry.started_at_ms))
+        .set("ended_at", activity_iso_from_ms(entry.ended_at_ms))
+        .set("time", entry.ended_at_ms - entry.started_at_ms)
+        .build();
+    let updated = tx.execute_non_query(
+        &format!(
+            "UPDATE {user_prefix}_avatar_wear_log SET ended_at = @ended_at, time = @time
+             WHERE avatar_id = @avatar_id AND started_at = @started_at"
+        ),
+        &params,
+    )?;
+    if updated > 0 {
+        return Ok(affected_count(updated));
     }
     tx.execute_non_query(
         &format!(
-            "INSERT INTO {user_prefix}_avatar_history (avatar_id, created_at, time)
-             VALUES (@avatar_id, @created_at, @time_spent)
-             ON CONFLICT(avatar_id) DO UPDATE SET time = time + @time_spent"
-        ),
-        &ParamsBuilder::new()
-            .set("avatar_id", avatar_id.clone())
-            .set("created_at", entry.created_at.clone())
-            .set("time_spent", entry.time_spent)
-            .build(),
-    )?;
-    tx.execute_non_query(
-        &format!(
             "INSERT INTO {user_prefix}_avatar_wear_log (avatar_id, started_at, ended_at, time)
-             VALUES (@avatar_id, @started_at, @ended_at, @time_spent)"
+             VALUES (@avatar_id, @started_at, @ended_at, @time)"
         ),
-        &ParamsBuilder::new()
-            .set("avatar_id", avatar_id)
-            .set("started_at", activity_iso_from_ms(entry.started_at_ms))
-            .set("ended_at", activity_iso_from_ms(entry.ended_at_ms))
-            .set("time_spent", entry.time_spent)
-            .build(),
+        &params,
     )
     .map(affected_count)
 }

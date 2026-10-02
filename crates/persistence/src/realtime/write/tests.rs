@@ -8,9 +8,9 @@ use crate::game_log::{GameLogLocationEntry, GameLogLocationTimeUpdate};
 use crate::realtime::ensure_realtime_tables;
 
 use super::{
-    normalize_user_table_prefix, write_realtime_batch, FriendLogDelete, FriendLogUpsert,
-    NotificationExpiration, NotificationV2Update, RealtimePersistenceBatch, SelfProfileField,
-    SelfProfileLogEntry,
+    normalize_user_table_prefix, write_realtime_batch, AvatarTimeSpentUpsert, FriendLogDelete,
+    FriendLogUpsert, NotificationExpiration, NotificationV2Update, RealtimePersistenceBatch,
+    SelfProfileField, SelfProfileLogEntry,
 };
 use crate::ownership::OwnerId;
 use vrcx_0_contracts::feed_live::FeedLiveEntry;
@@ -649,6 +649,31 @@ fn rejects_trust_feed_without_matching_friend_log_upsert() {
 }
 
 #[test]
+fn rejects_display_name_feed_without_matching_friend_log_upsert() {
+    let dir = TestDir::new("realtime-unpaired-display-name-feed");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3")).unwrap();
+
+    let error = write_realtime_batch(
+        &db,
+        &OwnerId::new("usr_self"),
+        &RealtimePersistenceBatch {
+            feed_entries: vec![FeedLiveEntry::DisplayName {
+                created_at: "2026-05-15T00:00:00Z".into(),
+                user_id: "usr_friend".into(),
+                display_name: "New Name".into(),
+                previous_display_name: "Old Name".into(),
+                friend_number: 7,
+                owner_user_id: String::new(),
+            }],
+            ..RealtimePersistenceBatch::default()
+        },
+    )
+    .unwrap_err();
+
+    assert!(matches!(error, crate::Error::InvalidData(_)));
+}
+
+#[test]
 fn rolls_back_friend_log_rows_when_later_feed_entry_fails() -> Result<(), crate::Error> {
     let dir = TestDir::new("realtime-rollback-feed");
     let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
@@ -1055,4 +1080,43 @@ fn skips_self_profile_log_rows_that_did_not_change() {
     );
 
     assert!(self_profile_log_rows(&db).is_empty());
+}
+
+#[test]
+fn checkpointed_avatar_wear_extends_one_log_row_and_adds_only_the_new_time(
+) -> Result<(), crate::Error> {
+    let dir = TestDir::new("avatar-wear-checkpoint");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+    let started_at_ms = 1_790_863_200_000;
+    for (time_spent, ended_after_ms) in [(60_000, 60_000), (30_000, 90_000)] {
+        write_realtime_batch(
+            &db,
+            &OwnerId::new("usr_self"),
+            &RealtimePersistenceBatch {
+                avatar_time_spent_upserts: vec![AvatarTimeSpentUpsert {
+                    avatar_id: "avtr_worn".into(),
+                    created_at: "2026-10-01T14:00:00.000Z".into(),
+                    time_spent,
+                    started_at_ms,
+                    ended_at_ms: started_at_ms + ended_after_ms,
+                }],
+                ..RealtimePersistenceBatch::default()
+            },
+        )?;
+    }
+
+    let wear_rows = db.execute(
+        "SELECT started_at, ended_at, time FROM usrself_avatar_wear_log",
+        &Default::default(),
+    )?;
+    assert_eq!(wear_rows.len(), 1);
+    assert_eq!(wear_rows[0][0], json!("2026-10-01T14:00:00.000Z"));
+    assert_eq!(wear_rows[0][1], json!("2026-10-01T14:01:30.000Z"));
+    assert_eq!(wear_rows[0][2], json!(90_000));
+    let history = db.execute(
+        "SELECT time FROM usrself_avatar_history WHERE avatar_id = 'avtr_worn'",
+        &Default::default(),
+    )?;
+    assert_eq!(history[0][0], json!(90_000));
+    Ok(())
 }

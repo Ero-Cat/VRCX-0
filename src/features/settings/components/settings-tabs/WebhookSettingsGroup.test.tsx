@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -163,8 +163,7 @@ describe('WebhookSettingsGroup', () => {
                 }}
                 onWebhookEnabledChange={noop}
                 onWebhookAuthEventsEnabledChange={noop}
-                onWebhookUrlDraftChange={noop}
-                onWebhookUrlBlur={noop}
+                onWebhookUrlCommit={noop}
                 onWebhookFormatChange={noop}
                 onWebhookFieldsChange={noop}
                 onOpenWebhookNotificationFiltersDialog={noop}
@@ -185,5 +184,44 @@ describe('WebhookSettingsGroup', () => {
                 }) as HTMLButtonElement
             ).disabled
         ).toBe(false);
+    });
+
+    it('saves the webhook URL only when the edit is committed', () => {
+        const onWebhookUrlCommit = vi.fn();
+        render(
+            <WebhookSettingsGroup
+                prefs={{
+                    webhookEnabled: true,
+                    webhookAuthEventsEnabled: false,
+                    webhookUrl: 'https://example.com/old',
+                    webhookFormat: 'generic',
+                    webhookFields: ''
+                }}
+                onWebhookEnabledChange={noop}
+                onWebhookAuthEventsEnabledChange={noop}
+                onWebhookUrlCommit={onWebhookUrlCommit}
+                onWebhookFormatChange={noop}
+                onWebhookFieldsChange={noop}
+                onOpenWebhookNotificationFiltersDialog={noop}
+                onTestWebhook={noop}
+                deliverySnapshot={null}
+                deliveryStatusLoading={false}
+                onRefreshDeliveryStatus={noop}
+            />
+        );
+
+        const urlInput = document.getElementById(
+            'settings-webhook-url'
+        ) as HTMLInputElement;
+        fireEvent.change(urlInput, {
+            target: { value: 'https://example.com/new' }
+        });
+        expect(onWebhookUrlCommit).not.toHaveBeenCalled();
+        expect(urlInput.value).toBe('https://example.com/new');
+
+        fireEvent.keyDown(urlInput, { key: 'Enter' });
+        expect(onWebhookUrlCommit).toHaveBeenCalledExactlyOnceWith(
+            'https://example.com/new'
+        );
     });
 });

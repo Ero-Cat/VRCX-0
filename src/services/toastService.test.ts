@@ -47,7 +47,7 @@ describe('application toast policy', () => {
         const title = 'VRChat API services are currently unavailable';
         toast.add({ title, type: 'error' });
         expect(appToastManagers['top-center'].add).toHaveBeenLastCalledWith(
-            expect.objectContaining({ title, timeout: 12000 })
+            expect.objectContaining({ title, timeout: 6000 })
         );
         toast.add({ title, type: 'error', timeout: 0 });
         expect(appToastManagers['top-center'].add).toHaveBeenLastCalledWith(
@@ -58,7 +58,7 @@ describe('application toast policy', () => {
     it('matches only the official status host when extending error duration', () => {
         toast.add({ title: 'See https://status.vrchat.com/', type: 'error' });
         expect(appToastManagers['top-center'].add).toHaveBeenLastCalledWith(
-            expect.objectContaining({ timeout: 12000 })
+            expect.objectContaining({ timeout: 6000 })
         );
         toast.add({
             title: 'See https://status.vrchat.com.example.org/',

@@ -28,6 +28,7 @@ const NOTIFICATION_TYPE_SECTIONS: {
             'requestInvite',
             'inviteResponse',
             'requestInviteResponse',
+            'invite.instance.contentGated',
             'message',
             'boop'
         ]
@@ -39,6 +40,8 @@ const NOTIFICATION_TYPE_SECTIONS: {
             'groupChange',
             'group.announcement',
             'group.event.created',
+            'group.event.starting',
+            'group.post',
             'group.informative',
             'group.invite',
             'group.joinRequest',
@@ -53,7 +56,9 @@ const NOTIFICATION_TYPE_SECTIONS: {
         types: [
             'moderation.warning.group',
             'moderation.report.closed',
-            'moderation.contentrestriction'
+            'moderation.contentrestriction',
+            'moderation.notice',
+            'votetokick'
         ]
     },
     {
@@ -64,7 +69,12 @@ const NOTIFICATION_TYPE_SECTIONS: {
             'economy.alert',
             'economy.received.gift',
             'badge.earned',
-            'vrcplus.gift'
+            'vrcplus.gift',
+            'avatarreview.success',
+            'avatarreview.failure',
+            'promo.redeem',
+            'twitchdrop.fulfilled',
+            'text.adventure'
         ]
     }
 ];

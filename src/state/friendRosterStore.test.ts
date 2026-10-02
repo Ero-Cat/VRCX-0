@@ -89,9 +89,9 @@ describe('friendRosterStore', () => {
         expect(useFriendRosterStore.getState()).toMatchObject({
             currentUserId: 'usr_current',
             loadStatus: 'running',
-            detail: 'loading friends',
-            friendsById: {}
+            detail: 'loading friends'
         });
+        expect(useFriendRosterStore.getState().friendsById).toEqual({});
 
         store.applyFriendPatches(
             [

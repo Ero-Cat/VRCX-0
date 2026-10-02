@@ -1,10 +1,9 @@
 import type { FriendPatchEntry } from '@/domain/friends/types';
 import type { FriendLocationTime } from '@/platform/tauri/bindings';
+import { signalFriendLogChanged } from '@/services/friendLogMutationService';
 import type { RealtimeUserRecord } from '@/services/runtime-event-bridge/realtimeProjectionTypes';
 import { useFriendLocationTimeStore } from '@/state/friendLocationTimeStore';
-import { useFriendLogStore } from '@/state/friendLogStore';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
-import { useShellStore } from '@/state/shellStore';
 import { useUserFactsStore } from '@/state/userFactsStore';
 
 const COALESCE_WINDOW_MS = 500;
@@ -65,8 +64,7 @@ function applyRosterUpdates(
             .replaceSnapshot(locationTimeSnapshot);
     }
     if (friendLogChanged) {
-        useShellStore.getState().notifyMenu('friend-log');
-        useFriendLogStore.getState().bumpRevision();
+        signalFriendLogChanged();
     }
 }
 

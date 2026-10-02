@@ -14,15 +14,14 @@ use vrcx_0_application::social::{
     ModerationSyncRuntime, MutualGraphFetchRuntime, PrintCleanupQueue,
 };
 use vrcx_0_application_activity::notification::{
-    load_location_hidden_user_ids, load_overlay_activity_filters,
-    save_notification_activity_filters, save_overlay_activity_preference_filters, AuthWebhookEvent,
-    AuthWebhookQueue, AuthWebhookQueueDeps, NotificationActivityFiltersSetInput,
-    NotificationConfig, NotificationWebhookSink, NotificationWebhookSinkDeps,
-    OverlayActivityPreferenceFilters, UserImageCache, WebhookDeliveryMonitor,
-    WebhookDeliverySnapshot,
+    apply_location_notification_rules, load_overlay_activity_filters,
+    save_notification_activity_filters, ActivityFilterProfile, AuthWebhookEvent, AuthWebhookQueue,
+    AuthWebhookQueueDeps, NotificationActivityFilterProfiles, NotificationActivityFiltersSetInput,
+    NotificationConfig, NotificationRemote, NotificationResolver, NotificationWebhookSink,
+    NotificationWebhookSinkDeps, WebhookDeliveryMonitor, WebhookDeliverySnapshot,
 };
 use vrcx_0_application_activity::{
-    OverlayActivityRuntime, OverlayActivitySink, OverlayActivitySinkRegistry,
+    ActivityRouter, ActivitySink, ActivitySinkRegistry, GroupInstanceMonitor,
 };
 use vrcx_0_application_core::RemoteMutationGate;
 use vrcx_0_application_core::{
@@ -74,8 +73,10 @@ pub(crate) struct RuntimeHostContext {
     pub(crate) instance_dwell: Arc<InstanceDwellRegistry>,
     pub(crate) config: ConfigRepository,
     notification_config: Arc<dyn NotificationConfig>,
-    overlay_activity: OverlayActivityRuntime,
-    overlay_activity_sinks: OverlayActivitySinkRegistry,
+    notification_resolver: Arc<NotificationResolver>,
+    activity_router: ActivityRouter,
+    group_instance_monitor: GroupInstanceMonitor,
+    activity_sinks: ActivitySinkRegistry,
     notification_projection_observers: RealtimeNotificationProjectionObserverRegistry,
     auth_webhook_queue: AuthWebhookQueue,
     webhook_delivery_monitor: WebhookDeliveryMonitor,
@@ -200,16 +201,16 @@ impl RuntimeHostDesktopAssemblyDeps {
         self.context.instance_dwell()
     }
 
-    pub fn overlay_activity(&self) -> OverlayActivityRuntime {
-        self.context.overlay_activity()
+    pub fn activity_router(&self) -> ActivityRouter {
+        self.context.activity_router()
     }
 
-    pub fn add_overlay_activity_sink(&self, sink: Arc<dyn OverlayActivitySink>) {
+    pub fn add_overlay_activity_sink(&self, sink: Arc<dyn ActivitySink>) {
         self.context.add_overlay_activity_sink(sink);
     }
 
-    pub fn overlay_activity_sink_registry(&self) -> OverlayActivitySinkRegistry {
-        self.context.overlay_activity_sink_registry()
+    pub fn activity_sink_registry(&self) -> ActivitySinkRegistry {
+        self.context.activity_sink_registry()
     }
 
     pub fn add_realtime_notification_projection_observer(
@@ -231,6 +232,10 @@ impl RuntimeHostDesktopAssemblyDeps {
         self.context.notification_config()
     }
 
+    pub fn notification_resolver(&self) -> Arc<NotificationResolver> {
+        self.context.notification_resolver()
+    }
+
     pub fn enqueue_auth_webhook(&self, event: AuthWebhookEvent) {
         self.context.enqueue_auth_webhook(event);
     }
@@ -243,18 +248,14 @@ impl RuntimeHostDesktopAssemblyDeps {
         self.context.reload_overlay_activity_filters();
     }
 
-    pub fn set_overlay_activity_preference_filters(
-        &self,
-        filters: OverlayActivityPreferenceFilters,
-    ) -> crate::Result<()> {
-        self.context
-            .set_overlay_activity_preference_filters(filters)
+    pub fn notification_activity_filter_profiles(&self) -> NotificationActivityFilterProfiles {
+        self.context.notification_activity_filter_profiles()
     }
 
     pub fn set_notification_activity_filters(
         &self,
         input: NotificationActivityFiltersSetInput,
-    ) -> crate::Result<()> {
+    ) -> crate::Result<ActivityFilterProfile> {
         self.context.set_notification_activity_filters(input)
     }
 }
@@ -308,23 +309,21 @@ impl RuntimeHostContext {
             Arc::clone(&db),
             FILE_CACHE_WORKING_CAPACITY,
         ));
-        let overlay_activity = OverlayActivityRuntime::with_filters(load_overlay_activity_filters(
+        let activity_router = ActivityRouter::with_filters(load_overlay_activity_filters(
             notification_config.as_ref(),
         ));
-        overlay_activity.set_location_hidden_user_ids(load_location_hidden_user_ids(
-            notification_config.as_ref(),
-        ));
-        let overlay_activity_sinks = OverlayActivitySinkRegistry::default();
+        apply_location_notification_rules(&activity_router, notification_config.as_ref());
+        let activity_sinks = ActivitySinkRegistry::default();
         let notification_projection_observers =
             RealtimeNotificationProjectionObserverRegistry::default();
-        let notification_user_image_cache = Arc::new(UserImageCache::new());
         let webhook_delivery_monitor = WebhookDeliveryMonitor::default();
-        let notification_remote =
+        let notification_remote: Arc<dyn NotificationRemote> =
             Arc::new(vrcx_0_outbound_adapters::VrchatNotificationRemote::new(
                 Arc::clone(&web),
                 Arc::clone(&world_cache),
                 file_cache.clone(),
             ));
+        let notification_resolver = Arc::new(NotificationResolver::new(notification_remote));
         let notification_webhook_transport = Arc::new(
             vrcx_0_outbound_adapters::LocalNotificationWebhookTransport::new(Arc::clone(&web)),
         );
@@ -341,19 +340,18 @@ impl RuntimeHostContext {
             )),
             event_bus.clone(),
         );
-        overlay_activity_sinks.add(Arc::new(NotificationWebhookSink::new(
+        activity_sinks.add(Arc::new(NotificationWebhookSink::new(
             NotificationWebhookSinkDeps {
                 session: session.clone(),
                 config: Arc::clone(&notification_config),
-                remote: notification_remote,
+                resolver: Arc::clone(&notification_resolver),
                 webhook_transport: notification_webhook_transport,
-                user_image_cache: Arc::clone(&notification_user_image_cache),
                 diagnostics: diagnostics.clone(),
                 monitor: webhook_delivery_monitor.clone(),
                 tasks: tasks.clone(),
             },
         )));
-        overlay_activity.set_sink(overlay_activity_sinks.clone());
+        activity_router.set_sink(activity_sinks.clone());
         let mutual_graph_fetch = MutualGraphFetchRuntime::with_event_bus(event_bus.clone());
         let remote_mutations = Arc::new(RemoteMutationGate::default());
         let print_adapter = Arc::new(vrcx_0_outbound_adapters::LocalPrintAdapter::new(
@@ -415,8 +413,10 @@ impl RuntimeHostContext {
             instance_dwell: Arc::new(InstanceDwellRegistry::new()),
             config,
             notification_config,
-            overlay_activity,
-            overlay_activity_sinks,
+            notification_resolver,
+            activity_router,
+            group_instance_monitor: GroupInstanceMonitor::default(),
+            activity_sinks,
             notification_projection_observers,
             auth_webhook_queue,
             webhook_delivery_monitor,
@@ -515,16 +515,25 @@ impl RuntimeHostContext {
         &self.instance_dwell
     }
 
-    pub fn overlay_activity(&self) -> OverlayActivityRuntime {
-        self.overlay_activity.clone()
+    pub fn activity_router(&self) -> ActivityRouter {
+        self.activity_router.clone()
     }
 
-    pub fn add_overlay_activity_sink(&self, sink: Arc<dyn OverlayActivitySink>) {
-        self.overlay_activity_sinks.add(sink);
+    pub fn group_instance_monitor(&self) -> &GroupInstanceMonitor {
+        &self.group_instance_monitor
     }
 
-    pub fn overlay_activity_sink_registry(&self) -> OverlayActivitySinkRegistry {
-        self.overlay_activity_sinks.clone()
+    pub fn clear_activity_runtime_state(&self) {
+        self.activity_router.clear_runtime_state();
+        self.group_instance_monitor.clear();
+    }
+
+    pub fn add_overlay_activity_sink(&self, sink: Arc<dyn ActivitySink>) {
+        self.activity_sinks.add(sink);
+    }
+
+    pub fn activity_sink_registry(&self) -> ActivitySinkRegistry {
+        self.activity_sinks.clone()
     }
 
     pub fn add_realtime_notification_projection_observer(
@@ -544,6 +553,10 @@ impl RuntimeHostContext {
         Arc::clone(&self.notification_config)
     }
 
+    pub fn notification_resolver(&self) -> Arc<NotificationResolver> {
+        Arc::clone(&self.notification_resolver)
+    }
+
     pub fn enqueue_auth_webhook(&self, event: AuthWebhookEvent) {
         self.auth_webhook_queue.enqueue(event);
     }
@@ -553,31 +566,23 @@ impl RuntimeHostContext {
     }
 
     pub fn reload_overlay_activity_filters(&self) {
-        self.overlay_activity
+        self.activity_router
             .set_filters(load_overlay_activity_filters(
                 self.notification_config.as_ref(),
             ));
-        self.overlay_activity
-            .set_location_hidden_user_ids(load_location_hidden_user_ids(
-                self.notification_config.as_ref(),
-            ));
+        apply_location_notification_rules(&self.activity_router, self.notification_config.as_ref());
     }
 
-    pub fn set_overlay_activity_preference_filters(
-        &self,
-        filters: OverlayActivityPreferenceFilters,
-    ) -> crate::Result<()> {
-        save_overlay_activity_preference_filters(self.notification_config.as_ref(), filters)?;
-        self.reload_overlay_activity_filters();
-        Ok(())
+    pub fn notification_activity_filter_profiles(&self) -> NotificationActivityFilterProfiles {
+        NotificationActivityFilterProfiles::from(&self.activity_router.filters())
     }
 
     pub fn set_notification_activity_filters(
         &self,
         input: NotificationActivityFiltersSetInput,
-    ) -> crate::Result<()> {
-        save_notification_activity_filters(self.notification_config.as_ref(), input)?;
+    ) -> crate::Result<ActivityFilterProfile> {
+        let profile = save_notification_activity_filters(self.notification_config.as_ref(), input)?;
         self.reload_overlay_activity_filters();
-        Ok(())
+        Ok(profile)
     }
 }

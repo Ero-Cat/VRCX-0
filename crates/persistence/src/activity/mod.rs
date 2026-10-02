@@ -5,9 +5,9 @@ mod view;
 pub use repository::{
     activity_bucket_cache_get, activity_bucket_cache_upsert,
     activity_friend_presence_first_created_at, activity_friend_presence_last_created_at,
-    activity_self_sessions_refresh, activity_self_source_bounds, activity_sessions_append,
-    activity_sessions_get, activity_sessions_replace, activity_sync_state_get,
-    activity_sync_state_upsert,
+    activity_self_caches_invalidate, activity_self_sessions_refresh, activity_self_source_bounds,
+    activity_sessions_append, activity_sessions_get, activity_sessions_replace,
+    activity_sync_state_get, activity_sync_state_upsert,
 };
 pub use types::{
     ActivityBucketCacheInput, ActivityBucketCacheOutput, ActivityBucketCacheQueryInput,

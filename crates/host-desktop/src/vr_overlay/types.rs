@@ -58,7 +58,13 @@ pub struct OverlaySurfaceConfig {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum OverlayPlacement {
-    TrackedDeviceRelative { device_hint: String },
+    TrackedDeviceRelative {
+        device_hint: String,
+    },
+    HeadLocked {
+        offset_y_meters: f32,
+        distance_meters: f32,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]

@@ -42,6 +42,86 @@ fn slint_wrist_renderer_reuses_cached_frame_for_equal_model() {
 }
 
 #[test]
+fn hmd_toasts_put_the_newest_card_on_the_inner_edge_of_the_stack() {
+    use slint::Model;
+
+    let mut model = sample_main_model();
+    model.toasts = ["oldest", "middle", "newest", "latest"]
+        .into_iter()
+        .map(|actor| ToastCard {
+            actor_name: actor.to_string(),
+            show_avatar: false,
+            avatar: None,
+            ..model.toasts[0].clone()
+        })
+        .collect();
+    let actors = |model: &MainSurfaceModel| {
+        ensure_platform().unwrap();
+        let items = hmd::hmd_toast_model(model, &mut platform::AvatarImageCache::new());
+        (0..items.row_count())
+            .filter_map(|row| items.row_data(row))
+            .map(|item| item.actor.to_string())
+            .collect::<Vec<_>>()
+    };
+
+    assert_eq!(actors(&model), ["latest", "newest", "middle"]);
+    model.stack_upward = true;
+    assert_eq!(actors(&model), ["middle", "newest", "latest"]);
+}
+
+#[test]
+fn compact_hmd_newest_card_keeps_its_center_when_it_wraps_to_two_lines() {
+    let painted_rows = |frame: &RgbaFrame| {
+        let column = frame.size.width / 2;
+        let rows = (0..frame.size.height)
+            .filter(|y| frame.data[((y * frame.size.width + column) * 4 + 3) as usize] > 0)
+            .collect::<Vec<_>>();
+        (rows[0], rows[rows.len() - 1])
+    };
+
+    for stack_upward in [false, true] {
+        let mut renderer = SlintHmdRenderer::new();
+        let mut model = sample_main_model();
+        model.compact = true;
+        model.stack_upward = stack_upward;
+        model.toasts[0].show_avatar = false;
+        let (top, bottom) = painted_rows(&renderer.render(&model).unwrap());
+
+        model.toasts[0].action = "joined wrld_4cf5a0c2-7f7b-4e19-9a3a-6b2e5c8d9f01:12345~private(usr_c1644b5b-3ca4-45b4-97c6-a2a0de70d469)~region(jp)".to_string();
+        let (wrapped_top, wrapped_bottom) = painted_rows(&renderer.render(&model).unwrap());
+
+        assert!(wrapped_bottom - wrapped_top > bottom - top);
+        assert_eq!(
+            wrapped_top + wrapped_bottom,
+            top + bottom,
+            "stack_upward = {stack_upward}"
+        );
+    }
+}
+
+#[test]
+fn short_hmd_cards_keep_the_minimum_width() {
+    let painted_width = |frame: &RgbaFrame, row: u32| {
+        let columns = (0..frame.size.width)
+            .filter(|x| frame.data[((row * frame.size.width + x) * 4 + 3) as usize] > 0)
+            .collect::<Vec<_>>();
+        columns[columns.len() - 1] - columns[0] + 1
+    };
+
+    for compact in [false, true] {
+        let mut renderer = SlintHmdRenderer::new();
+        let mut model = sample_main_model();
+        model.compact = compact;
+        model.toasts[0].show_avatar = false;
+        model.toasts[0].action = "online".to_string();
+
+        let frame = renderer.render(&model).unwrap();
+
+        assert_eq!(painted_width(&frame, 40), 640, "compact = {compact}");
+    }
+}
+
+#[test]
 fn slint_hmd_renderer_reuses_cached_frame_for_equal_model() {
     let mut renderer = SlintHmdRenderer::new();
     let model = sample_main_model();
@@ -490,6 +570,8 @@ fn sample_main_model() -> MainSurfaceModel {
         size: OverlaySize::new(960, 528),
         dark_background: true,
         accent: crate::Color::rgba(94, 234, 212, 255),
+        compact: false,
+        stack_upward: false,
         toasts: vec![ToastCard {
             actor_name: "Ada".to_string(),
             relation: FeedRelation::Favorite,

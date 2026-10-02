@@ -3,10 +3,7 @@ use chrono::Utc;
 use crate::game_log::host::GameLogHostActions;
 use crate::game_log::runtime_state::parse_event_time_ms;
 use crate::Result;
-use crate::{
-    GameLogSideEffectEvent, GameLogSideEffectSink, GameNoVrPayload, NowPlayingPayload,
-    RuntimeNotificationLevel, RuntimeNotificationPayload,
-};
+use crate::{GameLogSideEffectEvent, GameLogSideEffectSink, GameNoVrPayload, NowPlayingPayload};
 
 pub fn set_game_no_vr(
     store: &dyn crate::GameStateStore,
@@ -23,7 +20,6 @@ pub fn set_game_no_vr(
 pub fn handle_vrc_quit(
     store: &dyn crate::GameStateStore,
     host_actions: &dyn GameLogHostActions,
-    side_effect_sink: &GameLogSideEffectSink,
     created_at: &str,
     is_game_running: bool,
 ) {
@@ -43,13 +39,7 @@ pub fn handle_vrc_quit(
 
     let killed = host_actions.quit_game();
     if killed > 0 {
-        side_effect_sink.emit(GameLogSideEffectEvent::Notification(
-            RuntimeNotificationPayload {
-                level: RuntimeNotificationLevel::Info,
-                title: "VRChat quit cleanup".into(),
-                message: format!("Closed {killed} lingering VRChat process(es)."),
-            },
-        ));
+        tracing::info!(killed, "closed lingering VRChat processes after quit");
     }
 }
 

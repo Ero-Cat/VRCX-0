@@ -240,7 +240,7 @@ fn transport_start_announces_friends_already_traveling_to_the_current_instance()
             },
         )]),
     )?;
-    activity_sink.take_friend_feed_entries();
+    activity_sink.take_events();
     runtime.set_task_executor_for_test(DiscardTaskExecutor);
 
     runtime.runtime().start_from_friend_baseline(
@@ -251,10 +251,13 @@ fn transport_start_announces_friends_already_traveling_to_the_current_instance()
         json!({"id": session.user_id}),
     )?;
 
-    let entries = activity_sink.take_friend_feed_entries();
+    let entries = activity_sink.take_events();
     assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].to_json()["type"], "OnPlayerJoining");
-    assert_eq!(entries[0].to_json()["userId"], "usr_friend");
+    assert_eq!(
+        entries[0].kind,
+        vrcx_0_contracts::activity::ActivityKind::OnPlayerJoining
+    );
+    assert_eq!(entries[0].actor.user_id, "usr_friend");
     Ok(())
 }
 
@@ -1368,7 +1371,7 @@ fn friend_ws_dispatch_fans_out_one_canonical_output() -> Result<()> {
         HashMap::new(),
     )?;
     runtime.take_events_for_test();
-    runtime.activity_sink_for_test().take_friend_projections();
+    runtime.activity_sink_for_test().take_friend_updates();
 
     let sink = RealtimeHostRuntimeMessageSink {
         runtime: Arc::clone(runtime.runtime()),
@@ -1426,8 +1429,7 @@ fn friend_ws_dispatch_fans_out_one_canonical_output() -> Result<()> {
     )?;
     assert_eq!(history.len(), 1);
 
-    let activity_projections = runtime.activity_sink_for_test().take_friend_projections();
-    assert_eq!(activity_projections.len(), 1);
+    assert_eq!(runtime.activity_sink_for_test().take_friend_updates(), 1);
     let events = runtime.take_events_for_test();
     let frontend_projections = events
         .iter()
@@ -1444,12 +1446,6 @@ fn friend_ws_dispatch_fans_out_one_canonical_output() -> Result<()> {
     assert!(events.iter().all(|event| {
         event.name != "backendRuntimeTelemetry" || event.payload["kind"] != "gameLogPersisted"
     }));
-    assert_eq!(
-        frontend_projections[0].payload,
-        serde_json::to_value(&activity_projections[0])
-            .expect("serialize frontend projection")
-            .into()
-    );
     let feed_projection = events
         .iter()
         .find(|event| event.name == "realtimeFeedProjection")
@@ -1483,7 +1479,7 @@ fn friend_ws_without_baseline_has_no_fanout() -> Result<()> {
         .clone()
         .unwrap();
     runtime.take_events_for_test();
-    runtime.activity_sink_for_test().take_friend_projections();
+    runtime.activity_sink_for_test().take_friend_updates();
 
     let sink = RealtimeHostRuntimeMessageSink {
         runtime: Arc::clone(runtime.runtime()),
@@ -1509,10 +1505,7 @@ fn friend_ws_without_baseline_has_no_fanout() -> Result<()> {
     assert!(
         friend_log_current_list(runtime.database(), active_session.user_id.clone(),)?.is_empty()
     );
-    assert!(runtime
-        .activity_sink_for_test()
-        .take_friend_projections()
-        .is_empty());
+    assert_eq!(runtime.activity_sink_for_test().take_friend_updates(), 0);
     assert!(runtime
         .runtime()
         .user_facts

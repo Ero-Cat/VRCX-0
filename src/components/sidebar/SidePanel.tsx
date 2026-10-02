@@ -15,6 +15,7 @@ import { refreshFriendAndFavoriteSnapshots } from '@/services/backgroundMaintena
 import { toast } from '@/services/toastService';
 import { restoreNormalWindowModeForIntent } from '@/services/windowModeService';
 import { SECOND_MS } from '@/shared/constants/time';
+import { onPreferenceChanged } from '@/shared/events/preferenceEvents';
 import {
     sidebarTabFallbackIcon,
     type SidebarFavoriteCollectionTabLayoutItem,
@@ -225,6 +226,29 @@ export const SidePanel = forwardRef<HTMLElement, SidePanelProps>(
             hydrateSidebarTabLayout().catch(() => {});
             return () => {
                 active = false;
+            };
+        }, []);
+
+        useEffect(() => {
+            const unsubscribeGroups = onPreferenceChanged(
+                'sidebarFavoriteGroups',
+                (value) =>
+                    setPrefs((current) => ({
+                        ...current,
+                        sidebarFavoriteGroups: parseConfigArray(value)
+                    }))
+            );
+            const unsubscribeOrder = onPreferenceChanged(
+                'sidebarFavoriteGroupOrder',
+                (value) =>
+                    setPrefs((current) => ({
+                        ...current,
+                        sidebarFavoriteGroupOrder: parseConfigArray(value)
+                    }))
+            );
+            return () => {
+                unsubscribeGroups();
+                unsubscribeOrder();
             };
         }, []);
 

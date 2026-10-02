@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{OverlayActivityDelivery, OverlayActivitySink, OverlayActivitySnapshot};
+use crate::{ActivityDelivery, ActivitySink, ActivitySnapshot};
 use vrcx_0_application_core::{
     HostSessionRuntime, RuntimeDiagnostics, TaskStopToken, TaskSupervisor,
 };
@@ -11,9 +11,8 @@ use super::preferences::{load_webhook_preferences, NotificationWebhookPreference
 use super::webhook::{discord_webhook_url_with_wait, wait_for_webhook_stop};
 use super::webhook_delivery::{WebhookDeliveryChannel, WebhookDeliveryMonitor};
 use super::{
-    load_notification_locale, render_delivery, resolve_delivery_world_name,
-    send_json_webhook_with_retry, NotificationConfig, NotificationRemote,
-    NotificationWebhookFormat, NotificationWebhookTransport, UserImageCache,
+    load_notification_locale, render_delivery, send_json_webhook_with_retry, NotificationConfig,
+    NotificationResolver, NotificationWebhookFormat, NotificationWebhookTransport,
 };
 
 const NOTIFICATION_WEBHOOK_QUEUE_CAPACITY: usize = 64;
@@ -36,7 +35,7 @@ pub struct NotificationWebhookSink {
 }
 
 struct NotificationWebhookJob {
-    delivery: OverlayActivityDelivery,
+    delivery: ActivityDelivery,
     preferences: NotificationWebhookPreferences,
     format: NotificationWebhookFormat,
     locale: super::OverlayLocale,
@@ -44,9 +43,8 @@ struct NotificationWebhookJob {
 }
 
 struct NotificationWebhookWorkerDeps {
-    remote: Arc<dyn NotificationRemote>,
+    resolver: Arc<NotificationResolver>,
     webhook_transport: Arc<dyn NotificationWebhookTransport>,
-    user_image_cache: Arc<UserImageCache>,
     diagnostics: RuntimeDiagnostics,
     monitor: WebhookDeliveryMonitor,
 }
@@ -54,9 +52,8 @@ struct NotificationWebhookWorkerDeps {
 pub struct NotificationWebhookSinkDeps {
     pub session: HostSessionRuntime,
     pub config: Arc<dyn NotificationConfig>,
-    pub remote: Arc<dyn NotificationRemote>,
+    pub resolver: Arc<NotificationResolver>,
     pub webhook_transport: Arc<dyn NotificationWebhookTransport>,
-    pub user_image_cache: Arc<UserImageCache>,
     pub diagnostics: RuntimeDiagnostics,
     pub monitor: WebhookDeliveryMonitor,
     pub tasks: TaskSupervisor,
@@ -66,9 +63,8 @@ impl NotificationWebhookSink {
     pub fn new(deps: NotificationWebhookSinkDeps) -> Self {
         let (queue, receiver) = tokio::sync::mpsc::channel(NOTIFICATION_WEBHOOK_QUEUE_CAPACITY);
         let worker_deps = NotificationWebhookWorkerDeps {
-            remote: deps.remote,
+            resolver: deps.resolver,
             webhook_transport: deps.webhook_transport,
-            user_image_cache: deps.user_image_cache,
             diagnostics: deps.diagnostics.clone(),
             monitor: deps.monitor.clone(),
         };
@@ -85,10 +81,10 @@ impl NotificationWebhookSink {
     }
 }
 
-impl OverlayActivitySink for NotificationWebhookSink {
-    fn emit_overlay_activity_snapshot(&self, _snapshot: OverlayActivitySnapshot) {}
+impl ActivitySink for NotificationWebhookSink {
+    fn emit_overlay_activity_snapshot(&self, _snapshot: ActivitySnapshot) {}
 
-    fn emit_overlay_activity_delivery(&self, delivery: OverlayActivityDelivery) {
+    fn emit_overlay_activity_delivery(&self, delivery: ActivityDelivery) {
         if !delivery.webhook {
             return;
         }
@@ -103,7 +99,7 @@ impl OverlayActivitySink for NotificationWebhookSink {
             .realtime_context
             .map(|context| context.endpoint)
             .unwrap_or_default();
-        let event_label = delivery.entry.activity_type.clone();
+        let event_label = delivery.entry.kind.key();
         let job = NotificationWebhookJob {
             delivery,
             preferences,
@@ -120,7 +116,7 @@ impl OverlayActivitySink for NotificationWebhookSink {
                 &self.diagnostics,
                 "notificationWebhook",
                 WebhookDeliveryChannel::Notification,
-                &event_label,
+                event_label,
                 reason,
             );
         }
@@ -151,8 +147,10 @@ async fn deliver_notification_webhook(
     deps: &NotificationWebhookWorkerDeps,
     mut job: NotificationWebhookJob,
 ) {
-    if let Some((world_name, display_location)) =
-        resolve_delivery_world_name(deps.remote.as_ref(), &job.vrchat_endpoint, &job.delivery).await
+    if let Some((world_name, display_location)) = deps
+        .resolver
+        .world_name(&job.vrchat_endpoint, &job.delivery)
+        .await
     {
         job.delivery.entry.content.world_name = world_name;
         if !display_location.trim().is_empty() {
@@ -171,8 +169,7 @@ async fn deliver_notification_webhook(
         NotificationWebhookFormat::Discord => {
             build_discord_payload(
                 &DiscordDeps {
-                    user_image_cache: deps.user_image_cache.as_ref(),
-                    remote: deps.remote.as_ref(),
+                    resolver: deps.resolver.as_ref(),
                     endpoint: &job.vrchat_endpoint,
                 },
                 &job.delivery,
@@ -193,7 +190,7 @@ async fn deliver_notification_webhook(
         &deps.diagnostics,
         "notificationWebhook",
         WebhookDeliveryChannel::Notification,
-        &job.delivery.entry.activity_type,
+        job.delivery.entry.kind.key(),
         &result,
     );
 }

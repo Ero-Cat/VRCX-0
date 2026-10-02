@@ -6,8 +6,8 @@ use vrcx_0_application_activity::notification::{
     render_delivery, OverlayLocale, RenderedNotification,
 };
 use vrcx_0_application_activity::{
-    OverlayActivityActorRelation, OverlayActivityCategory, OverlayActivityContent,
-    OverlayActivityDelivery, OverlayActivityEntry, OverlayActivityText,
+    ActivityActorRelation, ActivityCategory, ActivityContent, ActivityDelivery, ActivityEntry,
+    ActivityText,
 };
 use vrcx_0_application_core::RuntimeAuthScope;
 use vrcx_0_i18n::OverlayMessage;
@@ -19,56 +19,7 @@ use crate::notification::tts::{
     notification_tts_memo_actor_user_id, notification_tts_text, send_tts_notification,
 };
 
-use super::{
-    notification_session_identity, plan_without_suppressed_surfaces, NotificationDeliveryPlan,
-    OrderedDeliveryBuffer, OverlayActivitySurface,
-};
-
-#[test]
-fn do_not_disturb_clears_only_the_suppressed_transports() {
-    let plan = NotificationDeliveryPlan {
-        desktop: true,
-        xs: true,
-        ovrt: true,
-        ovrt_hud: true,
-        ovrt_wrist: true,
-        tts: true,
-    };
-
-    let suppressed = plan_without_suppressed_surfaces(plan, |surface| {
-        matches!(
-            surface,
-            OverlayActivitySurface::Desktop
-                | OverlayActivitySurface::Vr
-                | OverlayActivitySurface::Tts
-        )
-    });
-    assert_eq!(suppressed, NotificationDeliveryPlan::default());
-    assert!(!suppressed.has_local_transport());
-
-    let vr_only = plan_without_suppressed_surfaces(plan, |surface| {
-        matches!(surface, OverlayActivitySurface::Vr)
-    });
-    assert_eq!(
-        vr_only,
-        NotificationDeliveryPlan {
-            desktop: true,
-            xs: false,
-            ovrt: false,
-            ovrt_hud: false,
-            ovrt_wrist: false,
-            tts: true,
-        }
-    );
-
-    let exempt = plan_without_suppressed_surfaces(plan, |surface| {
-        matches!(
-            surface,
-            OverlayActivitySurface::Wrist | OverlayActivitySurface::Webhook
-        )
-    });
-    assert_eq!(exempt, plan);
-}
+use super::{notification_session_identity, NotificationDeliveryPlan, OrderedDeliveryBuffer};
 
 #[test]
 fn ordered_delivery_buffer_releases_concurrent_results_in_source_order() {
@@ -156,9 +107,9 @@ fn notification_tts_username_and_note_mode_reads_both() {
 fn notification_tts_text_omits_instance_id_even_when_display_shows_it() {
     let mut delivery = delivery();
     delivery.entry.content.location = "wrld_named:12345~region(use)".into();
-    delivery.entry.content.title = OverlayActivityText::literal("Traveler");
+    delivery.entry.content.title = ActivityText::literal("Traveler");
     delivery.entry.content.body =
-        OverlayActivityText::message(OverlayMessage::notifications_gps("Named World Public"));
+        ActivityText::message(OverlayMessage::notifications_gps("Named World Public"));
     let preferences = NotificationDeliveryPreferences {
         show_instance_id_in_location: true,
         ..NotificationDeliveryPreferences::default()
@@ -229,25 +180,24 @@ fn rendered() -> RenderedNotification {
     }
 }
 
-fn delivery() -> OverlayActivityDelivery {
-    OverlayActivityDelivery {
-        entry: OverlayActivityEntry {
+fn delivery() -> ActivityDelivery {
+    ActivityDelivery {
+        entry: ActivityEntry {
             sequence: 1,
             source_id: "game-log:join".into(),
-            activity_type: "OnPlayerJoined".into(),
-            category: OverlayActivityCategory::CurrentInstance,
+            kind: vrcx_0_contracts::activity::ActivityKind::OnPlayerJoined,
+            category: ActivityCategory::CurrentInstance,
             created_at: "2026-06-18T08:30:00.000Z".into(),
             actor_user_id: "usr_traveler".into(),
             actor_display_name: "Traveler".into(),
-            content: OverlayActivityContent {
+            content: ActivityContent {
                 location: "wrld_named:123".into(),
                 world_id: "wrld_named".into(),
                 display_location: "Named World public".into(),
                 world_name: "Named World".into(),
-                ..OverlayActivityContent::default()
+                ..ActivityContent::default()
             },
-            actor_relation: OverlayActivityActorRelation::None,
-            payload: json!({}).into(),
+            actor_relation: ActivityActorRelation::None,
         },
         desktop: false,
         vr: false,
@@ -255,4 +205,111 @@ fn delivery() -> OverlayActivityDelivery {
         webhook: true,
         tts: false,
     }
+}
+
+struct UserIconRemote;
+
+impl vrcx_0_application_activity::notification::NotificationRemote for UserIconRemote {
+    fn user<'a>(
+        &'a self,
+        _endpoint: &'a str,
+        user_id: &'a str,
+    ) -> vrcx_0_application_activity::notification::NotificationRemoteFuture<'a, serde_json::Value>
+    {
+        Box::pin(async move {
+            (user_id == "usr_traveler").then(
+                || json!({ "iconUrl": "https://api.example.test/api/1/file/file_0123abcd/4/file" }),
+            )
+        })
+    }
+
+    fn avatar_name<'a>(
+        &'a self,
+        _endpoint: &'a str,
+        _file_id: &'a str,
+    ) -> vrcx_0_application_activity::notification::NotificationRemoteFuture<'a, String> {
+        Box::pin(async { None })
+    }
+
+    fn world_name<'a>(
+        &'a self,
+        _endpoint: &'a str,
+        world_id: &'a str,
+    ) -> vrcx_0_application_activity::notification::NotificationRemoteFuture<'a, String> {
+        Box::pin(async move { (world_id == "wrld_lookup").then(|| "Lookup World".to_string()) })
+    }
+
+    fn world_image_url<'a>(
+        &'a self,
+        _endpoint: &'a str,
+        _world_id: &'a str,
+    ) -> vrcx_0_application_activity::notification::NotificationRemoteFuture<'a, String> {
+        Box::pin(async { None })
+    }
+}
+
+fn image_job(actor_user_id: &str) -> super::NotificationJob {
+    let mut delivery = delivery();
+    delivery.entry.actor_user_id = actor_user_id.into();
+    super::NotificationJob {
+        delivery,
+        preferences: NotificationDeliveryPreferences::default(),
+        plan: NotificationDeliveryPlan {
+            desktop: true,
+            ..NotificationDeliveryPlan::default()
+        },
+        locale: OverlayLocale::default(),
+        endpoint: "https://api.example.test/api/1".into(),
+        current_user_id: "usr_self".into(),
+    }
+}
+
+#[tokio::test]
+async fn desktop_notifications_fetch_an_uncached_actor_image() {
+    let resolver = std::sync::Arc::new(
+        vrcx_0_application_activity::notification::NotificationResolver::new(std::sync::Arc::new(
+            UserIconRemote,
+        )),
+    );
+    let tasks = vrcx_0_application_core::TaskSupervisor::new();
+
+    assert_eq!(
+        super::resolve_actor_image_with_budget(
+            &tasks,
+            resolver.clone(),
+            &image_job("usr_traveler")
+        )
+        .await
+        .as_deref(),
+        Some("https://api.example.test/api/1/image/file_0123abcd/4/128")
+    );
+    assert_eq!(
+        super::resolve_actor_image_with_budget(&tasks, resolver, &image_job("usr_self")).await,
+        None
+    );
+}
+
+#[tokio::test]
+async fn local_notifications_look_up_a_missing_world_name() {
+    let resolver = std::sync::Arc::new(
+        vrcx_0_application_activity::notification::NotificationResolver::new(std::sync::Arc::new(
+            UserIconRemote,
+        )),
+    );
+    let tasks = vrcx_0_application_core::TaskSupervisor::new();
+
+    let mut unnamed = image_job("usr_traveler");
+    unnamed.delivery.entry.content.world_id = "wrld_lookup".into();
+    unnamed.delivery.entry.content.location = "wrld_lookup:123".into();
+    unnamed.delivery.entry.content.world_name = String::new();
+    let resolved = super::resolve_world_name_with_budget(&tasks, resolver.clone(), &unnamed).await;
+    assert_eq!(
+        resolved.map(|(world_name, _)| world_name).as_deref(),
+        Some("Lookup World")
+    );
+
+    assert_eq!(
+        super::resolve_world_name_with_budget(&tasks, resolver, &image_job("usr_traveler")).await,
+        None
+    );
 }

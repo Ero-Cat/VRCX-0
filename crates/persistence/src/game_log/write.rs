@@ -339,6 +339,32 @@ pub fn write_batch(
     })
 }
 
+pub fn fill_location_group_name(
+    db: &DatabaseService,
+    owner_user_id: &OwnerId,
+    created_at: &str,
+    location: &str,
+    group_name: &str,
+) -> Result<u64, Error> {
+    if created_at.trim().is_empty() || location.trim().is_empty() || group_name.trim().is_empty() {
+        return Ok(0);
+    }
+    super::tables::ensure_game_log_tables(db)?;
+    let owner_id = owner_id_get_or_insert(db, owner_user_id)?;
+    db.execute_non_query(
+        &format!(
+            "UPDATE {TABLE_LOCATION} SET {COL_GROUP_NAME} = @{COL_GROUP_NAME} WHERE {COL_CREATED_AT} = @{COL_CREATED_AT} AND {COL_LOCATION} = @{COL_LOCATION} AND {COL_OWNER_ID} IN (0, @{COL_OWNER_ID}) AND ({COL_GROUP_NAME} IS NULL OR {COL_GROUP_NAME} = '')"
+        ),
+        &ParamsBuilder::new()
+            .set(COL_CREATED_AT, created_at)
+            .set(COL_LOCATION, location)
+            .set(COL_GROUP_NAME, group_name)
+            .set(COL_OWNER_ID, owner_id)
+            .build(),
+    )
+    .map(affected_count)
+}
+
 fn affected_count(count: i64) -> u64 {
     count.max(0) as u64
 }

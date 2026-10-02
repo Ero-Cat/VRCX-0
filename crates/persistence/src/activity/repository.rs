@@ -579,6 +579,27 @@ pub fn activity_self_sessions_refresh(
     })
 }
 
+pub fn activity_self_caches_invalidate(
+    db: &DatabaseService,
+    owner_user_id: &OwnerId,
+) -> Result<(), Error> {
+    let user_id = normalize_text(owner_user_id.as_str());
+    let user_prefix = normalize_user_table_prefix(&user_id)?;
+    ensure_user_store_tables(db, &user_prefix)?;
+    with_activity_refresh_lock(db, &user_id, || {
+        let params = ParamsBuilder::new().set("user_id", user_id.clone()).build();
+        db.execute_non_query(
+            &format!("DELETE FROM {user_prefix}_activity_sync_state_v2 WHERE user_id = @user_id"),
+            &params,
+        )?;
+        db.execute_non_query(
+            &format!("DELETE FROM {user_prefix}_activity_bucket_cache_v2 WHERE user_id = @user_id"),
+            &params,
+        )?;
+        Ok(())
+    })
+}
+
 pub(super) fn activity_self_sessions_refresh_auto(
     db: &DatabaseService,
     owner_user_id: &OwnerId,

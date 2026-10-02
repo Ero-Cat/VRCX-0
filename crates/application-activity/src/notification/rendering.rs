@@ -1,5 +1,6 @@
 use super::NotificationConfig;
-use crate::OverlayActivityDelivery;
+use crate::ActivityDelivery;
+use vrcx_0_contracts::activity::ActivityKind;
 
 use super::{OverlayLocale, OverlayLocalizer, RenderedNotification};
 
@@ -13,7 +14,7 @@ pub fn load_notification_locale(config: &dyn NotificationConfig) -> OverlayLocal
 }
 
 pub fn render_delivery(
-    delivery: &OverlayActivityDelivery,
+    delivery: &ActivityDelivery,
     locale: OverlayLocale,
     show_instance_id: bool,
 ) -> RenderedNotification {
@@ -31,7 +32,7 @@ pub fn render_delivery(
         &entry.content.world_name,
         &entry.content.group_name,
     );
-    let text = combine_text(&title, &body);
+    let text = combine_text(entry.kind, &title, &body);
     let display_location = localizer.display_location(
         &entry.content.location,
         &entry.content.world_name,
@@ -46,13 +47,28 @@ pub fn render_delivery(
     }
 }
 
-fn combine_text(title: &str, body: &str) -> String {
+fn combine_text(kind: ActivityKind, title: &str, body: &str) -> String {
     let title = title.trim();
     let body = body.trim();
-    match (title.is_empty(), body.is_empty()) {
-        (false, false) => format!("{title} {body}"),
-        (false, true) => title.to_string(),
-        (true, false) => body.to_string(),
-        (true, true) => String::new(),
+    if title.is_empty() || body.is_empty() {
+        return if body.is_empty() { title } else { body }.to_string();
+    }
+    match kind {
+        ActivityKind::Boop
+        | ActivityKind::GroupAnnouncement
+        | ActivityKind::GroupInformative
+        | ActivityKind::GroupInvite
+        | ActivityKind::GroupJoinRequest
+        | ActivityKind::GroupTransfer
+        | ActivityKind::GroupQueueReady
+        | ActivityKind::InstanceClosed
+        | ActivityKind::Event
+        | ActivityKind::External => body.to_string(),
+        ActivityKind::GroupChange | ActivityKind::VideoPlay => format!("{title}: {body}"),
+        ActivityKind::BlockedOnPlayerJoined
+        | ActivityKind::BlockedOnPlayerLeft
+        | ActivityKind::MutedOnPlayerJoined
+        | ActivityKind::MutedOnPlayerLeft => format!("{body}: {title}"),
+        _ => format!("{title} {body}"),
     }
 }

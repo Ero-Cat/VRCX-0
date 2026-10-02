@@ -12,7 +12,7 @@ use vrcx_0_application::social::{
     MutualGraphFriendRefreshInput, MutualGraphFriendRefreshOutput, MutualGraphRequestDeps,
     UserMutualFriendsListInput, UserMutualFriendsListOutput,
 };
-use vrcx_0_application_activity::OverlayActivityRuntime;
+use vrcx_0_application_activity::ActivityRouter;
 use vrcx_0_application_core::vrchat_api::VrchatApiResponse;
 use vrcx_0_application_core::{
     AvatarCache, FavoriteEntityKind, FileCache, Result, RuntimeAuthScope, TaskSupervisor,
@@ -40,7 +40,7 @@ pub use vrcx_0_persistence::activity::{
 };
 pub use vrcx_0_persistence::avatars::{
     AvatarCacheOutput, AvatarTagInput, AvatarTagOutput, AvatarTagsPatchInput,
-    AvatarTimeSpentOutput, AvatarUsageRow,
+    AvatarTimeSpentOutput, AvatarUsageRow, AvatarWearSegment,
 };
 pub use vrcx_0_persistence::browse_history::{
     BrowseHistoryEntityKind, BrowseHistoryPageOutput, BrowseHistoryQueryInput,
@@ -124,7 +124,7 @@ impl LocalDataRuntime {
         world_cache: Arc<WorldCache>,
         file_cache: FileCache,
         realtime: Arc<RealtimeHostRuntime>,
-        overlay_activity: OverlayActivityRuntime,
+        activity_router: ActivityRouter,
         favorite_mutations: FavoriteMutationCoordinator,
         mutual_graph_fetch: MutualGraphFetchRuntime,
     ) -> Self {
@@ -138,7 +138,7 @@ impl LocalDataRuntime {
             Arc::new(
                 vrcx_0_outbound_adapters::LocalSavedGroupFavoritesAdapter::new(
                     Arc::clone(&db),
-                    overlay_activity,
+                    activity_router,
                 ),
             ),
             auth_scope.clone(),
@@ -393,6 +393,20 @@ impl LocalDataRuntime {
         )?)
     }
 
+    pub fn avatar_wear_segments(
+        &self,
+        user_id: String,
+        from_ms: i64,
+        to_ms: i64,
+    ) -> Result<Vec<AvatarWearSegment>> {
+        Ok(vrcx_0_persistence::avatars::avatar_wear_segments(
+            self.db.as_ref(),
+            user_id,
+            from_ms,
+            to_ms,
+        )?)
+    }
+
     pub fn avatar_tag_add(&self, avatar_id: String, tag: Value, color: Value) -> Result<i64> {
         Ok(vrcx_0_persistence::avatars::avatar_tag_add(
             self.db.as_ref(),
@@ -467,20 +481,6 @@ impl LocalDataRuntime {
             self.db.as_ref(),
             avatar_id,
             entries,
-        )?)
-    }
-
-    pub fn avatar_time_spent_add(
-        &self,
-        user_id: String,
-        avatar_id: String,
-        time_spent: i64,
-    ) -> Result<()> {
-        Ok(vrcx_0_persistence::avatars::avatar_time_spent_add(
-            self.db.as_ref(),
-            user_id,
-            avatar_id,
-            time_spent,
         )?)
     }
 
@@ -711,6 +711,29 @@ impl LocalDataRuntime {
                 &self.current_owner(),
                 location,
             )?,
+        )
+    }
+
+    pub fn game_log_import_inspect(
+        &self,
+        paths: Vec<String>,
+        game_running: bool,
+    ) -> Result<Vec<vrcx_0_application_game::GameLogImportFile>> {
+        crate::game_log_import::inspect_game_log_import(&self.current_owner(), &paths, game_running)
+    }
+
+    pub fn game_log_import(
+        &self,
+        paths: Vec<String>,
+        consent: vrcx_0_application_game::GameLogImportConsent,
+        game_running: bool,
+    ) -> Result<Vec<vrcx_0_application_game::GameLogImportFile>> {
+        crate::game_log_import::import_game_log(
+            &self.db,
+            &self.current_owner(),
+            &paths,
+            consent,
+            game_running,
         )
     }
 

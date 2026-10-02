@@ -11,109 +11,162 @@ export struct HmdToastItem {
     severity-color: color,
 }
 
+component HmdToastCard inherits Rectangle {
+    in property <HmdToastItem> toast;
+    in property <bool> compact;
+    in property <length> min-card-width;
+    in property <length> max-card-width;
+
+    property <color> card-color: #11161dff;
+    property <color> card-border-color: #ffffff24;
+    property <color> avatar-surface-color: #ffffff0d;
+    property <color> action-color: #d7dce3;
+    property <length> avatar-size: root.compact ? 40px : 70px;
+    property <length> avatar-x: root.compact ? 14px : 24px;
+    property <length> content-x: root.toast.show-avatar ? self.avatar-x + self.avatar-size + (root.compact ? 16px : 24px) : 24px;
+    property <length> star-room: root.toast.is-favorite ? (root.compact ? 26px : 30px) : 0px;
+    property <length> inline-width: actor-text.preferred-width + self.star-room + 12px + action-text.preferred-width;
+    property <length> stacked-width: max(actor-text.preferred-width + self.star-room, action-text.preferred-width);
+    property <bool> single-line: root.compact && self.content-x + self.inline-width + 24px <= root.max-card-width;
+    property <length> card-width: clamp(
+        self.content-x + (self.single-line ? self.inline-width : self.stacked-width) + 24px,
+        root.min-card-width,
+        root.max-card-width);
+    property <length> content-width: self.card-width - self.content-x - 24px;
+
+    height: root.compact ? (self.single-line ? 60px : 84px) : 112px;
+
+    card := Rectangle {
+        x: (parent.width - root.card-width) / 2;
+        width: root.card-width;
+        height: parent.height;
+        background: root.card-color;
+        border-color: root.card-border-color;
+        border-width: 1px;
+        border-radius: root.compact ? 12px : 14px;
+        clip: true;
+
+        Rectangle {
+            x: 0px;
+            y: root.compact ? 10px : 12px;
+            width: 5px;
+            height: parent.height - (root.compact ? 20px : 24px);
+            border-radius: 3px;
+            background: root.toast.severity-color;
+        }
+
+        Rectangle {
+            x: root.avatar-x - 4px;
+            y: (parent.height - root.avatar-size - 8px) / 2;
+            width: root.avatar-size + 8px;
+            height: root.avatar-size + 8px;
+            border-radius: (root.avatar-size + 8px) / 2;
+            border-color: root.toast.relation-color;
+            border-width: 2px;
+            background: root.avatar-surface-color;
+            visible: root.toast.show-avatar;
+        }
+
+        AvatarPlaceholder {
+            x: root.avatar-x;
+            y: (parent.height - root.avatar-size) / 2;
+            diameter: root.avatar-size;
+            visible: root.toast.show-avatar && !root.toast.has-avatar;
+        }
+
+        Image {
+            x: root.avatar-x;
+            y: (parent.height - root.avatar-size) / 2;
+            width: root.avatar-size;
+            height: root.avatar-size;
+            source: root.toast.avatar;
+            visible: root.toast.show-avatar && root.toast.has-avatar;
+        }
+
+        actor-text := Text {
+            x: root.content-x;
+            y: root.single-line ? (parent.height - 34px) / 2 : (root.compact ? 9px : 17px);
+            width: root.single-line
+                ? min(self.preferred-width, root.content-width * 0.4)
+                : root.content-width - root.star-room;
+            height: 34px;
+            text: root.toast.actor;
+            font-size: root.compact ? 22px : 28px;
+            font-weight: 600;
+            vertical-alignment: center;
+            overflow: elide;
+            color: root.toast.relation-color;
+        }
+
+        if root.toast.is-favorite : Path {
+            property <length> star-size: root.compact ? 18px : 22px;
+            x: min(
+                root.content-x + actor-text.preferred-width + 8px,
+                root.content-x + actor-text.width + 8px);
+            y: actor-text.y + (actor-text.height - self.star-size) / 2;
+            width: self.star-size;
+            height: self.star-size;
+            viewbox-width: 24;
+            viewbox-height: 24;
+            commands: "M 12 2 L 15.09 8.26 L 22 9.27 L 17 14.14 L 18.18 21 L 12 17.77 L 5.82 21 L 7 14.14 L 2 9.27 L 8.91 8.26 Z";
+            fill: root.toast.relation-color;
+            stroke: root.toast.relation-color;
+            stroke-width: 2.5px;
+            stroke-line-cap: round;
+            stroke-line-join: round;
+        }
+
+        action-text := Text {
+            property <length> inline-offset: actor-text.width + root.star-room + 12px;
+            x: root.single-line ? root.content-x + self.inline-offset : root.content-x;
+            y: root.single-line ? (parent.height - 34px) / 2 : (root.compact ? 45px : 59px);
+            width: root.single-line ? root.content-width - self.inline-offset : root.content-width;
+            height: root.single-line ? 34px : 27px;
+            text: root.toast.action;
+            font-size: 20px;
+            vertical-alignment: center;
+            overflow: elide;
+            color: root.action-color;
+        }
+    }
+}
+
 export component HmdToastPanel inherits Window {
     width: 960px;
     height: 528px;
     background: transparent;
 
     in property <bool> dark-background: true;
+    in property <bool> compact: false;
+    in property <bool> stack-upward: false;
     in property <[HmdToastItem]> toasts: [];
 
-    property <color> card-color: #11161dff;
-    property <color> card-border-color: #ffffff24;
-    property <color> avatar-surface-color: #ffffff0d;
-    property <color> action-color: #d7dce3;
+    property <length> min-card-width: 640px;
+    property <length> max-card-width: 860px;
 
-    for toast[index] in root.toasts : Rectangle {
-        x: (root.width - 860px) / 2;
-        y: root.height - 20px - 112px - index * 124px;
-        width: 860px;
-        height: 112px;
-        background: root.card-color;
-        border-color: root.card-border-color;
-        border-width: 1px;
-        border-radius: 14px;
-        clip: true;
-        property <length> content-x: toast.show-avatar ? 118px : 24px;
-        property <length> content-width: self.width - self.content-x - 24px;
+    newest-card := HmdToastCard {
+        visible: false;
+        toast: root.toasts[root.stack-upward ? root.toasts.length - 1 : 0];
+        compact: root.compact;
+        min-card-width: root.min-card-width;
+        max-card-width: root.max-card-width;
+    }
 
-        Rectangle {
-            x: 0px;
-            y: 12px;
-            width: 5px;
-            height: parent.height - 24px;
-            border-radius: 3px;
-            background: toast.severity-color;
-        }
+    property <length> anchored-padding: 20px + ((root.compact ? 60px : 112px) - newest-card.height) / 2;
 
-        Rectangle {
-            x: 20px;
-            y: 17px;
-            width: 78px;
-            height: 78px;
-            border-radius: 39px;
-            border-color: toast.relation-color;
-            border-width: 2px;
-            background: root.avatar-surface-color;
-            visible: toast.show-avatar;
-        }
+    VerticalLayout {
+        padding-left: 20px;
+        padding-right: 20px;
+        padding-top: root.stack-upward ? 20px : root.anchored-padding;
+        padding-bottom: root.stack-upward ? root.anchored-padding : 20px;
+        spacing: root.compact ? 8px : 12px;
+        alignment: root.stack-upward ? end : start;
 
-        AvatarPlaceholder {
-            x: 24px;
-            y: 21px;
-            diameter: 70px;
-            visible: toast.show-avatar && !toast.has-avatar;
-        }
-
-        Image {
-            x: 24px;
-            y: 21px;
-            width: 70px;
-            height: 70px;
-            source: toast.avatar;
-            visible: toast.show-avatar && toast.has-avatar;
-        }
-
-        actor-text := Text {
-            x: parent.content-x;
-            y: 17px;
-            width: toast.is-favorite ? parent.content-width - 30px : parent.content-width;
-            height: 34px;
-            text: toast.actor;
-            font-size: 28px;
-            font-weight: 600;
-            vertical-alignment: center;
-            overflow: elide;
-            color: toast.relation-color;
-        }
-
-        if toast.is-favorite : Path {
-            x: actor-text.preferred-width + 8px < parent.content-width - 22px
-                ? parent.content-x + actor-text.preferred-width + 8px
-                : parent.content-x + parent.content-width - 22px;
-            y: 23px;
-            width: 22px;
-            height: 22px;
-            viewbox-width: 24;
-            viewbox-height: 24;
-            commands: "M 12 2 L 15.09 8.26 L 22 9.27 L 17 14.14 L 18.18 21 L 12 17.77 L 5.82 21 L 7 14.14 L 2 9.27 L 8.91 8.26 Z";
-            fill: toast.relation-color;
-            stroke: toast.relation-color;
-            stroke-width: 2.5px;
-            stroke-line-cap: round;
-            stroke-line-join: round;
-        }
-
-        Text {
-            x: parent.content-x;
-            y: 59px;
-            width: parent.content-width;
-            height: 27px;
-            text: toast.action;
-            font-size: 20px;
-            vertical-alignment: center;
-            overflow: elide;
-            color: root.action-color;
+        for toast in root.toasts : HmdToastCard {
+            toast: toast;
+            compact: root.compact;
+            min-card-width: root.min-card-width;
+            max-card-width: root.max-card-width;
         }
     }
 }

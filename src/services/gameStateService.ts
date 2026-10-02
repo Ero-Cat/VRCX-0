@@ -3,7 +3,6 @@ import {
     type HostSessionProjection
 } from '@/platform/tauri/bindings';
 import { resetGameLogSessionState } from '@/services/gameLogIngestService';
-import { useNotificationStore } from '@/state/notificationStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { useSessionStore } from '@/state/sessionStore';
 
@@ -93,16 +92,6 @@ export async function handleGameRunningUpdate(
         ...newSessionPatch,
         ...stoppedSessionPatch
     });
-
-    if (gameRunningChanged && previousGameRunning !== null) {
-        useNotificationStore.getState().pushNotification({
-            level: 'info',
-            title: nextGameRunning ? 'VRChat running' : 'VRChat stopped',
-            message: nextSteamVrRunning
-                ? 'SteamVR is running.'
-                : 'SteamVR is not running.'
-        });
-    }
 
     if (nextGameRunning && gameRunningChanged) {
         useRuntimeStore.getState().resetNowPlayingState();

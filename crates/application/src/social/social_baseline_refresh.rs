@@ -81,7 +81,6 @@ pub async fn refresh_social_baseline(
             authenticated_runtime.update_favorites_baseline(favorites_output.clone());
             Ok(favorites_output.snapshot.map(|snapshot| {
                 let groups = favorite_group_membership_from_baseline(&snapshot);
-                authenticated_runtime.apply_favorites_snapshot(&snapshot);
                 SocialBaselineFavoritesRefresh { snapshot, groups }
             }))
         }

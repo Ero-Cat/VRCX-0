@@ -29,6 +29,27 @@ impl RealtimeStore for PersistenceRealtimeStore {
     fn database_path(&self) -> std::path::PathBuf {
         self.db.db_path().to_path_buf()
     }
+    fn game_log_join_count(
+        &self,
+        owner: &OwnerId,
+        user_id: &str,
+        display_name: &str,
+    ) -> crate::Result<i64> {
+        let output = vrcx_0_persistence::game_log::game_log_query(
+            &self.db,
+            owner,
+            vrcx_0_persistence::game_log::GameLogQuery::JoinCount {
+                user_id: user_id.to_string(),
+                display_name: display_name.to_string(),
+            },
+        )?;
+        Ok(match output {
+            vrcx_0_persistence::game_log::GameLogQueryOutput::JoinCount(output) => {
+                output.join_count
+            }
+            _ => 0,
+        })
+    }
     fn get_bool(&self, key: &str, default: bool) -> crate::Result<bool> {
         Ok(vrcx_0_persistence::config::get_bool(
             &self.db, key, default,

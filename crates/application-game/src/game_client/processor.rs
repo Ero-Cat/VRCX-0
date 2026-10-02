@@ -4,6 +4,7 @@ use chrono::Utc;
 use vrcx_0_contracts::game_log::{GameLogEventEntry, GameLogWriteBatch};
 use vrcx_0_core::game_log_parser::LogLocationSnapshot;
 
+use crate::activity_events::game_log_event;
 use crate::game_client::actions::{GameClientActions, GameClientDebugLoggingActions};
 use crate::game_client::lifecycle::{plan_crash_relaunch, CrashRelaunchConfig, CrashRelaunchPlan};
 use crate::RuntimeEventBus;
@@ -14,6 +15,7 @@ use crate::{
 };
 use crate::{Error, Result};
 use crate::{HostSessionRuntime, RuntimeAuthScope, TaskSupervisor};
+use vrcx_0_application_core::ActivityIngress;
 use vrcx_0_application_core::BackendRuntimeStatusPublisher;
 use vrcx_0_core::time::now_iso;
 use vrcx_0_core::OwnerId;
@@ -79,6 +81,7 @@ pub struct GameClientProcessorDeps {
     pub location_source: Arc<dyn GameClientLocationSource>,
     pub window_actions: Arc<dyn GameClientWindowActions>,
     pub debug_logging_actions: Arc<dyn GameClientDebugLoggingActions>,
+    pub activity: Arc<dyn ActivityIngress>,
 }
 
 #[derive(Default)]
@@ -245,19 +248,8 @@ impl GameClientProcessor {
         if !self.deps.store.get_bool("autoSweepVRChatCache", false)? {
             return Ok(());
         }
-        let removed_paths = self.deps.cache_actions.sweep_vrchat_cache();
-        let removed_count = removed_paths.len();
-        self.deps
-            .event_bus
-            .emit_game_client_event(GameClientEvent::Notification(RuntimeNotificationPayload {
-                level: RuntimeNotificationLevel::Info,
-                title: "VRChat cache swept".into(),
-                message: if removed_count > 0 {
-                    format!("Removed {removed_count} cache entries.")
-                } else {
-                    "No cache entries were removed.".to_string()
-                },
-            }));
+        let removed_count = self.deps.cache_actions.sweep_vrchat_cache().len();
+        tracing::info!(removed_count, "swept the VRChat cache");
         Ok(())
     }
 
@@ -340,6 +332,9 @@ impl GameClientProcessor {
             .backend_status
             .publish_game_log_persisted(affected_count);
         self.deps
+            .activity
+            .ingest_activity(vec![game_log_event(&created_at, CRASH_RELAUNCH_MESSAGE)]);
+        self.deps
             .event_bus
             .emit_runtime_game_log_event(RuntimeGameLogEventPayload {
                 raw: vec![
@@ -407,6 +402,8 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
+    use vrcx_0_application_activity::ActivityRouter;
+    use vrcx_0_contracts::activity::ActivityKind;
 
     struct FakeDebugLoggingActions {
         enabled: Option<bool>,
@@ -459,13 +456,14 @@ mod tests {
         }
     }
 
-    #[test]
-    fn crash_relaunch_rejoins_the_game_log_location() {
-        let location = "wrld_current:12345";
+    fn crash_relaunch_processor(
+        location: &str,
+        activity_router: ActivityRouter,
+    ) -> GameClientProcessor {
         let store = Arc::new(crate::ports::TestGameStateStore::default());
         crate::GameStateStore::set_bool(store.as_ref(), "relaunchVRChatAfterCrash", true).unwrap();
         let event_bus = RuntimeEventBus::new();
-        let processor = GameClientProcessor::new(
+        GameClientProcessor::new(
             GameClientProcessorDeps {
                 store,
                 event_bus: event_bus.clone(),
@@ -494,9 +492,16 @@ mod tests {
                     repair_succeeds: false,
                     repair_attempts: AtomicUsize::new(0),
                 }),
+                activity: Arc::new(activity_router),
             },
             Arc::new(Mutex::new(GameClientState::default())),
-        );
+        )
+    }
+
+    #[test]
+    fn crash_relaunch_rejoins_the_game_log_location() {
+        let location = "wrld_current:12345";
+        let processor = crash_relaunch_processor(location, ActivityRouter::new());
 
         let plan = processor.prepare_game_stopped().unwrap().unwrap();
 
@@ -504,6 +509,19 @@ mod tests {
         assert!(plan
             .launch_arguments
             .starts_with("vrchat://launch?id=wrld_current:12345"));
+    }
+
+    #[test]
+    fn crash_relaunch_event_reaches_overlay_activity_notifications() {
+        let activity_router = ActivityRouter::new();
+        let processor = crash_relaunch_processor("wrld_current:12345", activity_router.clone());
+
+        processor.persist_crash_relaunch_event().unwrap();
+
+        let entries = activity_router.snapshot().entries;
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].kind, ActivityKind::Event);
+        assert_eq!(entries[0].content.detail, CRASH_RELAUNCH_MESSAGE);
     }
 
     #[test]

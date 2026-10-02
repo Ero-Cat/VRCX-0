@@ -1,34 +1,33 @@
 use chrono::Local;
 use vrcx_0_application_activity::{
-    OverlayActivityActorRelation, OverlayActivityCategory, OverlayActivityContent,
-    OverlayActivityEntry, OverlayActivitySnapshot, OverlayActivityText,
+    ActivityActorRelation, ActivityCategory, ActivityContent, ActivityEntry, ActivitySnapshot,
+    ActivityText,
 };
+use vrcx_0_contracts::activity::ActivityKind;
 
 use super::runtime::VrOverlayRuntimeConfig;
 use super::surfaces::main::HmdToastView;
 use super::{WristOverlayFrameInput, WristRuntimeFooter};
 
 const TEST_ENTRY_SOURCE_ID: &str = "vrcx-0-overlay-test";
-const TEST_ENTRY_ACTIVITY_TYPE: &str = "OverlayTest";
 const TEST_ENTRY_TITLE: &str = "VRCX-0";
 const TEST_ENTRY_BODY: &str = "Overlay test";
 
-pub(crate) fn test_overlay_entry() -> OverlayActivityEntry {
-    OverlayActivityEntry {
+pub(crate) fn test_overlay_entry() -> ActivityEntry {
+    ActivityEntry {
         sequence: 0,
         source_id: TEST_ENTRY_SOURCE_ID.to_string(),
-        activity_type: TEST_ENTRY_ACTIVITY_TYPE.to_string(),
-        category: OverlayActivityCategory::CurrentInstance,
+        kind: ActivityKind::Event,
+        category: ActivityCategory::CurrentInstance,
         created_at: Local::now().to_rfc3339(),
         actor_user_id: String::new(),
         actor_display_name: TEST_ENTRY_TITLE.to_string(),
-        content: OverlayActivityContent {
-            title: OverlayActivityText::literal(TEST_ENTRY_TITLE),
-            body: OverlayActivityText::literal(TEST_ENTRY_BODY),
-            ..OverlayActivityContent::default()
+        content: ActivityContent {
+            title: ActivityText::literal(TEST_ENTRY_TITLE),
+            body: ActivityText::literal(TEST_ENTRY_BODY),
+            ..ActivityContent::default()
         },
-        actor_relation: OverlayActivityActorRelation::None,
-        payload: Default::default(),
+        actor_relation: ActivityActorRelation::None,
     }
 }
 
@@ -39,7 +38,7 @@ pub(crate) fn test_wrist_frame_input(
     captured_at_ms: i64,
 ) -> WristOverlayFrameInput {
     WristOverlayFrameInput {
-        activity: OverlayActivitySnapshot {
+        activity: ActivitySnapshot {
             entries: vec![test_overlay_entry()],
         },
         devices,

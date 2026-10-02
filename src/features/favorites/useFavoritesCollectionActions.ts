@@ -11,6 +11,7 @@ import avatarLocalRepository from '@/repositories/avatarLocalRepository';
 import favoritePersistenceRepository from '@/repositories/favoritePersistenceRepository';
 import vrchatFavoriteRepository from '@/repositories/vrchatFavoriteRepository';
 import { bootstrapFavorites } from '@/services/favoriteBootstrapService';
+import { renameLocalFriendGroupReferences } from '@/services/localFriendGroupRenameService';
 import { toast } from '@/services/toastService';
 import { useFavoriteRevisionStore } from '@/state/favoriteRevisionStore';
 import { useModalStore } from '@/state/modalStore';
@@ -416,6 +417,9 @@ export function useFavoritesCollectionActions({
                 groupName: group.key,
                 newGroupName: nextName
             });
+            if (kind === 'friend') {
+                await renameLocalFriendGroupReferences(group.key, nextName);
+            }
             if (selectedSource === 'local' && selectedGroupKey === group.key) {
                 setSelectedGroupKey(nextName);
             }

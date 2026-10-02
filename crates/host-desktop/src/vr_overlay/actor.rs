@@ -52,6 +52,9 @@ pub trait OverlayBackend: Send + 'static {
     fn visible_surface_ids(&self) -> Vec<OverlaySurfaceId> {
         Vec::new()
     }
+    fn hmd_user_present(&self) -> Option<bool> {
+        None
+    }
     fn snapshot_devices(&mut self) -> Result<Vec<VrDeviceSnapshot>, String>;
     fn tick(&mut self) -> TickOutcome {
         TickOutcome::Continue
@@ -65,6 +68,7 @@ pub struct OverlayActorHandle {
     status: Arc<Mutex<OverlayServiceStatus>>,
     runtime_quit_at: Arc<Mutex<Option<Instant>>>,
     visible_surfaces: Arc<Mutex<Vec<OverlaySurfaceId>>>,
+    hmd_user_present: Arc<Mutex<Option<bool>>>,
 }
 
 enum OverlayActorMessage {
@@ -110,9 +114,11 @@ impl OverlayActorHandle {
         let status = Arc::new(Mutex::new(OverlayServiceStatus::default()));
         let runtime_quit_at = Arc::new(Mutex::new(None));
         let visible_surfaces = Arc::new(Mutex::new(Vec::new()));
+        let hmd_user_present = Arc::new(Mutex::new(None));
         let actor_status = Arc::clone(&status);
         let actor_runtime_quit_at = Arc::clone(&runtime_quit_at);
         let actor_visible_surfaces = Arc::clone(&visible_surfaces);
+        let actor_hmd_user_present = Arc::clone(&hmd_user_present);
         thread::Builder::new()
             .name("vrcx-vr-overlay".to_string())
             .spawn(move || {
@@ -122,6 +128,7 @@ impl OverlayActorHandle {
                     actor_status,
                     actor_runtime_quit_at,
                     actor_visible_surfaces,
+                    actor_hmd_user_present,
                 )
             })
             .expect("spawn VR overlay actor thread");
@@ -130,6 +137,7 @@ impl OverlayActorHandle {
             status,
             runtime_quit_at,
             visible_surfaces,
+            hmd_user_present,
         }
     }
 
@@ -186,6 +194,13 @@ impl OverlayActorHandle {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clone()
+    }
+
+    pub fn hmd_user_present(&self) -> Option<bool> {
+        self.hmd_user_present
+            .lock()
+            .map(|slot| *slot)
+            .unwrap_or(None)
     }
 
     pub fn runtime_quit_at(&self) -> Option<Instant> {
@@ -251,6 +266,7 @@ fn run_actor<B>(
     status: Arc<Mutex<OverlayServiceStatus>>,
     runtime_quit_at: Arc<Mutex<Option<Instant>>>,
     visible_surfaces: Arc<Mutex<Vec<OverlaySurfaceId>>>,
+    hmd_user_present: Arc<Mutex<Option<bool>>>,
 ) where
     B: OverlayBackend,
 {
@@ -258,6 +274,7 @@ fn run_actor<B>(
     let mut last_tick_at = Instant::now();
     loop {
         publish_visible_surfaces(&backend, &visible_surfaces);
+        publish_hmd_user_present(backend.hmd_user_present(), &hmd_user_present);
         let tick_interval = overlay_tick_interval(backend.needs_high_frequency_tick());
         match receiver.recv_timeout(tick_interval) {
             Ok(message) => {
@@ -308,6 +325,13 @@ fn run_actor<B>(
     if !skip_backend_stop {
         backend.stop();
         update_status(&status, OverlayServicePhase::Stopped, None);
+    }
+    publish_hmd_user_present(None, &hmd_user_present);
+}
+
+fn publish_hmd_user_present(next: Option<bool>, hmd_user_present: &Mutex<Option<bool>>) {
+    if let Ok(mut slot) = hmd_user_present.lock() {
+        *slot = next;
     }
 }
 

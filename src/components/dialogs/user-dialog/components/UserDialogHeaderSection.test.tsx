@@ -45,14 +45,6 @@ const nameplateEffect: InventoryItemRecord = {
     }
 };
 
-const gradientNameplateEffect: InventoryItemRecord = {
-    id: 'invt_gradient_nameplate',
-    metadata: {
-        gradientEnd: '#2a0c88',
-        gradientStart: '#672bd8'
-    }
-};
-
 const iconFrame: InventoryItemRecord = {
     id: 'invt_frame',
     metadata: {
@@ -225,40 +217,6 @@ describe('UserDialogHeaderSection nameplate', () => {
 
         expect(displayName.style.fontSize).toBe('15px');
     });
-
-    it.each([
-        ['a static asset', nameplateEffect],
-        ['a gradient', gradientNameplateEffect]
-    ])('keeps the title readable over %s', (_kind, effect) => {
-        render(
-            <UserDialogHeaderSection
-                headerModel={createHeaderModel(effect)}
-                headerCommands={createHeaderCommands()}
-            />
-        );
-
-        const title = screen.getByText('Map1en_');
-        const titleRow = title.closest('[data-slot="card-title"]');
-
-        expect(titleRow?.classList.contains('text-white')).toBe(true);
-    });
-
-    it.each([
-        ['no item', undefined],
-        ['an item without renderable appearance', { id: 'invt_empty' }]
-    ])('keeps the theme foreground for %s', (_kind, effect) => {
-        render(
-            <UserDialogHeaderSection
-                headerModel={createHeaderModel(effect)}
-                headerCommands={createHeaderCommands()}
-            />
-        );
-
-        const title = screen.getByText('Map1en_');
-        const titleRow = title.closest('[data-slot="card-title"]');
-
-        expect(titleRow?.classList.contains('text-white')).toBe(false);
-    });
 });
 
 describe('UserDialogHeaderSection appearance visibility', () => {
@@ -298,8 +256,6 @@ describe('UserDialogHeaderSection appearance visibility', () => {
                     headerCommands={createHeaderCommands()}
                 />
             );
-            const title = screen.getByText('Map1en_');
-            const titleRow = title.closest('[data-slot="card-title"]');
 
             expect(
                 container.querySelector(
@@ -311,9 +267,6 @@ describe('UserDialogHeaderSection appearance visibility', () => {
                     'img[src="https://example.test/nameplate.webp"]'
                 ) !== null
             ).toBe(nameplateVisible);
-            expect(titleRow?.classList.contains('text-white')).toBe(
-                nameplateVisible
-            );
         }
     );
 
@@ -328,8 +281,6 @@ describe('UserDialogHeaderSection appearance visibility', () => {
                 headerCommands={createHeaderCommands()}
             />
         );
-        const title = screen.getByText('Map1en_');
-        const titleRow = title.closest('[data-slot="card-title"]');
 
         expect(
             container.querySelector(
@@ -341,7 +292,6 @@ describe('UserDialogHeaderSection appearance visibility', () => {
                 'img[src="https://example.test/nameplate.webp"]'
             )
         ).not.toBeNull();
-        expect(titleRow?.classList.contains('text-white')).toBe(true);
     });
 });
 

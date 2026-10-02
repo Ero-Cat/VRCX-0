@@ -1,11 +1,13 @@
 use serde::Deserialize;
 use serde_json::Value;
 pub use vrcx_0_contracts::{
-    AvatarCacheOutput, AvatarTagOutput, AvatarTimeSpentOutput, AvatarUsageRow,
+    AvatarCacheOutput, AvatarTagOutput, AvatarTimeSpentOutput, AvatarUsageRow, AvatarWearSegment,
 };
 
+use crate::activity::{activity_iso_from_ms, parse_activity_time_ms};
+
 use crate::cache_entities::{upsert_cache_entities, upsert_cache_entity, CacheEntityInput};
-use crate::common::{normalize_text, now_iso, row_i64, row_string, ParamsBuilder};
+use crate::common::{normalize_text, row_i64, row_string, ParamsBuilder};
 use crate::database::schema::{ensure_global_store_tables, ensure_user_store_tables};
 use crate::database::DatabaseService;
 use crate::realtime::normalize_user_table_prefix;
@@ -136,29 +138,6 @@ pub fn avatar_cache_remove(db: &DatabaseService, avatar_id: String) -> Result<()
     Ok(())
 }
 
-pub fn avatar_time_spent_add(
-    db: &DatabaseService,
-    user_id: String,
-    avatar_id: String,
-    time_spent: i64,
-) -> Result<(), Error> {
-    let user_prefix = normalize_user_table_prefix(&user_id)?;
-    ensure_user_store_tables(db, &user_prefix)?;
-    let avatar_id = normalize_text(avatar_id);
-    if avatar_id.is_empty() {
-        return Ok(());
-    }
-    db.execute_non_query(
-        &format!("INSERT INTO {user_prefix}_avatar_history (avatar_id, created_at, time) VALUES (@avatar_id, @created_at, @time_spent) ON CONFLICT(avatar_id) DO UPDATE SET time = time + @time_spent"),
-        &ParamsBuilder::new()
-            .set("avatar_id", avatar_id)
-            .set("created_at", now_iso())
-            .set("time_spent", time_spent)
-            .build(),
-    )?;
-    Ok(())
-}
-
 pub fn avatar_history_list(
     db: &DatabaseService,
     user_id: String,
@@ -219,6 +198,64 @@ pub fn avatar_usage_ranking(
             time_spent: row_i64(&row, 4),
         })
         .collect())
+}
+
+pub fn avatar_wear_segments(
+    db: &DatabaseService,
+    user_id: String,
+    from_ms: i64,
+    to_ms: i64,
+) -> Result<Vec<AvatarWearSegment>, Error> {
+    if to_ms <= from_ms {
+        return Ok(Vec::new());
+    }
+    let user_prefix = normalize_user_table_prefix(&normalize_text(user_id))?;
+    ensure_user_store_tables(db, &user_prefix)?;
+    ensure_global_store_tables(db)?;
+    let rows = db.execute(
+        &format!(
+            "SELECT log.avatar_id, log.started_at, log.ended_at, COALESCE(cache_avatar.name, ''), COALESCE(cache_avatar.thumbnail_image_url, ''), COALESCE(cache_avatar.image_url, '')
+             FROM {user_prefix}_avatar_wear_log AS log
+             LEFT JOIN cache_avatar ON cache_avatar.id = log.avatar_id
+             WHERE log.started_at < @to_iso AND log.ended_at > @from_iso
+             ORDER BY log.started_at, log.id"
+        ),
+        &ParamsBuilder::new()
+            .set("from_iso", activity_iso_from_ms(from_ms))
+            .set("to_iso", activity_iso_from_ms(to_ms))
+            .build(),
+    )?;
+
+    let mut segments: Vec<AvatarWearSegment> = Vec::new();
+    for row in rows {
+        let (Some(started_ms), Some(ended_ms)) = (
+            parse_activity_time_ms(&row_string(&row, 1)),
+            parse_activity_time_ms(&row_string(&row, 2)),
+        ) else {
+            continue;
+        };
+        let started_at_ms = started_ms.max(from_ms);
+        let ended_at_ms = ended_ms.min(to_ms);
+        if ended_at_ms <= started_at_ms {
+            continue;
+        }
+        let avatar_id = row_string(&row, 0);
+        if let Some(last) = segments.last_mut() {
+            if last.avatar_id == avatar_id {
+                last.ended_at_ms = last.ended_at_ms.max(ended_at_ms);
+                continue;
+            }
+        }
+        segments.push(AvatarWearSegment {
+            avatar_id,
+            name: row_string(&row, 3),
+            thumbnail_image_url: row_string(&row, 4),
+            image_url: row_string(&row, 5),
+            started_at_ms,
+            ended_at_ms,
+        });
+    }
+    Ok(segments)
 }
 
 pub fn avatar_time_spent_get(

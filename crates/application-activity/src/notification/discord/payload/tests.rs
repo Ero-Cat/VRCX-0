@@ -1,15 +1,14 @@
 use crate::{
-    OverlayActivityActorRelation, OverlayActivityCategory, OverlayActivityContent,
-    OverlayActivityDelivery, OverlayActivityEntry,
+    ActivityActorRelation, ActivityCategory, ActivityContent, ActivityDelivery, ActivityEntry,
 };
-use serde_json::json;
 
 use super::*;
+use vrcx_0_contracts::activity::ActivityKind;
 
 #[test]
 fn builds_rich_invite_embed_with_explicit_enrichment() {
     let mut delivery = delivery();
-    delivery.entry.activity_type = "invite".into();
+    delivery.entry.kind = ActivityKind::Invite;
     delivery.entry.actor_display_name = "Example".into();
     delivery.entry.actor_user_id = "usr_abcdefg".into();
     delivery.entry.created_at = "2026-06-29T08:11:00.000Z".into();
@@ -68,7 +67,7 @@ fn builds_rich_invite_embed_with_explicit_enrichment() {
 #[test]
 fn preserves_specific_region_code() {
     let mut delivery = delivery();
-    delivery.entry.activity_type = "GPS".into();
+    delivery.entry.kind = ActivityKind::Gps;
     delivery.entry.actor_display_name = "Traveler".into();
     delivery.entry.content.location = "wrld_named:48291~hidden(usr_x)~region(usw)".into();
     delivery.entry.content.world_id = "wrld_named".into();
@@ -90,7 +89,7 @@ fn preserves_specific_region_code() {
 #[test]
 fn gps_uses_location_title_without_message() {
     let mut delivery = delivery();
-    delivery.entry.activity_type = "GPS".into();
+    delivery.entry.kind = ActivityKind::Gps;
     delivery.entry.actor_display_name = "Traveler".into();
     delivery.entry.content.location =
         "wrld_named:810~private(usr_x)~canRequestInvite~region(jp)".into();
@@ -120,7 +119,7 @@ fn gps_uses_location_title_without_message() {
 #[test]
 fn status_uses_status_title_and_target() {
     let mut delivery = delivery();
-    delivery.entry.activity_type = "Status".into();
+    delivery.entry.kind = ActivityKind::Status;
     delivery.entry.actor_display_name = "Traveler".into();
     delivery.entry.content.location = String::new();
     delivery.entry.content.world_id = String::new();
@@ -147,7 +146,7 @@ fn status_uses_status_title_and_target() {
 #[test]
 fn avatar_change_uses_enriched_avatar_name_without_mutating_delivery() {
     let mut delivery = delivery();
-    delivery.entry.activity_type = "AvatarChange".into();
+    delivery.entry.kind = ActivityKind::AvatarChange;
     delivery.entry.actor_display_name = "Traveler".into();
     delivery.entry.content.location = String::new();
     delivery.entry.content.world_id = String::new();
@@ -175,7 +174,7 @@ fn avatar_change_uses_enriched_avatar_name_without_mutating_delivery() {
 #[test]
 fn avatar_change_prefers_existing_avatar_name() {
     let mut delivery = delivery();
-    delivery.entry.activity_type = "AvatarChange".into();
+    delivery.entry.kind = ActivityKind::AvatarChange;
     delivery.entry.actor_display_name = "Traveler".into();
     delivery.entry.content.location = String::new();
     delivery.entry.content.world_id = String::new();
@@ -200,7 +199,7 @@ fn avatar_change_prefers_existing_avatar_name() {
 #[test]
 fn offline_uses_rich_title_without_world_name() {
     let mut delivery = delivery();
-    delivery.entry.activity_type = "Offline".into();
+    delivery.entry.kind = ActivityKind::Offline;
     delivery.entry.actor_display_name = "Traveler".into();
     delivery.entry.content.location = String::new();
     delivery.entry.content.world_id = String::new();
@@ -225,7 +224,7 @@ fn offline_uses_rich_title_without_world_name() {
 #[test]
 fn online_uses_rich_title() {
     let mut delivery = delivery();
-    delivery.entry.activity_type = "Online".into();
+    delivery.entry.kind = ActivityKind::Online;
     delivery.entry.actor_display_name = "Traveler".into();
     delivery.entry.content.location = String::new();
     delivery.entry.content.world_id = String::new();
@@ -249,7 +248,7 @@ fn online_uses_rich_title() {
 #[test]
 fn falls_back_to_legacy_for_unsupported_type() {
     let mut delivery = delivery();
-    delivery.entry.activity_type = "Bio".into();
+    delivery.entry.kind = ActivityKind::Bio;
     delivery.entry.actor_display_name = "Traveler".into();
     let enrichment = DiscordEnrichment {
         actor_icon_url: "https://api.vrchat.cloud/api/1/image/file_icon/2/256".into(),
@@ -284,30 +283,139 @@ fn rendered() -> RenderedNotification {
     }
 }
 
-fn delivery() -> OverlayActivityDelivery {
-    OverlayActivityDelivery {
-        entry: OverlayActivityEntry {
+fn delivery() -> ActivityDelivery {
+    ActivityDelivery {
+        entry: ActivityEntry {
             sequence: 1,
             source_id: "game-log:join".into(),
-            activity_type: "OnPlayerJoined".into(),
-            category: OverlayActivityCategory::CurrentInstance,
+            kind: ActivityKind::OnPlayerJoined,
+            category: ActivityCategory::CurrentInstance,
             created_at: "2026-06-18T08:30:00.000Z".into(),
             actor_user_id: "usr_traveler".into(),
             actor_display_name: "Traveler".into(),
-            content: OverlayActivityContent {
+            content: ActivityContent {
                 location: "wrld_named:123".into(),
                 world_id: "wrld_named".into(),
                 display_location: "Named World Public".into(),
                 world_name: "Named World".into(),
-                ..OverlayActivityContent::default()
+                ..ActivityContent::default()
             },
-            actor_relation: OverlayActivityActorRelation::None,
-            payload: json!({}).into(),
+            actor_relation: ActivityActorRelation::None,
         },
         desktop: false,
         vr: false,
         hmd: false,
         webhook: true,
         tts: false,
+    }
+}
+
+#[test]
+fn every_activity_type_renders_text_and_both_webhook_payloads_in_every_locale() {
+    use crate::notification::{generic_webhook_payload, parse_webhook_fields, render_delivery};
+    use crate::{activity_type_definitions, ActivityFilters, ActivityRouter, ActivityScope};
+    use vrcx_0_contracts::activity::{
+        ActivityActor, ActivityEvent, ActivityFacts, ActivitySubject,
+    };
+
+    let definitions = activity_type_definitions();
+    let desktop_types = definitions
+        .iter()
+        .map(|definition| {
+            let scope = if definition.allowed_scopes.contains(&ActivityScope::On) {
+                "on"
+            } else if definition.allowed_scopes.contains(&ActivityScope::Friends) {
+                "friends"
+            } else {
+                "allFavorites"
+            };
+            (
+                definition.key.key().to_string(),
+                serde_json::json!({ "scope": scope }),
+            )
+        })
+        .collect::<serde_json::Map<_, _>>();
+    let router = ActivityRouter::with_filters(ActivityFilters::from_json(
+        serde_json::json!({ "desktop": { "types": desktop_types } }),
+    ));
+    router.set_friend_user_ids(["usr_actor"]);
+    router.set_group_favorite_groups(crate::ActivityFavoriteGroups::from_pairs([(
+        "group:all",
+        ["grp_all"].as_slice(),
+    )]));
+    let fields = parse_webhook_fields("");
+
+    for definition in definitions {
+        let kind = definition.key;
+        let mut event = ActivityEvent::new(
+            kind,
+            format!("{}:all", kind.key()),
+            "2026-10-02T00:00:00.000Z",
+        );
+        event.actor = ActivityActor::new("usr_actor", "Actor");
+        event.subject = if kind == ActivityKind::GroupInstanceOpened {
+            ActivitySubject::Group("grp_all".into())
+        } else {
+            ActivitySubject::User("usr_actor".into())
+        };
+        event.facts = ActivityFacts {
+            location: "wrld_all:123".into(),
+            world_id: "wrld_all".into(),
+            world_name: "All World".into(),
+            group_id: "grp_all".into(),
+            group_name: "All Group".into(),
+            title: "Title".into(),
+            message: "Message".into(),
+            status: "active".into(),
+            avatar_name: "Avatar".into(),
+            previous_display_name: "Old Actor".into(),
+            trust_level: "Trusted".into(),
+            video: "Video".into(),
+            ..ActivityFacts::default()
+        };
+        let entry = router
+            .ingest(event)
+            .unwrap_or_else(|| panic!("{} should ingest", kind.key()));
+        let delivery = ActivityDelivery {
+            entry,
+            desktop: true,
+            vr: true,
+            hmd: true,
+            webhook: true,
+            tts: true,
+        };
+
+        for locale in [
+            OverlayLocale::En,
+            OverlayLocale::ZhCn,
+            OverlayLocale::ZhTw,
+            OverlayLocale::Ja,
+            OverlayLocale::Ko,
+        ] {
+            let label = format!("{} in {locale:?}", kind.key());
+            let render = render_delivery(&delivery, locale, false);
+            assert!(!render.text.trim().is_empty(), "{label}: text");
+            assert!(!render.title.trim().is_empty(), "{label}: title");
+
+            let generic = generic_webhook_payload(&delivery, &render, &fields);
+            assert!(
+                generic.as_object().is_some_and(|object| !object.is_empty()),
+                "{label}: generic webhook"
+            );
+
+            let discord = build_discord_payload_with_enrichment(
+                &delivery,
+                &render,
+                locale,
+                &DiscordEnrichment::default(),
+            );
+            let embed = &discord["embeds"][0];
+            assert!(
+                ["title", "description"].iter().any(|field| embed[*field]
+                    .as_str()
+                    .is_some_and(|text| !text.trim().is_empty())),
+                "{label}: discord embed"
+            );
+        }
     }
 }

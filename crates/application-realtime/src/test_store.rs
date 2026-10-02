@@ -36,6 +36,7 @@ struct TestRealtimeStoreState {
     notifications_v1: HashMap<String, Vec<Value>>,
     notifications_v2: HashMap<String, Vec<Value>>,
     game_world_names: HashMap<String, String>,
+    game_log_join_counts: HashMap<String, i64>,
     next_history_id: i64,
     fail_writes: bool,
 }
@@ -55,6 +56,14 @@ impl TestRealtimeStore {
 
     pub fn set_fail_writes(&self, fail: bool) {
         self.state.lock().expect("test store lock").fail_writes = fail;
+    }
+
+    pub fn set_game_log_join_count(&self, user_id: &str, join_count: i64) {
+        self.state
+            .lock()
+            .expect("test store lock")
+            .game_log_join_counts
+            .insert(user_id.to_string(), join_count);
     }
 
     pub fn friend_log_current_list(&self, user_id: &str) -> Result<Vec<FriendLogCurrentOutput>> {
@@ -155,6 +164,22 @@ impl TestRealtimeStore {
 }
 
 impl RealtimeStore for TestRealtimeStore {
+    fn game_log_join_count(
+        &self,
+        _owner: &OwnerId,
+        user_id: &str,
+        _display_name: &str,
+    ) -> Result<i64> {
+        Ok(self
+            .state
+            .lock()
+            .expect("test store lock")
+            .game_log_join_counts
+            .get(user_id)
+            .copied()
+            .unwrap_or(0))
+    }
+
     fn database_path(&self) -> PathBuf {
         self.database_path.clone()
     }

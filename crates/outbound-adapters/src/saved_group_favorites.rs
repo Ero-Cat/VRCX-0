@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use vrcx_0_application::social::SavedGroupFavoritesPort;
-use vrcx_0_application_activity::OverlayActivityRuntime;
+use vrcx_0_application_activity::ActivityRouter;
 use vrcx_0_application_core::Result;
 use vrcx_0_contracts::SavedGroupFavoritesSnapshot;
 use vrcx_0_core::OwnerId;
@@ -8,13 +8,13 @@ use vrcx_0_persistence::{saved_group_favorites, DatabaseService};
 
 pub struct LocalSavedGroupFavoritesAdapter {
     db: Arc<DatabaseService>,
-    overlay_activity: OverlayActivityRuntime,
+    activity_router: ActivityRouter,
 }
 impl LocalSavedGroupFavoritesAdapter {
-    pub fn new(db: Arc<DatabaseService>, overlay_activity: OverlayActivityRuntime) -> Self {
+    pub fn new(db: Arc<DatabaseService>, activity_router: ActivityRouter) -> Self {
         Self {
             db,
-            overlay_activity,
+            activity_router,
         }
     }
 }
@@ -51,6 +51,6 @@ impl SavedGroupFavoritesPort for LocalSavedGroupFavoritesAdapter {
         )?)
     }
     fn favorites_changed(&self) {
-        self.overlay_activity.invalidate_group_notification_inputs();
+        self.activity_router.invalidate_group_notification_inputs();
     }
 }

@@ -257,6 +257,78 @@ fn legacy_upgrade_repairs_rows_that_match_old_cleanup_rules() {
 }
 
 #[test]
+fn upstream_import_carries_the_hmd_position_and_timeout_over_once() {
+    let config =
+        |db: &DatabaseService, key: &str| vrcx_0_persistence::config::get_raw(db, key).unwrap();
+    for (position, timeout, expected_position, expected_timeout) in [
+        ("topRight", "60000", Some("top"), Some("30000")),
+        ("centerLeft", "0", Some("center"), None),
+        ("bottom", "8000", Some("bottom"), Some("8000")),
+        ("topCenter", "abc", Some("top"), None),
+        ("", "1500", None, Some("1500")),
+    ] {
+        let dir = TestDir::new("database-upgrade-upstream-hmd-notifications");
+        let db = dir.database();
+        write_upstream_schema_version(&db, 17).unwrap();
+        vrcx_0_persistence::config::set_string(&db, "VRCX_notificationPosition", position).unwrap();
+        vrcx_0_persistence::config::set_string(&db, "VRCX_notificationTimeout", timeout).unwrap();
+
+        assert_eq!(
+            run_database_upgrade(&db).status,
+            DatabaseUpgradeRunStatus::Upgraded
+        );
+        assert_eq!(
+            config(&db, "hmdNotificationPosition").as_deref(),
+            expected_position
+        );
+        assert_eq!(
+            config(&db, "hmdNotificationTimeout").as_deref(),
+            expected_timeout
+        );
+    }
+
+    let dir = TestDir::new("database-upgrade-own-database-hmd-notifications");
+    let db = dir.database();
+    write_upstream_schema_version(&db, 17).unwrap();
+    set_version(&db, VRCX0_SCHEMA_VERSION - 1);
+    vrcx_0_persistence::config::set_string(&db, "VRCX_notificationPosition", "topLeft").unwrap();
+    vrcx_0_persistence::config::set_string(&db, "VRCX_notificationTimeout", "8000").unwrap();
+
+    assert_eq!(
+        run_database_upgrade(&db).status,
+        DatabaseUpgradeRunStatus::Upgraded
+    );
+    assert_eq!(config(&db, "hmdNotificationPosition"), None);
+    assert_eq!(config(&db, "hmdNotificationTimeout"), None);
+}
+
+#[test]
+fn upstream_import_keeps_hmd_settings_that_are_already_saved() {
+    let dir = TestDir::new("database-upgrade-upstream-hmd-notifications-saved");
+    let db = dir.database();
+    write_upstream_schema_version(&db, 17).unwrap();
+    vrcx_0_persistence::config::set_string(&db, "VRCX_notificationPosition", "topLeft").unwrap();
+    vrcx_0_persistence::config::set_string(&db, "VRCX_notificationTimeout", "8000").unwrap();
+    vrcx_0_persistence::config::set_string(&db, "hmdNotificationPosition", "center").unwrap();
+    vrcx_0_persistence::config::set_string(&db, "hmdNotificationTimeout", "4000").unwrap();
+
+    run_database_upgrade(&db);
+
+    assert_eq!(
+        vrcx_0_persistence::config::get_raw(&db, "hmdNotificationPosition")
+            .unwrap()
+            .as_deref(),
+        Some("center")
+    );
+    assert_eq!(
+        vrcx_0_persistence::config::get_raw(&db, "hmdNotificationTimeout")
+            .unwrap()
+            .as_deref(),
+        Some("4000")
+    );
+}
+
+#[test]
 fn upstream_17_upgrade_moves_print_favorites_into_config() {
     let dir = TestDir::new("database-upgrade-upstream-17-print-favorites");
     let db = dir.database();

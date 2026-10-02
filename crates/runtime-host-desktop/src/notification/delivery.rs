@@ -1,4 +1,4 @@
-use vrcx_0_application_activity::OverlayActivityDelivery;
+use vrcx_0_application_activity::ActivityDelivery;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum NotificationTtsNameMode {
@@ -37,6 +37,8 @@ impl NotificationDeliveryCondition {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NotificationDeliveryPreferences {
     pub desktop_toast: NotificationDeliveryCondition,
+    pub afk_desktop_toast: bool,
+    pub overlay_toast: NotificationDeliveryCondition,
     pub desktop_notification_sound: bool,
     pub notification_tts: NotificationDeliveryCondition,
     pub notification_tts_name_mode: NotificationTtsNameMode,
@@ -55,6 +57,8 @@ impl Default for NotificationDeliveryPreferences {
     fn default() -> Self {
         Self {
             desktop_toast: NotificationDeliveryCondition::Never,
+            afk_desktop_toast: false,
+            overlay_toast: NotificationDeliveryCondition::GameRunning,
             desktop_notification_sound: false,
             notification_tts: NotificationDeliveryCondition::Never,
             notification_tts_name_mode: NotificationTtsNameMode::Username,
@@ -76,6 +80,7 @@ pub struct NotificationDeliveryGameState {
     pub is_game_running: bool,
     pub is_steamvr_running: bool,
     pub is_game_no_vr: bool,
+    pub is_hmd_afk: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -99,15 +104,22 @@ impl NotificationDeliveryPlan {
 }
 
 pub fn decide_notification_plan(
-    delivery: &OverlayActivityDelivery,
+    delivery: &ActivityDelivery,
     preferences: &NotificationDeliveryPreferences,
     game: &NotificationDeliveryGameState,
 ) -> NotificationDeliveryPlan {
-    let desktop = delivery.desktop && should_play_for_condition(preferences.desktop_toast, game);
-    let vr = delivery.vr && game.is_steamvr_running;
+    let afk = preferences.afk_desktop_toast
+        && game.is_hmd_afk
+        && game.is_game_running
+        && !game.is_game_no_vr;
+    let desktop =
+        delivery.desktop && (should_play_for_condition(preferences.desktop_toast, game) || afk);
+    let vr = delivery.vr
+        && game.is_steamvr_running
+        && should_play_for_condition(preferences.overlay_toast, game);
     let xs = vr && preferences.xs_notifications;
-    let ovrt_hud = vr && preferences.ovrt_hud_notifications;
-    let ovrt_wrist = vr && preferences.ovrt_wrist_notifications;
+    let ovrt_hud = cfg!(windows) && vr && preferences.ovrt_hud_notifications;
+    let ovrt_wrist = cfg!(windows) && vr && preferences.ovrt_wrist_notifications;
     let ovrt = ovrt_hud || ovrt_wrist;
     let tts = delivery.tts && should_play_for_condition(preferences.notification_tts, game);
 
@@ -121,7 +133,7 @@ pub fn decide_notification_plan(
     }
 }
 
-fn should_play_for_condition(
+pub(crate) fn should_play_for_condition(
     condition: NotificationDeliveryCondition,
     game: &NotificationDeliveryGameState,
 ) -> bool {

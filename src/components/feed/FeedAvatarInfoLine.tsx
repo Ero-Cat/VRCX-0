@@ -135,7 +135,7 @@ export const AvatarInfoLine = memo(function AvatarInfoLine({
             : '';
     const label =
         info.status === 'running'
-            ? 'Resolving avatar info...'
+            ? 'Resolving avatar info'
             : info.avatarName || t('dialog.user.info.unknown_avatar');
 
     async function openAvatarAuthorTarget(): Promise<void> {

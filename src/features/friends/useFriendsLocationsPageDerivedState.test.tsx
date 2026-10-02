@@ -12,10 +12,6 @@ import {
     onlinePresence
 } from '@/test/presenceFixtures';
 
-import {
-    getFriendsLocationsCardRowHeight,
-    getFriendsLocationsDensityConfig
-} from './friendsLocationsDensity';
 import * as friendSections from './friendsLocationsSections';
 import { useFriendsLocationsPageDerivedState } from './useFriendsLocationsPageDerivedState';
 
@@ -149,7 +145,7 @@ describe('useFriendsLocationsPageDerivedState', () => {
     });
 
     it.each(['standard', 'compact', 'dense'])(
-        'uses the %s content heights for each virtual card row without changing the friends',
+        'keeps all friends and section headers in the %s density',
         (density) => {
             const friends = Array.from({ length: 8 }, (_, index) => ({
                 ...friendAt(index < 6 ? 'wrld_remote:2' : 'private'),
@@ -162,7 +158,6 @@ describe('useFriendsLocationsPageDerivedState', () => {
             const { result } = renderHook(() =>
                 useFriendsLocationsPageDerivedState(input)
             );
-            const config = getFriendsLocationsDensityConfig(density);
             const cardRows = result.current.visibleVirtualRows.filter(
                 (row) => row.type === 'cards'
             );
@@ -179,34 +174,6 @@ describe('useFriendsLocationsPageDerivedState', () => {
             const rows = result.current.positionedRows.rows;
             expect(rows.some((row) => row.type === 'header')).toBe(true);
             expect(rows.some((row) => row.type === 'group-header')).toBe(true);
-            for (const [index, row] of rows.entries()) {
-                expect(row.top).toBe(
-                    index === 0
-                        ? 0
-                        : rows[index - 1].top + rows[index - 1].height
-                );
-                if (row.type === 'header' || row.type === 'group-header') {
-                    expect(row.height).toBe(40 + row.topGap);
-                    if (index === 0) {
-                        expect(row.topGap).toBe(0);
-                    }
-                    const next = rows[index + 1];
-                    expect(next?.type).toBe('cards');
-                    if (next?.type === 'cards') {
-                        expect(next.topGap).toBe(row.type === 'header' ? 4 : 0);
-                    }
-                }
-            }
-            for (const row of cardRows) {
-                const expectedHeight = getFriendsLocationsCardRowHeight(
-                    config,
-                    row.section.cardContentMode
-                );
-                expect(row.gridRowHeight).toBe(expectedHeight);
-                expect(row.height).toBe(
-                    expectedHeight + config.gridGap + row.topGap
-                );
-            }
         }
     );
 

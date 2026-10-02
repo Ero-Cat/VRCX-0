@@ -358,6 +358,14 @@ fn run_database_upgrade_inner(
     })?;
 
     normalize_upstream_layout(db, on_progress, from_version)?;
+    if schema_version == 0 {
+        run_optional_task(
+            db,
+            on_progress,
+            DatabaseUpgradeStage::LegacySchemaMigration,
+            DatabaseMaintenanceTask::ImportUpstreamHmdNotificationSettings,
+        );
+    }
 
     run_required_task(
         db,

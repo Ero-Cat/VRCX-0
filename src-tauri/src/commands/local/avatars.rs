@@ -9,7 +9,7 @@ use crate::state::AppState;
 
 use vrcx_0_runtime_host_desktop::local_data::{
     AvatarCacheOutput, AvatarGetInput, AvatarTagInput, AvatarTagOutput, AvatarTagsPatchInput,
-    AvatarTimeSpentOutput, AvatarUsageRow,
+    AvatarTimeSpentOutput, AvatarUsageRow, AvatarWearSegment,
 };
 
 #[tauri::command]
@@ -77,6 +77,21 @@ pub fn app__avatar_usage_ranking(
         .runtime_host()
         .local_data()
         .avatar_usage_ranking(user_id, limit)
+        .map_err(AppError::from)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub fn app__avatar_wear_segments(
+    state: State<'_, AppState>,
+    user_id: String,
+    from_ms: i64,
+    to_ms: i64,
+) -> Result<Vec<AvatarWearSegment>, AppError> {
+    state
+        .runtime_host()
+        .local_data()
+        .avatar_wear_segments(user_id, from_ms, to_ms)
         .map_err(AppError::from)
 }
 
@@ -195,21 +210,6 @@ pub fn app__avatar_tags_replace(
         .runtime_host()
         .local_data()
         .avatar_tags_replace(avatar_id, entries)
-        .map_err(AppError::from)
-}
-
-#[tauri::command(async)]
-#[specta::specta]
-pub fn app__avatar_time_spent_add(
-    state: State<'_, AppState>,
-    user_id: String,
-    avatar_id: String,
-    time_spent: i64,
-) -> Result<(), AppError> {
-    state
-        .runtime_host()
-        .local_data()
-        .avatar_time_spent_add(user_id, avatar_id, time_spent)
         .map_err(AppError::from)
 }
 

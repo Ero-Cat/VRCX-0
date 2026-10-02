@@ -1,4 +1,5 @@
 import { CircleHelpIcon } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type {
@@ -106,8 +107,7 @@ type WebhookSettingsGroupProps = {
     prefs: WebhookSettingsPrefs;
     onWebhookEnabledChange(value: boolean): void;
     onWebhookAuthEventsEnabledChange(value: boolean): void;
-    onWebhookUrlDraftChange(value: string): void;
-    onWebhookUrlBlur(value: string): void;
+    onWebhookUrlCommit(value: string): void;
     onWebhookFormatChange(value: NotificationWebhookFormat): void;
     onWebhookFieldsChange(value: string): void;
     onOpenWebhookNotificationFiltersDialog(): void;
@@ -163,8 +163,7 @@ export function WebhookSettingsGroup({
     prefs,
     onWebhookEnabledChange,
     onWebhookAuthEventsEnabledChange,
-    onWebhookUrlDraftChange,
-    onWebhookUrlBlur,
+    onWebhookUrlCommit,
     onWebhookFormatChange,
     onWebhookFieldsChange,
     onOpenWebhookNotificationFiltersDialog,
@@ -174,9 +173,18 @@ export function WebhookSettingsGroup({
     onRefreshDeliveryStatus
 }: WebhookSettingsGroupProps) {
     const { t } = useTranslation();
+    const [webhookUrlDraft, setWebhookUrlDraft] = useState<string | null>(null);
     const webhookControlsEnabled =
         Boolean(prefs.webhookEnabled) ||
         Boolean(prefs.webhookAuthEventsEnabled);
+
+    function commitWebhookUrlDraft() {
+        if (webhookUrlDraft === null) {
+            return;
+        }
+        onWebhookUrlCommit(webhookUrlDraft);
+        setWebhookUrlDraft(null);
+    }
 
     return (
         <SettingsCard
@@ -219,15 +227,18 @@ export function WebhookSettingsGroup({
                 <Input
                     id="settings-webhook-url"
                     className="w-full max-w-lg"
-                    value={prefs.webhookUrl || ''}
+                    value={webhookUrlDraft ?? prefs.webhookUrl ?? ''}
                     disabled={!webhookControlsEnabled}
                     placeholder={t(
                         'view.settings.notifications.notifications.webhook.url_placeholder'
                     )}
-                    onChange={(event) =>
-                        onWebhookUrlDraftChange(event.target.value)
-                    }
-                    onBlur={(event) => onWebhookUrlBlur(event.target.value)}
+                    onChange={(event) => setWebhookUrlDraft(event.target.value)}
+                    onBlur={commitWebhookUrlDraft}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                            commitWebhookUrlDraft();
+                        }
+                    }}
                 />
             </Field>
 

@@ -4,7 +4,6 @@ use std::sync::{Arc, Mutex};
 use chrono::{DateTime, Duration, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Notify;
-use vrcx_0_application_activity::OverlayActivitySurface;
 use vrcx_0_application_core::{
     GameProcessEventSink, RuntimeEventBus, RuntimeEventPayload, TaskSupervisor,
 };
@@ -139,16 +138,6 @@ impl NotificationDoNotDisturbState {
     }
 }
 
-fn do_not_disturb_suppresses(surface: OverlayActivitySurface) -> bool {
-    matches!(
-        surface,
-        OverlayActivitySurface::Desktop
-            | OverlayActivitySurface::Vr
-            | OverlayActivitySurface::Hmd
-            | OverlayActivitySurface::Tts
-    )
-}
-
 #[derive(Clone)]
 pub struct NotificationDoNotDisturbRuntime {
     inner: Arc<NotificationDoNotDisturbRuntimeInner>,
@@ -222,10 +211,6 @@ impl NotificationDoNotDisturbRuntime {
             .lock()
             .map(|state| state.is_active(Utc::now()))
             .unwrap_or(false)
-    }
-
-    pub fn suppresses(&self, surface: OverlayActivitySurface) -> bool {
-        self.is_active() && do_not_disturb_suppresses(surface)
     }
 
     pub fn set_mode(
@@ -335,7 +320,6 @@ impl GameProcessEventSink for NotificationDoNotDisturbRuntime {
 #[cfg(test)]
 mod tests {
     use chrono::{DateTime, Utc};
-    use vrcx_0_application_activity::OverlayActivitySurface;
     use vrcx_0_core::game_process::GameProcessEvent;
 
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -347,7 +331,7 @@ mod tests {
 
     use super::super::test_support::test_config;
     use super::{
-        do_not_disturb_suppresses, NotificationDoNotDisturbMode, NotificationDoNotDisturbRuntime,
+        NotificationDoNotDisturbMode, NotificationDoNotDisturbRuntime,
         NotificationDoNotDisturbState,
     };
     use crate::{RuntimeHost, RuntimeHostActions};
@@ -482,24 +466,6 @@ mod tests {
             state.set_mode(NotificationDoNotDisturbMode::UntilStopped, now);
             assert!(!state.on_game_process_event(event, true, false, now));
             assert!(state.is_active(now));
-        }
-    }
-
-    #[test]
-    fn dnd_suppresses_only_interruptive_local_activity_surfaces() {
-        for surface in [
-            OverlayActivitySurface::Desktop,
-            OverlayActivitySurface::Vr,
-            OverlayActivitySurface::Hmd,
-            OverlayActivitySurface::Tts,
-        ] {
-            assert!(do_not_disturb_suppresses(surface));
-        }
-        for surface in [
-            OverlayActivitySurface::Wrist,
-            OverlayActivitySurface::Webhook,
-        ] {
-            assert!(!do_not_disturb_suppresses(surface));
         }
     }
 

@@ -15,8 +15,9 @@ use crate::realtime::friends::presence::{
 use crate::realtime::{FriendIconChange, FriendWake, RealtimeFriendOutput};
 
 use super::social_feed::{
-    add_profile_diff_feed_entries, display_name, friend_log_upsert, friend_relationship_feed_entry,
-    meaningful_name, meaningful_record_name, trust_level_feed_entry, FriendRelationshipFeedKind,
+    add_profile_diff_feed_entries, display_name, display_name_feed_entry, friend_log_upsert,
+    friend_relationship_feed_entry, meaningful_name, meaningful_record_name,
+    trust_level_feed_entry, FriendRelationshipFeedKind,
 };
 use super::state::{FriendEntry, RealtimeFriendState};
 use crate::realtime::event_time::EventTime;
@@ -335,8 +336,8 @@ fn record_profile_identity_change(
     now: &EventTime,
 ) {
     let next_name = meaningful_name(patch, user_id);
-    let name_changed =
-        !next_name.is_empty() && next_name != meaningful_record_name(previous, user_id);
+    let previous_name = meaningful_record_name(previous, user_id);
+    let name_changed = !next_name.is_empty() && next_name != previous_name;
     let previous_trust_level = record_string(previous, derived_keys::TRUST_LEVEL);
     let trust_level = first_owned([
         patch.text_field(derived_keys::TRUST_LEVEL),
@@ -348,6 +349,18 @@ fn record_profile_identity_change(
         return;
     }
     let upsert = friend_log_upsert(user_id, patch, Some(previous), &now.iso);
+    if name_changed && !previous_name.is_empty() {
+        output
+            .persistence
+            .feed_entries
+            .push(display_name_feed_entry(
+                &now.iso,
+                user_id,
+                &upsert.display_name,
+                &previous_name,
+                upsert.friend_number,
+            ));
+    }
     if trust_changed {
         output.persistence.feed_entries.push(trust_level_feed_entry(
             &now.iso,

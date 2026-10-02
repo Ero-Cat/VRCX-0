@@ -97,31 +97,20 @@ pub(super) fn surface_transform(placement: &OverlayPlacement) -> Matrix3x4 {
                 [1.0, 0.0, 0.0, 0.06],
             ])
         }
-        OverlayPlacement::TrackedDeviceRelative { device_hint }
-            if device_hint.starts_with("hmd") =>
-        {
-            hmd_transform(device_hint)
-        }
+        OverlayPlacement::HeadLocked {
+            offset_y_meters,
+            distance_meters,
+        } => Matrix3x4([
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, *offset_y_meters],
+            [0.0, 0.0, 1.0, -distance_meters],
+        ]),
         OverlayPlacement::TrackedDeviceRelative { .. } => Matrix3x4([
             [1.0, 0.0, 0.0, 0.0],
             [0.0, 1.0, 0.0, 0.035],
             [0.0, 0.0, 1.0, 0.055],
         ]),
     }
-}
-
-pub(super) fn hmd_transform(device_hint: &str) -> Matrix3x4 {
-    let (x, y) = match device_hint {
-        "hmd:top" => (0.0, 0.38),
-        "hmd:left" => (-0.52, -0.12),
-        "hmd:right" => (0.52, -0.12),
-        _ => (0.0, -0.38),
-    };
-    Matrix3x4([
-        [1.0, 0.0, 0.0, x],
-        [0.0, 1.0, 0.0, y],
-        [0.0, 0.0, 1.0, -1.15],
-    ])
 }
 
 pub(super) fn is_display_device_class(class: TrackedDeviceClass) -> bool {

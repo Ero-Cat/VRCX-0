@@ -3,31 +3,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { buildFeedFavoriteGroupOptions } from '@/domain/feed/feedFavoriteGroups';
-import { commands, type SavedGroupCollection } from '@/platform/tauri/bindings';
 import {
-    DEFAULT_HMD_NOTIFICATION_ACTIVITY_FILTERS,
-    DEFAULT_OVERLAY_ACTIVITY_FILTER_PROFILE,
-    DEFAULT_TTS_NOTIFICATION_ACTIVITY_FILTERS,
-    DEFAULT_WEBHOOK_ACTIVITY_FILTERS,
-    defaultOverlayActivityFilterProfileFromDefinitions,
-    disabledOverlayActivityFilterProfileFromDefinitions,
-    hmdDefaultOverlayActivityFilterProfileFromDefinitions,
-    normalizeOverlayActivityFilterProfile,
-    normalizeOverlayActivityFilterProfileWithDefinitions,
-    normalizeOverlayActivityFilters,
-    normalizeOverlayActivityFiltersWithDefinitions,
-    overlayActivityCategoriesFromDefinitions,
-    overlayActivityDefinitionByKeyFromDefinitions,
-    overlayActivityRawTypesByCategoryFromDefinitions,
-    overlayActivityTypeLabelKey,
-    type OverlayActivityCategory,
-    type OverlayActivityFilterProfilePreference,
-    type OverlayActivityFavoriteGroupKeys,
-    type OverlayActivityFiltersPreference,
-    type OverlayActivityRule,
-    type OverlayActivityScope,
-    type OverlayActivityTypeDefinition
-} from '@/shared/constants/overlayActivityFilters';
+    commands,
+    type ActivityCategory,
+    type ActivityFilterProfile,
+    type ActivityRule,
+    type ActivityScope,
+    type ActivityTypeDefinition,
+    type SavedGroupCollection
+} from '@/platform/tauri/bindings';
 import { useFavoriteStore } from '@/state/favoriteStore';
 import { Badge } from '@/ui/shadcn/badge';
 import { Button } from '@/ui/shadcn/button';
@@ -60,215 +44,144 @@ import {
 } from '@/ui/shadcn/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/shadcn/tabs';
 
-function scopeUsesFavoriteGroups(scope: OverlayActivityScope) {
+type FavoriteGroupKeys = ActivityRule['favoriteGroupKeys'];
+type DefaultScope = (definition: ActivityTypeDefinition) => ActivityScope;
+
+function scopeUsesFavoriteGroups(scope: ActivityScope) {
     return scope === 'selectedFavorites';
 }
 
-function selectedGroupKeys(groupKeys: OverlayActivityFavoriteGroupKeys) {
+function selectedGroupKeys(groupKeys: FavoriteGroupKeys) {
     return Array.isArray(groupKeys) ? groupKeys : [];
 }
 
-type WristFeedNotificationsDialogProps = {
-    open: boolean;
-    onOpenChange(open: boolean): void;
-    value: OverlayActivityFiltersPreference;
-    onSave(
-        value: OverlayActivityFiltersPreference,
-        definitions: OverlayActivityTypeDefinition[]
-    ): Promise<OverlayActivityFiltersPreference | null | undefined>;
-};
+function activityTypeLabelKey(type: string) {
+    return type.replace(/\./g, '_');
+}
+
+function recommendedProfile(
+    definitions: ActivityTypeDefinition[],
+    defaultScope: DefaultScope
+): ActivityFilterProfile {
+    return {
+        version: 1,
+        types: Object.fromEntries(
+            definitions.map((definition) => [
+                definition.key,
+                { scope: defaultScope(definition), favoriteGroupKeys: 'all' }
+            ])
+        )
+    };
+}
 
 type NotificationProfileDialogProps = {
     open: boolean;
     onOpenChange(open: boolean): void;
-    value: OverlayActivityFilterProfilePreference;
+    value: ActivityFilterProfile;
     onSave(
-        value: OverlayActivityFilterProfilePreference,
-        definitions: OverlayActivityTypeDefinition[]
-    ): Promise<OverlayActivityFilterProfilePreference | null | undefined>;
+        value: ActivityFilterProfile
+    ): Promise<ActivityFilterProfile | null | undefined>;
 };
 
-type OverlayActivityFilterDialogProps = Omit<
-    NotificationProfileDialogProps,
-    'onSave'
-> & {
-    onSave(
-        value: OverlayActivityFilterProfilePreference,
-        definitions: OverlayActivityTypeDefinition[]
-    ): Promise<
-        | OverlayActivityFiltersPreference
-        | OverlayActivityFilterProfilePreference
-        | null
-        | undefined
-    >;
+type ActivityFilterDialogProps = NotificationProfileDialogProps & {
     titleKey: string;
     descriptionKey: string;
-    defaultProfileFromDefinitions?: (
-        definitions: OverlayActivityTypeDefinition[]
-    ) => OverlayActivityFilterProfilePreference;
-    fallbackDefaultProfile?: OverlayActivityFilterProfilePreference;
+    defaultScope: DefaultScope;
 };
 
-function normalizeDraft(
-    value: unknown,
-    definitions: OverlayActivityTypeDefinition[]
-) {
-    return definitions.length
-        ? normalizeOverlayActivityFilterProfileWithDefinitions(
-              value,
-              definitions
-          )
-        : normalizeOverlayActivityFilterProfile(value);
-}
+const wristDefaultScope: DefaultScope = (definition) =>
+    definition.wristDefaultScope;
+const alertDefaultScope: DefaultScope = (definition) =>
+    definition.alertDefaultScope;
 
-export function WristFeedNotificationsDialog({
-    open,
-    onOpenChange,
-    value,
-    onSave
-}: WristFeedNotificationsDialogProps) {
-    const wristProfile = normalizeOverlayActivityFilters(value).wrist;
+export function WristFeedNotificationsDialog(
+    props: NotificationProfileDialogProps
+) {
     return (
-        <OverlayActivityFilterDialog
-            open={open}
-            onOpenChange={onOpenChange}
+        <ActivityFilterDialog
+            {...props}
             titleKey="dialog.wrist_feed_notifications.title"
             descriptionKey="dialog.wrist_feed_notifications.description"
-            value={{ version: 1, types: wristProfile.types }}
-            onSave={async (profile, definitions) =>
-                onSave(
-                    normalizeOverlayActivityFiltersWithDefinitions(
-                        {
-                            version: 1,
-                            wrist: {
-                                types: profile.types
-                            }
-                        },
-                        definitions
-                    ),
-                    definitions
-                )
-            }
+            defaultScope={wristDefaultScope}
         />
     );
 }
 
-export function VrNotificationsDialog({
-    open,
-    onOpenChange,
-    value,
-    onSave
-}: NotificationProfileDialogProps) {
+export function VrNotificationsDialog(props: NotificationProfileDialogProps) {
     return (
-        <OverlayActivityFilterDialog
-            open={open}
-            onOpenChange={onOpenChange}
+        <ActivityFilterDialog
+            {...props}
             titleKey="dialog.vr_notifications.title"
             descriptionKey="dialog.vr_notifications.description"
-            value={value}
-            onSave={onSave}
+            defaultScope={alertDefaultScope}
         />
     );
 }
 
-export function DesktopNotificationsDialog({
-    open,
-    onOpenChange,
-    value,
-    onSave
-}: NotificationProfileDialogProps) {
+export function DesktopNotificationsDialog(
+    props: NotificationProfileDialogProps
+) {
     return (
-        <OverlayActivityFilterDialog
-            open={open}
-            onOpenChange={onOpenChange}
+        <ActivityFilterDialog
+            {...props}
             titleKey="dialog.desktop_notifications.title"
             descriptionKey="dialog.desktop_notifications.description"
-            value={value}
-            onSave={onSave}
+            defaultScope={alertDefaultScope}
         />
     );
 }
 
-export function HmdNotificationsDialog({
-    open,
-    onOpenChange,
-    value,
-    onSave
-}: NotificationProfileDialogProps) {
+export function HmdNotificationsDialog(props: NotificationProfileDialogProps) {
     return (
-        <OverlayActivityFilterDialog
-            open={open}
-            onOpenChange={onOpenChange}
+        <ActivityFilterDialog
+            {...props}
             titleKey="dialog.hmd_notifications.title"
             descriptionKey="dialog.hmd_notifications.description"
-            value={value}
-            defaultProfileFromDefinitions={
-                hmdDefaultOverlayActivityFilterProfileFromDefinitions
-            }
-            fallbackDefaultProfile={DEFAULT_HMD_NOTIFICATION_ACTIVITY_FILTERS}
-            onSave={onSave}
+            defaultScope={alertDefaultScope}
         />
     );
 }
 
-export function WebhookNotificationsDialog({
-    open,
-    onOpenChange,
-    value,
-    onSave
-}: NotificationProfileDialogProps) {
+export function WebhookNotificationsDialog(
+    props: NotificationProfileDialogProps
+) {
     return (
-        <OverlayActivityFilterDialog
-            open={open}
-            onOpenChange={onOpenChange}
+        <ActivityFilterDialog
+            {...props}
             titleKey="dialog.webhook_notifications.title"
             descriptionKey="dialog.webhook_notifications.description"
-            value={value}
-            defaultProfileFromDefinitions={
-                disabledOverlayActivityFilterProfileFromDefinitions
-            }
-            fallbackDefaultProfile={DEFAULT_WEBHOOK_ACTIVITY_FILTERS}
-            onSave={onSave}
+            defaultScope={() => 'off'}
         />
     );
 }
 
-export function TtsNotificationsDialog({
-    open,
-    onOpenChange,
-    value,
-    onSave
-}: NotificationProfileDialogProps) {
+export function TtsNotificationsDialog(props: NotificationProfileDialogProps) {
     return (
-        <OverlayActivityFilterDialog
-            open={open}
-            onOpenChange={onOpenChange}
+        <ActivityFilterDialog
+            {...props}
             titleKey="dialog.tts_notifications.title"
             descriptionKey="dialog.tts_notifications.description"
-            value={value}
-            fallbackDefaultProfile={DEFAULT_TTS_NOTIFICATION_ACTIVITY_FILTERS}
-            onSave={onSave}
+            defaultScope={(definition) => definition.ttsDefaultScope}
         />
     );
 }
 
-function OverlayActivityFilterDialog({
+function ActivityFilterDialog({
     open,
     onOpenChange,
     titleKey,
     descriptionKey,
     value,
-    defaultProfileFromDefinitions,
-    fallbackDefaultProfile,
+    defaultScope,
     onSave
-}: OverlayActivityFilterDialogProps) {
+}: ActivityFilterDialogProps) {
     const { t } = useTranslation();
     const [activityDefinitions, setActivityDefinitions] = useState<
-        OverlayActivityTypeDefinition[]
+        ActivityTypeDefinition[]
     >([]);
-    const [draft, setDraft] = useState(() => normalizeDraft(value, []));
+    const [draft, setDraft] = useState(value);
     const [selectedCategory, setSelectedCategory] =
-        useState<OverlayActivityCategory>('actionRequired');
+        useState<ActivityCategory>('actionRequired');
     const favoriteFriendGroups = useFavoriteStore(
         (state) => state.favoriteFriendGroups
     );
@@ -300,28 +213,26 @@ function OverlayActivityFilterDialog({
             ? groupFavoriteGroupOptions
             : friendFavoriteGroupOptions;
     }
+    const definitionsByCategory = useMemo(() => {
+        const grouped = new Map<ActivityCategory, ActivityTypeDefinition[]>();
+        for (const definition of activityDefinitions) {
+            grouped.set(definition.category, [
+                ...(grouped.get(definition.category) ?? []),
+                definition
+            ]);
+        }
+        return grouped;
+    }, [activityDefinitions]);
     const activityCategories = useMemo(
-        () => overlayActivityCategoriesFromDefinitions(activityDefinitions),
-        [activityDefinitions]
-    );
-    const rawTypesByCategory = useMemo(
-        () =>
-            overlayActivityRawTypesByCategoryFromDefinitions(
-                activityDefinitions
-            ),
-        [activityDefinitions]
-    );
-    const definitionByKey = useMemo(
-        () =>
-            overlayActivityDefinitionByKeyFromDefinitions(activityDefinitions),
-        [activityDefinitions]
+        () => [...definitionsByCategory.keys()],
+        [definitionsByCategory]
     );
 
     useEffect(() => {
         if (open) {
-            setDraft(normalizeDraft(value, activityDefinitions));
+            setDraft(value);
         }
-    }, [activityDefinitions, open, value]);
+    }, [open, value]);
 
     useEffect(() => {
         if (!open) {
@@ -365,27 +276,24 @@ function OverlayActivityFilterDialog({
         }
     }, [activityCategories, selectedCategory]);
 
-    function updateTypeRule(type: string, patch: Partial<OverlayActivityRule>) {
-        setDraft((current) =>
-            normalizeDraft(
-                {
-                    ...current,
-                    types: {
-                        ...current.types,
-                        [type]: {
-                            ...current.types[type],
-                            ...patch
-                        }
-                    }
-                },
-                activityDefinitions
-            )
-        );
+    function updateTypeRule(type: string, patch: Partial<ActivityRule>) {
+        setDraft((current) => {
+            const currentRule: ActivityRule = current.types[type] ?? {
+                scope: 'off',
+                favoriteGroupKeys: 'all'
+            };
+            return {
+                ...current,
+                types: {
+                    ...current.types,
+                    [type]: { ...currentRule, ...patch }
+                }
+            };
+        });
     }
 
     function toggleFavoriteGroup(type: string, groupKey: string) {
-        const rule = draft.types[type];
-        const currentGroupKeys = rule.favoriteGroupKeys;
+        const currentGroupKeys = draft.types[type]?.favoriteGroupKeys ?? 'all';
         const currentSelectedGroups = selectedGroupKeys(currentGroupKeys);
         const nextSelectedGroups =
             currentGroupKeys === 'all'
@@ -420,57 +328,46 @@ function OverlayActivityFilterDialog({
         });
     }
 
-    function favoriteGroupSummary(
-        type: string,
-        groupKeys: OverlayActivityFavoriteGroupKeys
-    ) {
+    function favoriteGroupSummary(type: string, groupKeys: FavoriteGroupKeys) {
         const favoriteGroupOptions = favoriteGroupOptionsForType(type);
         if (!favoriteGroupOptions.length) {
             return type === 'group.instanceOpened'
                 ? t('saved_group_favorites.notification_empty')
                 : t('dialog.wrist_feed_notifications.favorite_groups.empty');
         }
-        if (groupKeys === 'all') {
+        const selectedGroups = selectedGroupKeys(groupKeys);
+        if (!selectedGroups.length) {
             return t(
                 'dialog.wrist_feed_notifications.favorite_groups.all_groups'
             );
         }
-        if (groupKeys.length === 1) {
+        if (selectedGroups.length === 1) {
             const group = favoriteGroupOptions.find(
-                (entry) => entry.key === groupKeys[0]
+                (entry) => entry.key === selectedGroups[0]
             );
-            return group?.label || groupKeys[0];
+            return group?.label || selectedGroups[0];
         }
         return t(
             'dialog.wrist_feed_notifications.favorite_groups.group_count',
             {
-                count: groupKeys.length
+                count: selectedGroups.length
             }
         );
     }
 
     async function saveDraft() {
-        const saved = await onSave(
-            normalizeDraft(draft, activityDefinitions),
-            activityDefinitions
-        );
+        const saved = await onSave(draft);
         if (saved) {
             onOpenChange(false);
         }
     }
 
     function resetRecommended() {
-        const defaultProfile = activityDefinitions.length
-            ? (
-                  defaultProfileFromDefinitions ??
-                  defaultOverlayActivityFilterProfileFromDefinitions
-              )(activityDefinitions)
-            : (fallbackDefaultProfile ??
-              DEFAULT_OVERLAY_ACTIVITY_FILTER_PROFILE);
-        setDraft(normalizeDraft(defaultProfile, activityDefinitions));
+        setDraft(recommendedProfile(activityDefinitions, defaultScope));
     }
 
-    const selectedCategoryTypes = rawTypesByCategory[selectedCategory] || [];
+    const selectedCategoryDefinitions =
+        definitionsByCategory.get(selectedCategory) ?? [];
     const definitionsLoaded = activityDefinitions.length > 0;
 
     return (
@@ -546,188 +443,191 @@ function OverlayActivityFilterDialog({
 
                         <ScrollArea className="min-h-0 pr-2">
                             <FieldGroup className="gap-0 rounded-lg border">
-                                {selectedCategoryTypes.map((type) => {
-                                    const definition = definitionByKey[type];
-                                    if (!definition) {
-                                        return null;
-                                    }
-                                    const rule = draft.types[type] || {
-                                        scope: definition.defaultScope,
-                                        favoriteGroupKeys: 'all'
-                                    };
-                                    const usesFavoriteGroups =
-                                        scopeUsesFavoriteGroups(rule.scope);
-                                    const selectedGroups = selectedGroupKeys(
-                                        rule.favoriteGroupKeys
-                                    );
-                                    const groupInstanceType =
-                                        type === 'group.instanceOpened';
-                                    const favoriteGroupOptions =
-                                        favoriteGroupOptionsForType(type);
-                                    const scopeLabel = (
-                                        scope: OverlayActivityScope
-                                    ) =>
-                                        groupInstanceType &&
-                                        scope === 'allFavorites'
-                                            ? t(
-                                                  'saved_group_favorites.scope_all',
-                                                  {
-                                                      defaultValue:
-                                                          '全部收藏群组'
-                                                  }
-                                              )
-                                            : groupInstanceType &&
-                                                scope === 'selectedFavorites'
-                                              ? t(
-                                                    'saved_group_favorites.scope_selected',
-                                                    {
-                                                        defaultValue:
-                                                            '指定收藏分组'
-                                                    }
-                                                )
-                                              : t(
-                                                    `dialog.wrist_feed_notifications.scopes.${scope}`
-                                                );
-                                    return (
-                                        <Field
-                                            key={type}
-                                            orientation="horizontal"
-                                            className="items-center gap-3 border-b px-3 py-2.5 last:border-b-0"
-                                        >
-                                            <FieldContent className="min-w-0">
-                                                <FieldLabel className="truncate">
-                                                    {groupInstanceType
-                                                        ? t(
-                                                              'saved_group_favorites.notification_type'
-                                                          )
-                                                        : t(
-                                                              `dialog.wrist_feed_notifications.types.${overlayActivityTypeLabelKey(type)}`,
-                                                              {
-                                                                  defaultValue:
-                                                                      type
-                                                              }
-                                                          )}
-                                                </FieldLabel>
-                                            </FieldContent>
+                                {selectedCategoryDefinitions.map(
+                                    (definition) => {
+                                        const type = definition.key;
+                                        const rule = draft.types[type] ?? {
+                                            scope: defaultScope(definition),
+                                            favoriteGroupKeys: 'all'
+                                        };
+                                        const usesFavoriteGroups =
+                                            scopeUsesFavoriteGroups(rule.scope);
+                                        const selectedGroups =
+                                            selectedGroupKeys(
+                                                rule.favoriteGroupKeys
+                                            );
+                                        const groupInstanceType =
+                                            type === 'group.instanceOpened';
+                                        const favoriteGroupOptions =
+                                            favoriteGroupOptionsForType(type);
+                                        const scopeLabel = (
+                                            scope: ActivityScope
+                                        ) =>
+                                            groupInstanceType &&
+                                            scope === 'allFavorites'
+                                                ? t(
+                                                      'saved_group_favorites.scope_all',
+                                                      {
+                                                          defaultValue:
+                                                              '全部收藏群组'
+                                                      }
+                                                  )
+                                                : groupInstanceType &&
+                                                    scope ===
+                                                        'selectedFavorites'
+                                                  ? t(
+                                                        'saved_group_favorites.scope_selected',
+                                                        {
+                                                            defaultValue:
+                                                                '指定收藏分组'
+                                                        }
+                                                    )
+                                                  : t(
+                                                        `dialog.wrist_feed_notifications.scopes.${scope}`
+                                                    );
+                                        return (
+                                            <Field
+                                                key={type}
+                                                orientation="horizontal"
+                                                className="items-center gap-3 border-b px-3 py-2.5 last:border-b-0"
+                                            >
+                                                <FieldContent className="min-w-0">
+                                                    <FieldLabel className="truncate">
+                                                        {groupInstanceType
+                                                            ? t(
+                                                                  'saved_group_favorites.notification_type'
+                                                              )
+                                                            : t(
+                                                                  `dialog.wrist_feed_notifications.types.${activityTypeLabelKey(type)}`,
+                                                                  {
+                                                                      defaultValue:
+                                                                          type
+                                                                  }
+                                                              )}
+                                                    </FieldLabel>
+                                                </FieldContent>
 
-                                            <div className="grid w-full gap-2 sm:w-56">
-                                                <Select<OverlayActivityScope>
-                                                    value={rule.scope}
-                                                    items={definition.allowedScopes.map(
-                                                        (scope) => ({
-                                                            value: scope,
-                                                            label: scopeLabel(
-                                                                scope
-                                                            )
-                                                        })
-                                                    )}
-                                                    onValueChange={(scope) => {
-                                                        if (scope) {
-                                                            if (
-                                                                groupInstanceType &&
-                                                                scope ===
-                                                                    'selectedFavorites'
-                                                            ) {
-                                                                const firstKey =
-                                                                    favoriteGroupOptions[0]
-                                                                        ?.key;
+                                                <div className="grid w-full gap-2 sm:w-56">
+                                                    <Select<ActivityScope>
+                                                        value={rule.scope}
+                                                        items={definition.allowedScopes.map(
+                                                            (scope) => ({
+                                                                value: scope,
+                                                                label: scopeLabel(
+                                                                    scope
+                                                                )
+                                                            })
+                                                        )}
+                                                        onValueChange={(
+                                                            scope
+                                                        ) => {
+                                                            if (scope) {
+                                                                if (
+                                                                    groupInstanceType &&
+                                                                    scope ===
+                                                                        'selectedFavorites'
+                                                                ) {
+                                                                    const firstKey =
+                                                                        favoriteGroupOptions[0]
+                                                                            ?.key;
+                                                                    updateTypeRule(
+                                                                        type,
+                                                                        firstKey
+                                                                            ? {
+                                                                                  scope,
+                                                                                  favoriteGroupKeys:
+                                                                                      [
+                                                                                          firstKey
+                                                                                      ]
+                                                                              }
+                                                                            : {
+                                                                                  scope: 'off',
+                                                                                  favoriteGroupKeys:
+                                                                                      'all'
+                                                                              }
+                                                                    );
+                                                                    return;
+                                                                }
                                                                 updateTypeRule(
                                                                     type,
-                                                                    firstKey
-                                                                        ? {
-                                                                              scope,
-                                                                              favoriteGroupKeys:
-                                                                                  [
-                                                                                      firstKey
-                                                                                  ]
-                                                                          }
-                                                                        : {
-                                                                              scope: 'off',
-                                                                              favoriteGroupKeys:
-                                                                                  'all'
-                                                                          }
+                                                                    { scope }
                                                                 );
-                                                                return;
                                                             }
-                                                            updateTypeRule(
+                                                        }}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectGroup>
+                                                                {definition.allowedScopes.map(
+                                                                    (scope) => (
+                                                                        <SelectItem
+                                                                            key={
+                                                                                scope
+                                                                            }
+                                                                            value={
+                                                                                scope
+                                                                            }
+                                                                        >
+                                                                            {scopeLabel(
+                                                                                scope
+                                                                            )}
+                                                                        </SelectItem>
+                                                                    )
+                                                                )}
+                                                            </SelectGroup>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    {usesFavoriteGroups &&
+                                                    (!groupInstanceType ||
+                                                        rule.scope ===
+                                                            'selectedFavorites') ? (
+                                                        <FavoriteGroupMenu
+                                                            disabled={
+                                                                !favoriteGroupOptions.length
+                                                            }
+                                                            favoriteGroupOptions={
+                                                                favoriteGroupOptions
+                                                            }
+                                                            selectedGroups={
+                                                                selectedGroups
+                                                            }
+                                                            allFavoriteGroups={
+                                                                !groupInstanceType &&
+                                                                rule.favoriteGroupKeys ===
+                                                                    'all'
+                                                            }
+                                                            allowAllFavoriteGroups={
+                                                                !groupInstanceType
+                                                            }
+                                                            summary={favoriteGroupSummary(
                                                                 type,
-                                                                { scope }
-                                                            );
-                                                        }
-                                                    }}
-                                                >
-                                                    <SelectTrigger>
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectGroup>
-                                                            {definition.allowedScopes.map(
-                                                                (scope) => (
-                                                                    <SelectItem
-                                                                        key={
-                                                                            scope
-                                                                        }
-                                                                        value={
-                                                                            scope
-                                                                        }
-                                                                    >
-                                                                        {scopeLabel(
-                                                                            scope
-                                                                        )}
-                                                                    </SelectItem>
-                                                                )
+                                                                rule.favoriteGroupKeys
                                                             )}
-                                                        </SelectGroup>
-                                                    </SelectContent>
-                                                </Select>
-                                                {usesFavoriteGroups &&
-                                                (!groupInstanceType ||
-                                                    rule.scope ===
-                                                        'selectedFavorites') ? (
-                                                    <FavoriteGroupMenu
-                                                        disabled={
-                                                            !favoriteGroupOptions.length
-                                                        }
-                                                        favoriteGroupOptions={
-                                                            favoriteGroupOptions
-                                                        }
-                                                        selectedGroups={
-                                                            selectedGroups
-                                                        }
-                                                        allFavoriteGroups={
-                                                            !groupInstanceType &&
-                                                            rule.favoriteGroupKeys ===
-                                                                'all'
-                                                        }
-                                                        allowAllFavoriteGroups={
-                                                            !groupInstanceType
-                                                        }
-                                                        summary={favoriteGroupSummary(
-                                                            type,
-                                                            rule.favoriteGroupKeys
-                                                        )}
-                                                        onToggleAll={(
-                                                            checked
-                                                        ) =>
-                                                            toggleAllFavoriteGroups(
-                                                                type,
+                                                            onToggleAll={(
                                                                 checked
-                                                            )
-                                                        }
-                                                        onToggleGroup={(
-                                                            groupKey
-                                                        ) =>
-                                                            toggleFavoriteGroup(
-                                                                type,
+                                                            ) =>
+                                                                toggleAllFavoriteGroups(
+                                                                    type,
+                                                                    checked
+                                                                )
+                                                            }
+                                                            onToggleGroup={(
                                                                 groupKey
-                                                            )
-                                                        }
-                                                    />
-                                                ) : null}
-                                            </div>
-                                        </Field>
-                                    );
-                                })}
+                                                            ) =>
+                                                                toggleFavoriteGroup(
+                                                                    type,
+                                                                    groupKey
+                                                                )
+                                                            }
+                                                        />
+                                                    ) : null}
+                                                </div>
+                                            </Field>
+                                        );
+                                    }
+                                )}
                             </FieldGroup>
                         </ScrollArea>
                     </TabsContent>

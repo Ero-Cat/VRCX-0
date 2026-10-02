@@ -7,11 +7,11 @@ import {
     type VrchatFavoriteType
 } from '@/platform/tauri/bindings';
 import i18n from '@/services/i18nService';
+import { toast } from '@/services/toastService';
 import { isRecord } from '@/shared/utils/record';
 import { normalizeString } from '@/shared/utils/string';
 import { useFavoriteImportStore } from '@/state/favoriteImportStore';
 import { useFavoriteStore } from '@/state/favoriteStore';
-import { useNotificationStore } from '@/state/notificationStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 
 import { bootstrapFavorites } from './favoriteBootstrapService';
@@ -302,13 +302,13 @@ async function completeFavoriteImport(
     if (!isActiveDialogSession(sessionId, type)) {
         return;
     }
-    useNotificationStore.getState().pushNotification({
-        level: 'success',
+    toast.add({
+        type: 'success',
         title: i18n.t(
             'service.favorite_import_service.dynamic.value_import_complete',
             { value: TYPE_CONFIG[type].label }
         ),
-        message: i18n.t(
+        description: i18n.t(
             'service.favorite_import_service.dynamic.value_item_s_imported',
             { value: status.succeeded }
         )

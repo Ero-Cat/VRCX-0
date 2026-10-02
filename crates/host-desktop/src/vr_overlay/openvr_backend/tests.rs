@@ -161,8 +161,9 @@ fn test_main_surface(frame: RgbaFrame, last_uploaded_at: Instant) -> OpenVrSurfa
             surface_id: OverlaySurfaceId::new(MAIN_SURFACE_ID),
             size: frame.size,
             physical_width_meters: 1.0,
-            placement: OverlayPlacement::TrackedDeviceRelative {
-                device_hint: "hmd".to_string(),
+            placement: OverlayPlacement::HeadLocked {
+                offset_y_meters: -0.3,
+                distance_meters: 1.3,
             },
             activation_button: OverlayActivationButton::Grip,
             force_visible: false,

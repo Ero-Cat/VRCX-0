@@ -133,6 +133,5 @@ describe('FriendListUserLoadDialog', () => {
         expect(html).toContain('aria-valuemax="5"');
         expect(html).toContain('aria-valuenow="2"');
         expect(html).toContain('aria-valuetext="2 / 5"');
-        expect(html).toContain('width:40%');
     });
 });

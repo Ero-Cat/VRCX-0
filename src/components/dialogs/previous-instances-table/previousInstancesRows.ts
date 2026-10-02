@@ -131,6 +131,10 @@ export function rowOwnerUserId(row: PreviousInstanceRow | null | undefined) {
     );
 }
 
+export function rowOwnerGroupId(row: PreviousInstanceRow | null | undefined) {
+    return textValue(parseLocation(rowLocation(row)).groupId);
+}
+
 export function rowLocationObject(row: PreviousInstanceRow | null | undefined) {
     const location = rowLocation(row);
     const ownerUserId = rowOwnerUserId(row);
@@ -250,6 +254,8 @@ function rowCreatorText(row: PreviousInstanceRow | null | undefined) {
         row?.ownerName ||
         row?.$location?.ownerDisplayName ||
         rowOwnerUserId(row) ||
+        row?.groupName ||
+        rowOwnerGroupId(row) ||
         ''
     )
         .toString()

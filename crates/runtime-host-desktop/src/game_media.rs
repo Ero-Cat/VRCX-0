@@ -6,6 +6,7 @@ use vrcx_0_application_core::{save_ugc_image_to_file, ImageCache, WebClient};
 use vrcx_0_application_game::{InstanceMediaPort, VideoMetadataPort};
 use vrcx_0_contracts::external_api::{youtube_video_metadata_get_input, ExternalApiScope};
 use vrcx_0_contracts::UgcCategory;
+use vrcx_0_vrchat_client::groups::profile_get_input as group_profile_get_input;
 use vrcx_0_vrchat_client::http_api::ApiScope;
 use vrcx_0_vrchat_client::media::{print_get_input, user_inventory_item_get_input};
 
@@ -36,6 +37,11 @@ impl InstanceMediaPort for DesktopGameMediaAdapter {
     async fn get_print(&self, print_id: &str) -> vrcx_0_application_core::Result<Option<Value>> {
         self.execute_json(print_get_input(String::new(), print_id.to_string())?)
             .await
+    }
+
+    async fn get_group(&self, group_id: &str) -> vrcx_0_application_core::Result<Option<Value>> {
+        let (_, request) = group_profile_get_input(String::new(), group_id.to_string(), false)?;
+        self.execute_json(request).await
     }
 
     async fn get_inventory_item(

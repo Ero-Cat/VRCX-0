@@ -6,7 +6,9 @@ use std::time::Duration;
 use chrono::{Datelike, Local, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use vrcx_0_application_core::{AuthenticatedMutationContext, RemoteMutationGate, RuntimeAuthScope};
+use vrcx_0_application_core::{
+    AuthenticatedMutationContext, FavoriteEntityKind, RemoteMutationGate, RuntimeAuthScope,
+};
 use vrcx_0_core::vrchat_endpoints::normalize_vrchat_api_endpoint;
 
 use crate::{BackgroundRemoteApi, GameStateStore, Result};
@@ -142,6 +144,60 @@ pub fn presence_automation_rule_enabled_set(
     }
     config.set_json(presence_rules_key(kind), &Value::Array(rules.clone()))?;
     Ok(rules.into_iter().map(RawJson::from).collect())
+}
+
+pub fn presence_automation_local_group_renamed(
+    config: &dyn GameStateStore,
+    kind: FavoriteEntityKind,
+    group_name: &str,
+    new_group_name: &str,
+) -> Result<()> {
+    let (selected_field, condition_type) = match kind {
+        FavoriteEntityKind::Friend => ("selectedGroups", "hasFriendInGroups"),
+        FavoriteEntityKind::World => ("selectedWorldGroups", "worldInFavoriteGroups"),
+        FavoriteEntityKind::Avatar => return Ok(()),
+    };
+    let old_key = format!("local:{group_name}");
+    let new_key = format!("local:{new_group_name}");
+    let rename = |values: Option<&mut Value>| {
+        let mut changed = false;
+        for value in values
+            .and_then(Value::as_array_mut)
+            .into_iter()
+            .flatten()
+            .filter(|value| value.as_str() == Some(old_key.as_str()))
+        {
+            *value = Value::String(new_key.clone());
+            changed = true;
+        }
+        changed
+    };
+    let _write = PRESENCE_RULES_WRITE.lock().unwrap();
+    for rule_kind in [
+        PresenceAutomationRuleKind::Time,
+        PresenceAutomationRuleKind::Context,
+    ] {
+        let mut rules = safe_value_array(&config.get_string(presence_rules_key(rule_kind), "[]")?);
+        let mut changed = false;
+        for rule in &mut rules {
+            changed |= rename(rule.get_mut(selected_field));
+            for condition in rule
+                .get_mut("conditions")
+                .and_then(Value::as_array_mut)
+                .into_iter()
+                .flatten()
+                .filter(|condition| {
+                    condition.get("type").and_then(Value::as_str) == Some(condition_type)
+                })
+            {
+                changed |= rename(condition.get_mut("values"));
+            }
+        }
+        if changed {
+            config.set_json(presence_rules_key(rule_kind), &Value::Array(rules))?;
+        }
+    }
+    Ok(())
 }
 
 fn presence_rules_key(kind: PresenceAutomationRuleKind) -> &'static str {
@@ -944,6 +1000,87 @@ mod tests {
         };
         assert_eq!(values(&saved), expected);
         assert_eq!(values(&loaded), expected);
+    }
+
+    #[test]
+    fn renaming_a_local_favorite_group_rewrites_only_rules_of_that_kind() {
+        let config = TestGameStateStore::default();
+        let rule = |groups: &[&str]| {
+            json!({
+                "id": "rule",
+                "selectedGroups": groups,
+                "selectedWorldGroups": groups,
+                "conditions": [
+                    {"type": "hasFriendInGroups", "values": groups},
+                    {"type": "worldInFavoriteGroups", "values": groups},
+                    {"type": "futureCondition", "values": groups}
+                ]
+            })
+        };
+        for kind in [
+            PresenceAutomationRuleKind::Time,
+            PresenceAutomationRuleKind::Context,
+        ] {
+            presence_automation_rules_set(
+                &config,
+                kind,
+                vec![RawJson::from(rule(&["group_0", "local:Close"]))],
+            )
+            .unwrap();
+        }
+
+        presence_automation_local_group_renamed(
+            &config,
+            FavoriteEntityKind::Friend,
+            "Close",
+            "Inner",
+        )
+        .unwrap();
+
+        for kind in [
+            PresenceAutomationRuleKind::Time,
+            PresenceAutomationRuleKind::Context,
+        ] {
+            let loaded = presence_automation_rules_get(&config, kind).unwrap();
+            let rule = loaded[0].as_value();
+            assert_eq!(rule["selectedGroups"], json!(["group_0", "local:Inner"]));
+            assert_eq!(
+                rule["conditions"][0]["values"],
+                json!(["group_0", "local:Inner"])
+            );
+            assert_eq!(
+                rule["selectedWorldGroups"],
+                json!(["group_0", "local:Close"])
+            );
+            assert_eq!(
+                rule["conditions"][1]["values"],
+                json!(["group_0", "local:Close"])
+            );
+            assert_eq!(
+                rule["conditions"][2]["values"],
+                json!(["group_0", "local:Close"])
+            );
+        }
+
+        presence_automation_local_group_renamed(
+            &config,
+            FavoriteEntityKind::World,
+            "Close",
+            "Visited",
+        )
+        .unwrap();
+        let loaded =
+            presence_automation_rules_get(&config, PresenceAutomationRuleKind::Context).unwrap();
+        let rule = loaded[0].as_value();
+        assert_eq!(
+            rule["selectedWorldGroups"],
+            json!(["group_0", "local:Visited"])
+        );
+        assert_eq!(
+            rule["conditions"][1]["values"],
+            json!(["group_0", "local:Visited"])
+        );
+        assert_eq!(rule["selectedGroups"], json!(["group_0", "local:Inner"]));
     }
 
     #[test]

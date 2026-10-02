@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::log_watcher::LogWatcher;
 use crate::{ensure_vrchat_launch_path_allowed, HostFileAccess, RuntimeHost};
+use vrcx_0_application_activity::ActivityRouter;
 use vrcx_0_application_core::Error as RuntimeError;
 use vrcx_0_application_core::Result as RuntimeResult;
 use vrcx_0_application_core::{
@@ -128,6 +129,7 @@ pub struct GameClientHostRuntimeDeps {
     pub host: RuntimeHost,
     pub instance_roster_observer: Option<Arc<dyn InstanceRosterObserver>>,
     pub backend_status: BackendRuntimeStatusPublisher,
+    pub activity_router: ActivityRouter,
 }
 
 struct GameClientRuntimeHostDeps {
@@ -140,6 +142,7 @@ struct GameClientRuntimeHostDeps {
     host: RuntimeHost,
     instance_roster_observer: Option<Arc<dyn InstanceRosterObserver>>,
     backend_status: BackendRuntimeStatusPublisher,
+    activity_router: ActivityRouter,
 }
 
 impl GameClientHostRuntime {
@@ -159,6 +162,7 @@ impl GameClientHostRuntime {
                 host: deps.host,
                 instance_roster_observer: deps.instance_roster_observer,
                 backend_status: deps.backend_status,
+                activity_router: deps.activity_router,
             },
             actions,
         )
@@ -185,6 +189,7 @@ impl GameClientHostRuntime {
             Arc::new(RuntimeGameClientWindowActions { host: deps.host }),
             Arc::new(SystemGameClientDebugLoggingActions),
             deps.instance_roster_observer,
+            Arc::new(deps.activity_router),
         ));
 
         Self { inner }
@@ -238,6 +243,7 @@ impl GameClientHostRuntime {
                 host: RuntimeHost::new(),
                 instance_roster_observer: None,
                 backend_status,
+                activity_router: ActivityRouter::new(),
             },
             actions,
         )

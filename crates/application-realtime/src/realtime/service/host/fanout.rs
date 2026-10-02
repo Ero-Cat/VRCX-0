@@ -13,7 +13,11 @@ use crate::realtime::{
     RealtimeInstanceClosedOutput, RealtimeNotificationOutput, RealtimeSessionContext,
 };
 
+use super::message_dispatch::json_string_field;
 use super::RealtimeHostRuntime;
+use crate::realtime::activity_events::{
+    feed_activity_event, instance_closed_activity_event, notification_activity_event,
+};
 use vrcx_0_core::json::RawJsonObject;
 use vrcx_0_core::OwnerId;
 
@@ -68,9 +72,24 @@ impl RealtimeHostRuntime {
     }
 
     pub(super) fn set_activity_friend_user_ids(&self, user_ids: Vec<String>) {
-        if let Some(activity_sink) = &self.deps.activity_sink {
-            activity_sink.set_friend_user_ids(user_ids);
+        if let Some(activity) = &self.deps.activity {
+            activity.replace_friend_ids(user_ids);
         }
+    }
+
+    fn ingest_friend_activity(&self, projection: &FriendProjection, entries: &[FeedLiveEntry]) {
+        let Some(activity) = &self.deps.activity else {
+            return;
+        };
+        activity.update_friend_ids(
+            projection
+                .patches
+                .iter()
+                .map(|patch| patch.user_id.clone())
+                .collect(),
+            projection.removals.clone(),
+        );
+        activity.ingest_activity(entries.iter().filter_map(feed_activity_event).collect());
     }
 
     pub(super) fn lock_friend_owner(&self) -> FriendOwnerGuard<'_> {
@@ -103,9 +122,7 @@ impl RealtimeHostRuntime {
         if !self.is_friend_projection_current(&projection) {
             return;
         }
-        if let Some(activity_sink) = &self.deps.activity_sink {
-            activity_sink.ingest_friend_projection(&projection, &feed_entries);
-        }
+        self.ingest_friend_activity(&projection, &feed_entries);
         self.emit_feed_entries(generation, owner_user_id, feed_entries);
     }
 
@@ -158,10 +175,7 @@ impl RealtimeHostRuntime {
                 false
             }
         };
-        if let Some(activity_sink) = &self.deps.activity_sink {
-            activity_sink
-                .ingest_friend_projection(&projection, &[live_feed.as_slice(), &joining].concat());
-        }
+        self.ingest_friend_activity(&projection, &[live_feed.as_slice(), &joining].concat());
         if !projection.patches.is_empty() || !projection.removals.is_empty() {
             let endpoint = self.active_endpoint();
             if !projection.removals.is_empty() {
@@ -278,13 +292,26 @@ impl RealtimeHostRuntime {
             }
         }
         if self.projection_has_visible_notification_work(&projection) {
-            if let Some(activity_sink) = &self.deps.activity_sink {
-                activity_sink.ingest_notification_projection(&projection);
+            let auto_declines = self.friend_requests_to_auto_decline(&projection);
+            if let Some(activity) = &self.deps.activity {
+                activity.ingest_activity(
+                    projection
+                        .upserts
+                        .iter()
+                        .filter(|upsert| upsert.deliver_runtime)
+                        .filter(|upsert| {
+                            let id = json_string_field(upsert.notification.get("id"));
+                            !auto_declines.iter().any(|decline| decline.facts.id == id)
+                        })
+                        .filter_map(|upsert| notification_activity_event(&upsert.notification))
+                        .collect(),
+                );
             }
             self.deps
                 .event_bus
                 .emit_realtime_notification_projection(projection.clone());
             self.schedule_invite_automation(&projection);
+            self.schedule_friend_request_auto_decline(auto_declines);
         }
         self.schedule_world_name_warm(world_name_fetch_ids);
     }
@@ -405,8 +432,10 @@ impl RealtimeHostRuntime {
                     .record_failure("realtimeInstanceClosed", error.to_string());
             }
         }
-        if let Some(activity_sink) = &self.deps.activity_sink {
-            activity_sink.ingest_instance_closed_projection(&projection);
+        if let Some(activity) = &self.deps.activity {
+            activity.ingest_activity(vec![instance_closed_activity_event(
+                &projection.notification,
+            )]);
         }
         self.deps
             .event_bus

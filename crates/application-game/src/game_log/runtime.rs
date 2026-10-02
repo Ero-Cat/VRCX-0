@@ -8,7 +8,7 @@ use crate::RuntimeAuthScope;
 use crate::WorldCache;
 use crate::{GameLogEventOrigin, HostSessionRuntime, RuntimeSyncEngine, TaskSupervisor};
 use crate::{InstanceMediaPort, RuntimeEventBus, VideoMetadataPort};
-use vrcx_0_application_activity::OverlayActivityRuntime;
+use vrcx_0_application_core::ActivityIngress;
 use vrcx_0_application_core::BackendRuntimeStatusPublisher;
 use vrcx_0_application_core::GameProcessEvent;
 use vrcx_0_application_core::InstanceRosterObserver;
@@ -32,7 +32,7 @@ pub struct GameLogRuntimeDeps {
     pub session: HostSessionRuntime,
     pub snapshot: RuntimeSnapshotStore,
     pub host_actions: Arc<dyn GameLogHostActions>,
-    pub overlay_activity: OverlayActivityRuntime,
+    pub activity: Arc<dyn ActivityIngress>,
     pub world_cache: Arc<WorldCache>,
     pub instance_roster_observer: Option<Arc<dyn InstanceRosterObserver>>,
 }
@@ -52,7 +52,7 @@ impl GameLogRuntimeDeps {
         session: HostSessionRuntime,
         snapshot: RuntimeSnapshotStore,
         host_actions: Arc<dyn GameLogHostActions>,
-        overlay_activity: OverlayActivityRuntime,
+        activity: Arc<dyn ActivityIngress>,
         world_cache: Arc<WorldCache>,
         instance_roster_observer: Option<Arc<dyn InstanceRosterObserver>>,
     ) -> Self {
@@ -69,7 +69,7 @@ impl GameLogRuntimeDeps {
             session,
             snapshot,
             host_actions,
-            overlay_activity,
+            activity,
             world_cache,
             instance_roster_observer,
         }
@@ -97,7 +97,7 @@ impl GameLogRuntime {
             auth_scope: deps.auth_scope,
             snapshot: deps.snapshot,
             host_actions: deps.host_actions,
-            overlay_activity: deps.overlay_activity,
+            activity: deps.activity,
             world_cache: deps.world_cache,
             instance_roster_observer: deps.instance_roster_observer,
         });

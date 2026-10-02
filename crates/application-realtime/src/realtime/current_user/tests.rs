@@ -799,3 +799,37 @@ fn current_user_presence_reports_the_travel_destination_from_the_local_game() {
     assert_eq!(presence["place"]["location"]["isTraveling"], true);
     assert_eq!(presence["place"]["travelingTo"]["tag"], "wrld_next:3");
 }
+
+#[test]
+fn avatar_wear_checkpoint_saves_the_open_segment_and_closing_adds_only_the_rest() {
+    let runtime = RealtimeCurrentUserRuntime::new();
+    runtime.set_snapshot(
+        "usr_self".into(),
+        7,
+        json!({ "id": "usr_self", "currentAvatar": "avtr_worn" }),
+    );
+    runtime
+        .apply_game_running_state(7, game_running_at("wrld_1:1", "World"))
+        .expect("game start output");
+    std::thread::sleep(std::time::Duration::from_millis(5));
+
+    let (owner, checkpoint) = runtime
+        .checkpoint_avatar_wear(7, game_running_at("wrld_1:1", "World"))
+        .expect("checkpoint while wearing");
+    let saved = &checkpoint.avatar_time_spent_upserts[0];
+    assert_eq!(owner.as_str(), "usr_self");
+    assert_eq!(saved.avatar_id, "avtr_worn");
+    assert!(saved.time_spent > 0);
+    assert_eq!(saved.time_spent, saved.ended_at_ms - saved.started_at_ms);
+    std::thread::sleep(std::time::Duration::from_millis(5));
+
+    let stopped = runtime
+        .apply_game_running_state(7, game_not_running(true))
+        .expect("game stop output");
+    let closing = &stopped.persistence.avatar_time_spent_upserts[0];
+    assert_eq!(closing.started_at_ms, saved.started_at_ms);
+    assert_eq!(closing.time_spent, closing.ended_at_ms - saved.ended_at_ms);
+    assert!(runtime
+        .checkpoint_avatar_wear(7, game_not_running(true))
+        .is_none());
+}

@@ -1,120 +1,89 @@
-import { commands } from '@/platform/tauri/bindings';
-import configRepository from '@/repositories/configRepository';
 import {
-    normalizeHmdOverlayActivityFilterProfile,
-    normalizeOverlayActivityFilterProfile,
-    normalizeOverlayActivityFiltersWithDefinitions,
-    type OverlayActivityTypeDefinition
-} from '@/shared/constants/overlayActivityFilters';
-import { normalizeOverlayActivityFilters } from '@/state/preferencesStore';
+    commands,
+    type NotificationActivityFilterSurface,
+    type ActivityFilterProfile
+} from '@/platform/tauri/bindings';
 
 import { patchPreferences, publishPreferenceChanged } from './preferencesCore';
 
-async function loadOverlayActivityTypeDefinitionsForSave() {
-    return commands.appOverlayActivityDefinitionsGet().catch((error) => {
-        const fallbackDefinitions: OverlayActivityTypeDefinition[] = [];
-        console.warn(
-            'Failed to load overlay activity definitions for save:',
-            error
-        );
-        return fallbackDefinitions;
+type ActivityFilterPreferenceKey =
+    | 'overlayActivityFilters'
+    | 'vrNotificationActivityFilters'
+    | 'hmdNotificationActivityFilters'
+    | 'desktopNotificationActivityFilters'
+    | 'webhookActivityFilters'
+    | 'ttsNotificationActivityFilters';
+
+async function setActivityFilterPreference(
+    key: ActivityFilterPreferenceKey,
+    surface: NotificationActivityFilterSurface,
+    filters: ActivityFilterProfile
+) {
+    const saved = await commands.appNotificationActivityFiltersSet({
+        surface,
+        filters
     });
+    patchPreferences({ [key]: saved });
+    publishPreferenceChanged(key, saved);
+    return saved;
 }
 
-export async function setOverlayActivityFiltersPreference(
-    value: unknown,
-    definitions?: OverlayActivityTypeDefinition[]
+export function setOverlayActivityFiltersPreference(
+    value: ActivityFilterProfile
 ) {
-    const activityDefinitions =
-        definitions ?? (await loadOverlayActivityTypeDefinitionsForSave());
-    const overlayActivityFilters = activityDefinitions.length
-        ? normalizeOverlayActivityFiltersWithDefinitions(
-              value,
-              activityDefinitions
-          )
-        : normalizeOverlayActivityFilters(value);
-    await commands.appOverlayActivityFiltersSet(overlayActivityFilters);
-    configRepository.applyServerEntry(
+    return setActivityFilterPreference(
         'overlayActivityFilters',
-        JSON.stringify(overlayActivityFilters)
+        'wrist',
+        value
     );
-    patchPreferences({ overlayActivityFilters });
-    publishPreferenceChanged('overlayActivityFilters', overlayActivityFilters);
-    return overlayActivityFilters;
 }
 
-async function setNotificationActivityFilterSurfacePreference(
-    key:
-        | 'vrNotificationActivityFilters'
-        | 'desktopNotificationActivityFilters'
-        | 'webhookActivityFilters'
-        | 'ttsNotificationActivityFilters',
-    value: unknown
+export function setVrNotificationActivityFiltersPreference(
+    value: ActivityFilterProfile
 ) {
-    const normalized = normalizeOverlayActivityFilterProfile(value);
-    await commands.appNotificationActivityFiltersSet({
-        surface:
-            key === 'vrNotificationActivityFilters'
-                ? 'vr'
-                : key === 'desktopNotificationActivityFilters'
-                  ? 'desktop'
-                  : key === 'webhookActivityFilters'
-                    ? 'webhook'
-                    : 'tts',
-        filters: normalized
-    });
-    configRepository.applyServerEntry(key, JSON.stringify(normalized));
-    patchPreferences({ [key]: normalized });
-    publishPreferenceChanged(key, normalized);
-    return normalized;
-}
-
-export function setVrNotificationActivityFiltersPreference(value: unknown) {
-    return setNotificationActivityFilterSurfacePreference(
+    return setActivityFilterPreference(
         'vrNotificationActivityFilters',
+        'vr',
         value
     );
 }
 
 export function setDesktopNotificationActivityFiltersPreference(
-    value: unknown
+    value: ActivityFilterProfile
 ) {
-    return setNotificationActivityFilterSurfacePreference(
+    return setActivityFilterPreference(
         'desktopNotificationActivityFilters',
+        'desktop',
         value
     );
 }
 
-export async function setHmdNotificationActivityFiltersPreference(
-    value: unknown
+export function setHmdNotificationActivityFiltersPreference(
+    value: ActivityFilterProfile
 ) {
-    const definitions = await loadOverlayActivityTypeDefinitionsForSave();
-    const normalized = definitions.length
-        ? normalizeHmdOverlayActivityFilterProfile(value, definitions)
-        : normalizeHmdOverlayActivityFilterProfile(value);
-    await commands.appNotificationActivityFiltersSet({
-        surface: 'hmd',
-        filters: normalized
-    });
-    configRepository.applyServerEntry(
+    return setActivityFilterPreference(
         'hmdNotificationActivityFilters',
-        JSON.stringify(normalized)
-    );
-    patchPreferences({ hmdNotificationActivityFilters: normalized });
-    publishPreferenceChanged('hmdNotificationActivityFilters', normalized);
-    return normalized;
-}
-
-export function setWebhookActivityFiltersPreference(value: unknown) {
-    return setNotificationActivityFilterSurfacePreference(
-        'webhookActivityFilters',
+        'hmd',
         value
     );
 }
 
-export function setTtsNotificationActivityFiltersPreference(value: unknown) {
-    return setNotificationActivityFilterSurfacePreference(
+export function setWebhookActivityFiltersPreference(
+    value: ActivityFilterProfile
+) {
+    return setActivityFilterPreference(
+        'webhookActivityFilters',
+        'webhook',
+        value
+    );
+}
+
+export function setTtsNotificationActivityFiltersPreference(
+    value: ActivityFilterProfile
+) {
+    return setActivityFilterPreference(
         'ttsNotificationActivityFilters',
+        'tts',
         value
     );
 }

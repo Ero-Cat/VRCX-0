@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 
 use chrono::{Local, NaiveDateTime, Utc};
 use vrcx_0_core::game_log_parser::LogLocationSnapshot;
+use vrcx_0_core::vrchat_log_reader::parse_output_log_file_timestamp;
 
 use crate::game_log_parser::{self, GameLogEvent, LogContext, LogReader};
 
@@ -311,9 +312,7 @@ pub(super) fn update(
         .filter_map(|entry| {
             let file_name = entry.file_name();
             let name = file_name.to_string_lossy();
-            if !name.starts_with("output_log_") || !name.ends_with(".txt") {
-                return None;
-            }
+            parse_output_log_file_timestamp(&name)?;
             let name = name.into_owned();
             Some((entry, file_name, name))
         })

@@ -170,25 +170,10 @@ impl AuthenticatedRuntimeOrchestrator {
     }
 
     pub fn update_favorites_baseline(&self, output: SocialFavoritesBaselineOutput) {
-        if output.stale || output.snapshot.is_none() {
-            return;
+        let accepted = accept_favorites_baseline(&mut self.lock_state(), output);
+        if let Some(snapshot) = accepted {
+            self.apply_favorites_snapshot(&snapshot);
         }
-        let mut state = self.lock_state();
-        if state.phase.user_id != output.user_id
-            || !matches!(
-                state.phase.phase,
-                AuthenticatedRuntimePhase::Starting | AuthenticatedRuntimePhase::Ready
-            )
-        {
-            return;
-        }
-        state.favorite_group_memberships = output
-            .snapshot
-            .as_ref()
-            .map(favorite_group_memberships_from_baseline)
-            .map(Arc::new);
-        state.favorites_baseline = Some(output);
-        state.phase.updated_at = now_iso();
     }
 
     pub fn favorite_friend_group_membership(&self) -> Option<HashMap<String, Vec<String>>> {
@@ -1043,6 +1028,28 @@ fn apply_realtime_connected(
         return;
     }
     snapshot.realtime = ready_step(attempt, "Realtime transport connected.".into());
+}
+
+fn accept_favorites_baseline(
+    state: &mut AuthenticatedRuntimeState,
+    output: SocialFavoritesBaselineOutput,
+) -> Option<FavoriteBaselineSnapshot> {
+    if output.stale
+        || state.phase.user_id != output.user_id
+        || !matches!(
+            state.phase.phase,
+            AuthenticatedRuntimePhase::Starting | AuthenticatedRuntimePhase::Ready
+        )
+    {
+        return None;
+    }
+    let snapshot = output.snapshot.clone()?;
+    state.favorite_group_memberships = Some(Arc::new(favorite_group_memberships_from_baseline(
+        &snapshot,
+    )));
+    state.favorites_baseline = Some(output);
+    state.phase.updated_at = now_iso();
+    Some(snapshot)
 }
 
 fn require_favorites_baseline(

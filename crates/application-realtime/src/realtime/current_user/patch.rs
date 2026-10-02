@@ -149,7 +149,11 @@ pub(super) fn apply_current_user_patch(
         game,
         now,
         options.records_current_avatar_history,
+        state.avatar_wear_checkpoint_ms,
     );
+    if snapshot.previous_avatar_swap_time != previous.previous_avatar_swap_time {
+        state.avatar_wear_checkpoint_ms = 0;
+    }
     append_self_profile_log_entries(&previous, &snapshot, now, &mut persistence);
     if !game.is_game_running() && options.reconciles_remote_location {
         copy_current_user_presence_patch(&snapshot, &mut projection_patch);

@@ -170,7 +170,7 @@ fn notification_cache_hit_enriches_avatar_image_for_runtime_delivery() -> Result
         .notification_by_id("notif-avatar-cache-hit")
         .expect("runtime delivery should reach the activity sink");
     assert_eq!(
-        delivered["imageUrl"],
+        delivered.facts.image_url,
         "https://images.example/user-icon.png"
     );
     Ok(())
@@ -289,8 +289,8 @@ fn notification_avatar_fallback_skips_owner_receiver_when_sender_is_absent() -> 
         .activity_sink_for_test()
         .notification_by_id("notif-avatar-receiver")
         .expect("runtime delivery should reach the activity sink");
-    assert!(delivered["senderUserId"].is_null());
-    assert!(delivered["imageUrl"].is_null());
+    assert!(delivered.actor.user_id.is_empty());
+    assert!(delivered.facts.image_url.is_empty());
     Ok(())
 }
 
@@ -350,8 +350,8 @@ fn notification_avatar_fallback_skips_current_user_sender() -> Result<()> {
         .activity_sink_for_test()
         .notification_by_id("notif-avatar-self-sender")
         .expect("runtime delivery should reach the activity sink");
-    assert_eq!(delivered["senderUserId"], "usr_self");
-    assert!(delivered["imageUrl"].is_null());
+    assert_eq!(delivered.actor.user_id, "usr_self");
+    assert!(delivered.facts.image_url.is_empty());
     Ok(())
 }
 
@@ -560,9 +560,9 @@ fn resolved_sender_does_not_wait_for_world_or_avatar() -> Result<()> {
         .activity_sink_for_test()
         .notification_by_id("notif-resolved-sender-only")
         .expect("resolved sender should be delivered without world or avatar resolution");
-    assert_eq!(delivered["senderDisplayName"], "Ready Sender");
-    assert_eq!(delivered["details"]["worldName"], "");
-    assert!(delivered["imageUrl"].is_null());
+    assert_eq!(delivered.actor.display_name, "Ready Sender");
+    assert!(delivered.facts.world_name.is_empty());
+    assert!(delivered.facts.image_url.is_empty());
     Ok(())
 }
 
@@ -684,7 +684,7 @@ fn notification_facts_prefer_the_current_friend_record() -> Result<()> {
         .activity_sink_for_test()
         .notification_by_id("notif-current-friend-facts")
         .expect("friend notification should be delivered without remote resolution");
-    assert_eq!(delivered["senderDisplayName"], "Current Friend");
+    assert_eq!(delivered.actor.display_name, "Current Friend");
     Ok(())
 }
 

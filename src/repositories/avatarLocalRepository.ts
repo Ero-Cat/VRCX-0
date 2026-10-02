@@ -17,27 +17,6 @@ function normalizeAvatarTagInput(entry: AvatarTag): AvatarTagInput {
     };
 }
 
-async function addAvatarTimeSpent(
-    userId: string,
-    avatarId: string,
-    timeSpent: number
-) {
-    const normalizedUserId = userId.trim();
-    const normalizedAvatarId = avatarId.trim();
-    const normalizedTimeSpent = Number.isFinite(timeSpent)
-        ? Math.trunc(timeSpent)
-        : 0;
-    if (!normalizedUserId || !normalizedAvatarId) {
-        return;
-    }
-
-    await commands.appAvatarTimeSpentAdd(
-        normalizedUserId,
-        normalizedAvatarId,
-        normalizedTimeSpent
-    );
-}
-
 async function getAvatarTimeSpent(userId: string, avatarId: string) {
     const normalizedUserId = userId.trim();
     const normalizedAvatarId = avatarId.trim();
@@ -171,7 +150,6 @@ async function patchAvatarTags(
 
 const avatarLocalRepository = Object.freeze({
     addAvatarTag,
-    addAvatarTimeSpent,
     clearAvatarHistory,
     getAllAvatarTags,
     getAllAvatarTimeSpent,

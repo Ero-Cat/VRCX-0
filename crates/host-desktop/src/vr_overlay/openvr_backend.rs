@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use openvr::{
+    button_id,
     overlay::OverlayHandle,
     property::{
         ControllerRoleHint_Int32, ModelNumber_String, SerialNumber_String,
@@ -80,6 +81,7 @@ pub struct OpenVrOverlayBackend {
     system: Option<System>,
     surfaces: HashMap<OverlaySurfaceId, OpenVrSurface>,
     hmd_battery_readings: HashMap<String, BatteryReadingState>,
+    hmd_user_present: Option<bool>,
     outstanding_raw_frames: u64,
 }
 
@@ -174,6 +176,7 @@ impl OpenVrOverlayBackend {
             system: None,
             surfaces: HashMap::new(),
             hmd_battery_readings: HashMap::new(),
+            hmd_user_present: None,
             outstanding_raw_frames: 0,
         }
     }
@@ -365,6 +368,10 @@ impl OverlayBackend for OpenVrOverlayBackend {
         ))
     }
 
+    fn hmd_user_present(&self) -> Option<bool> {
+        self.hmd_user_present
+    }
+
     fn visible_surface_ids(&self) -> Vec<OverlaySurfaceId> {
         self.surfaces
             .iter()
@@ -378,6 +385,7 @@ impl OverlayBackend for OpenVrOverlayBackend {
             self.clear_runtime_handles();
             return TickOutcome::RuntimeQuit;
         }
+        self.refresh_hmd_user_present();
         if let Err(error) = self.update_button_visibility() {
             tracing::warn!(error = %error, "failed to update VR overlay button visibility");
         }
@@ -404,9 +412,10 @@ fn surface_fades(surface_id: &OverlaySurfaceId) -> bool {
 }
 
 fn surface_uses_wrist_policy(config: &OverlaySurfaceConfig) -> bool {
-    match &config.placement {
-        OverlayPlacement::TrackedDeviceRelative { device_hint } => !device_hint.starts_with("hmd"),
-    }
+    matches!(
+        config.placement,
+        OverlayPlacement::TrackedDeviceRelative { .. }
+    )
 }
 
 fn visible_frame_upload_interval(surface: &OpenVrSurface) -> Duration {
@@ -418,6 +427,18 @@ fn visible_frame_upload_interval(surface: &OpenVrSurface) -> Duration {
 }
 
 impl OpenVrOverlayBackend {
+    fn refresh_hmd_user_present(&mut self) {
+        let Some(state) = self
+            .system
+            .as_ref()
+            .and_then(|system| system.controller_state(tracked_device_index::HMD))
+        else {
+            return;
+        };
+        self.hmd_user_present =
+            Some(state.button_pressed & (1u64 << button_id::PROXIMITY_SENSOR) != 0);
+    }
+
     fn poll_runtime_quit(&self) -> bool {
         let Some(system) = &self.system else {
             return false;
@@ -514,6 +535,7 @@ impl OpenVrOverlayBackend {
     fn clear_runtime_handles(&mut self) {
         self.surfaces.clear();
         self.hmd_battery_readings.clear();
+        self.hmd_user_present = None;
         self.overlay = None;
         self.poll_next_overlay_event = None;
         self.system = None;
@@ -949,8 +971,6 @@ fn resolve_device(
             let role = match device_hint.as_str() {
                 "right-hand" => Some(TrackedControllerRole::RightHand),
                 "left-hand" => Some(TrackedControllerRole::LeftHand),
-                "hmd" | "head" => return Ok(tracked_device_index::HMD),
-                value if value.starts_with("hmd:") => return Ok(tracked_device_index::HMD),
                 _ => {
                     return Err(TrackedDeviceResolutionError::UnknownHint {
                         device_hint: device_hint.clone(),
@@ -960,6 +980,7 @@ fn resolve_device(
             resolve_controller_device(system, role.unwrap())
                 .ok_or_else(|| tracked_device_unavailable_error(system, device_hint))
         }
+        OverlayPlacement::HeadLocked { .. } => Ok(tracked_device_index::HMD),
     }
 }
 

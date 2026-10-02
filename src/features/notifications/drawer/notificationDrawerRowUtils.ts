@@ -4,13 +4,15 @@ import { formatDateFilter, formatRelativeTime } from '@/lib/dateTime';
 import type { NotificationRow } from '@/repositories/notificationPersistenceRepository';
 import { hasGroupIdPrefix } from '@/shared/constants/vrchatIds';
 
+import { notificationTypeLabelKey } from '../notificationViewModel';
+
 export function getNotificationTypeLabel(
     notification: NotificationRow | null | undefined,
     t: TFunction
 ) {
     const type = notification?.type || 'unknown';
     return String(
-        t(`view.notification.filters.${type}`, {
+        t(notificationTypeLabelKey(type), {
             defaultValue: type
         })
     );

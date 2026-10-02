@@ -93,9 +93,9 @@ async fn headless_recent_notification_sends_one_webhook_and_deduplicates() {
         )
         .unwrap();
 
-    let activity = state.desktop_assembly().overlay_activity();
+    let activity = state.desktop_assembly().activity_router();
     state.desktop_assembly().reload_overlay_activity_filters();
-    activity.set_delivery_armed(true);
+    activity.arm_delivery();
     state
         .authenticated_runtime()
         .apply_favorites_snapshot(&FavoriteBaselineSnapshot {

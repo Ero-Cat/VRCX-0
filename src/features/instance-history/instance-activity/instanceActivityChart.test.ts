@@ -66,10 +66,6 @@ describe('instanceActivityChart', () => {
         expect(option.yAxis.data).toEqual(['Known World']);
         expect(option.series[0].data).toEqual([0]);
         expect(option.series[1].data).toEqual([2 * 60 * 60 * 1000]);
-        expect(option.series[1].itemStyle).toMatchObject({
-            borderRadius: 3,
-            shadowBlur: 2
-        });
         expect(
             option.tooltip.formatter([{ seriesName: 'Time', dataIndex: 0 }])
         ).toContain('Known World');

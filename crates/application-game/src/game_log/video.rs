@@ -1,10 +1,10 @@
-use crate::overlay_activity::video_activity_candidate;
+use crate::activity_events::video_activity_event;
 use std::sync::{Arc, Mutex};
 
 use chrono::Utc;
 use serde_json::Value;
 use url::Url;
-use vrcx_0_application_activity::OverlayActivityCandidate;
+use vrcx_0_contracts::activity::ActivityEvent;
 use vrcx_0_contracts::game_log::{GameLogVideoPlayEntry, GameLogWriteBatch};
 
 use crate::game_log::runtime_state::parse_event_time_ms;
@@ -49,7 +49,7 @@ struct YouTubeMetadata {
 }
 
 pub(crate) struct VideoPlayed {
-    pub(crate) activity: OverlayActivityCandidate,
+    pub(crate) activity: ActivityEvent,
     pub(crate) now_playing: NowPlayingPayload,
 }
 
@@ -115,16 +115,9 @@ pub(crate) fn now_playing_ends_at_ms(payload: &NowPlayingPayload) -> Option<i64>
         .map(|started_ms| started_ms + (length_seconds - payload.position) * 1000)
 }
 
-pub(crate) async fn handle_video_play(
-    store: &dyn crate::GameStateStore,
-    video_metadata: &dyn VideoMetadataPort,
-    event_bus: &RuntimeEventBus,
-    backend_status: &BackendRuntimeStatusPublisher,
-    owner_user_id: &OwnerId,
-    mut input: VideoInput,
-) -> Result<Option<VideoPlayed>> {
+pub(crate) fn normalize_video_input(input: &mut VideoInput) -> Option<String> {
     if input.video_url.trim().is_empty() {
-        return Ok(None);
+        return None;
     }
 
     input.video_url = input.video_url.trim().to_string();
@@ -141,6 +134,32 @@ pub(crate) async fn handle_video_play(
     if input.video_name.is_empty() {
         input.video_name = input.video_url.clone();
     }
+    Some(youtube_id)
+}
+
+pub(crate) fn video_play_entry(input: &VideoInput) -> GameLogVideoPlayEntry {
+    GameLogVideoPlayEntry {
+        created_at: input.created_at.clone(),
+        video_url: input.video_url.clone(),
+        video_name: input.video_name.clone(),
+        video_id: input.video_id.clone(),
+        location: input.location.clone(),
+        display_name: input.display_name.clone(),
+        user_id: input.user_id.clone(),
+    }
+}
+
+pub(crate) async fn handle_video_play(
+    store: &dyn crate::GameStateStore,
+    video_metadata: &dyn VideoMetadataPort,
+    event_bus: &RuntimeEventBus,
+    backend_status: &BackendRuntimeStatusPublisher,
+    owner_user_id: &OwnerId,
+    mut input: VideoInput,
+) -> Result<Option<VideoPlayed>> {
+    let Some(youtube_id) = normalize_video_input(&mut input) else {
+        return Ok(None);
+    };
 
     if !youtube_id.is_empty() {
         if let Some(metadata) = lookup_youtube_video(store, video_metadata, &youtube_id).await? {
@@ -168,15 +187,7 @@ pub(crate) async fn handle_video_play(
         input.display_name.clone(),
     ];
     let batch = GameLogWriteBatch {
-        video_plays: vec![GameLogVideoPlayEntry {
-            created_at: input.created_at.clone(),
-            video_url: input.video_url.clone(),
-            video_name: input.video_name.clone(),
-            video_id: input.video_id.clone(),
-            location: input.location.clone(),
-            display_name: input.display_name.clone(),
-            user_id: input.user_id.clone(),
-        }],
+        video_plays: vec![video_play_entry(&input)],
         ..Default::default()
     };
     let affected_count = match store.write_game_log(owner_user_id, &batch) {
@@ -197,7 +208,7 @@ pub(crate) async fn handle_video_play(
     backend_status.publish_game_log_persisted(affected_count);
     event_bus.emit_runtime_game_log_event(RuntimeGameLogEventPayload { raw: raw_row });
 
-    let activity = video_activity_candidate(&input);
+    let activity = video_activity_event(&input);
     let now_playing = NowPlayingPayload {
         url: Some(input.video_url.clone()),
         name: Some(input.video_name.clone()),

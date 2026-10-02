@@ -36,7 +36,6 @@ export function SettingsIntegrationsTab() {
         discordPrefs,
         integrationPrefs,
         avatarProviderConfig,
-        setPrefs,
         setWebhookNotificationsDialogOpen,
         saveStringPreference,
         saveBoolPreference,
@@ -105,13 +104,6 @@ export function SettingsIntegrationsTab() {
             'webhookAuthEventsEnabled',
             checked
         );
-    }
-
-    function setWebhookUrlDraft(value: string) {
-        setPrefs((current) => ({
-            ...current,
-            webhookUrl: String(value ?? '')
-        }));
     }
 
     function saveWebhookUrl(value: string) {
@@ -286,8 +278,7 @@ export function SettingsIntegrationsTab() {
                 prefs={prefs}
                 onWebhookEnabledChange={saveWebhookEnabled}
                 onWebhookAuthEventsEnabledChange={saveWebhookAuthEventsEnabled}
-                onWebhookUrlDraftChange={setWebhookUrlDraft}
-                onWebhookUrlBlur={saveWebhookUrl}
+                onWebhookUrlCommit={saveWebhookUrl}
                 onWebhookFormatChange={saveWebhookFormat}
                 onWebhookFieldsChange={saveWebhookFields}
                 onOpenWebhookNotificationFiltersDialog={

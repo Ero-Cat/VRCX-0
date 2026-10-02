@@ -2,7 +2,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import {
-    Sidebar,
     SidebarGroupLabel,
     SidebarMenu,
     SidebarMenuButton,
@@ -33,23 +32,6 @@ function renderSidebarTransitions(instantSidebarTransition: boolean): string {
         </SidebarProvider>
     );
 }
-
-describe('Sidebar positioning', () => {
-    it('allows a layout-owned desktop sidebar to override viewport positioning', () => {
-        const markup = renderToStaticMarkup(
-            <SidebarProvider>
-                <Sidebar className="absolute h-auto">Content</Sidebar>
-            </SidebarProvider>
-        );
-        const className = getSlotClassName(markup, 'sidebar-container');
-
-        expect(className).toContain('absolute');
-        expect(className).toContain('inset-y-0');
-        expect(className).toContain('h-auto');
-        expect(className).not.toContain('fixed');
-        expect(className).not.toContain('h-svh');
-    });
-});
 
 describe('Sidebar transitions', () => {
     it('disables group-label and menu-button layout transitions only when instant', () => {

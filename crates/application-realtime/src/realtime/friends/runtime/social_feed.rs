@@ -77,6 +77,23 @@ pub(super) fn friend_log_upsert(
     }
 }
 
+pub(crate) fn display_name_feed_entry(
+    created_at: &str,
+    user_id: &str,
+    display_name: &str,
+    previous_display_name: &str,
+    friend_number: i64,
+) -> FeedLiveEntry {
+    FeedLiveEntry::DisplayName {
+        created_at: created_at.to_string(),
+        user_id: user_id.to_string(),
+        display_name: display_name.to_string(),
+        previous_display_name: previous_display_name.to_string(),
+        friend_number,
+        owner_user_id: String::new(),
+    }
+}
+
 pub(crate) fn trust_level_feed_entry(
     created_at: &str,
     user_id: &str,

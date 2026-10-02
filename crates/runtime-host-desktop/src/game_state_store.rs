@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use serde_json::Value;
-use vrcx_0_application_game::GameStateStore;
+use vrcx_0_application_game::{GameStateStore, PlayerModeration};
 use vrcx_0_contracts::game_log::{
     GameLogJoinLeaveSnapshot, GameLogLocationSnapshot, GameLogWriteBatch, PreviousInstanceEventRow,
     SessionEventRow, SessionLocationSegmentRow, SessionPlayerDurationRow,
 };
 use vrcx_0_core::OwnerId;
-use vrcx_0_persistence::{config, game_log, DatabaseService};
+use vrcx_0_persistence::{config, game_log, local_moderation, DatabaseService};
 
 pub(crate) struct PersistenceGameStateStore {
     db: Arc<DatabaseService>,
@@ -50,6 +50,22 @@ impl GameStateStore for PersistenceGameStateStore {
         batch: &GameLogWriteBatch,
     ) -> vrcx_0_application_core::Result<u64> {
         Ok(game_log::write_batch(self.db.as_ref(), owner, batch)?)
+    }
+
+    fn fill_location_group_name(
+        &self,
+        owner: &OwnerId,
+        created_at: &str,
+        location: &str,
+        group_name: &str,
+    ) -> vrcx_0_application_core::Result<u64> {
+        Ok(game_log::fill_location_group_name(
+            self.db.as_ref(),
+            owner,
+            created_at,
+            location,
+            group_name,
+        )?)
     }
 
     fn join_leave_for_location(
@@ -191,5 +207,22 @@ impl GameStateStore for PersistenceGameStateStore {
                 .then_some(row.group_name)
         })
         .collect())
+    }
+
+    fn player_moderation(
+        &self,
+        owner: &OwnerId,
+        user_id: &str,
+    ) -> vrcx_0_application_core::Result<PlayerModeration> {
+        Ok(local_moderation::local_moderation_get(
+            self.db.as_ref(),
+            owner.clone(),
+            user_id.to_string(),
+        )?
+        .map(|row| PlayerModeration {
+            blocked: row.block,
+            muted: row.mute,
+        })
+        .unwrap_or_default())
     }
 }

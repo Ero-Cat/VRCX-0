@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
+use super::resolver::RealtimeUserImageResolverSlot;
 use super::{
-    generic_webhook_payload, parse_webhook_fields, CachedNotificationUserImageResolver,
-    RealtimeUserImageResolverSlot, RenderedNotification,
+    generic_webhook_payload, parse_webhook_fields, render_delivery,
+    CachedNotificationUserImageResolver, OverlayLocale, RenderedNotification,
 };
 use crate::{
-    OverlayActivityActorRelation, OverlayActivityCategory, OverlayActivityContent,
-    OverlayActivityDelivery, OverlayActivityEntry,
+    ActivityActorRelation, ActivityCategory, ActivityContent, ActivityDelivery, ActivityEntry,
+    ActivityText,
 };
-use serde_json::json;
+use vrcx_0_contracts::activity::ActivityKind;
 
 #[test]
 fn generic_webhook_payload_exposes_location_id_and_local_time() {
@@ -36,6 +37,35 @@ fn generic_webhook_payload_exposes_location_id_and_local_time() {
 }
 
 #[test]
+fn overlay_text_joins_title_and_body_the_way_each_type_reads() {
+    let text = |activity_type: &str, title: &str, body: &str| {
+        let mut delivery = delivery();
+        delivery.entry.kind = ActivityKind::from_key(activity_type).expect("known activity type");
+        delivery.entry.content.title = ActivityText::literal(title);
+        delivery.entry.content.body = ActivityText::literal(body);
+        render_delivery(&delivery, OverlayLocale::default(), false).text
+    };
+
+    assert_eq!(
+        text("OnPlayerJoined", "Alice", "has joined"),
+        "Alice has joined"
+    );
+    assert_eq!(text("group.announcement", "Group", "Hello"), "Hello");
+    assert_eq!(
+        text("VideoPlay", "Now playing", "Song (Bob)"),
+        "Now playing: Song (Bob)"
+    );
+    assert_eq!(
+        text("BlockedOnPlayerJoined", "Carol", "Blocked user has joined"),
+        "Blocked user has joined: Carol"
+    );
+    assert_eq!(
+        text("Event", "", "Something happened"),
+        "Something happened"
+    );
+}
+
+#[test]
 fn generic_webhook_fields_ignore_localized_names() {
     let fields = parse_webhook_fields(r#"["locationId","位置","タイトル"]"#);
     let payload = generic_webhook_payload(&delivery(), &rendered(), &fields);
@@ -59,25 +89,24 @@ fn rendered() -> RenderedNotification {
     }
 }
 
-fn delivery() -> OverlayActivityDelivery {
-    OverlayActivityDelivery {
-        entry: OverlayActivityEntry {
+fn delivery() -> ActivityDelivery {
+    ActivityDelivery {
+        entry: ActivityEntry {
             sequence: 1,
             source_id: "game-log:join".into(),
-            activity_type: "OnPlayerJoined".into(),
-            category: OverlayActivityCategory::CurrentInstance,
+            kind: ActivityKind::OnPlayerJoined,
+            category: ActivityCategory::CurrentInstance,
             created_at: "2026-06-18T08:30:00.000Z".into(),
             actor_user_id: "usr_traveler".into(),
             actor_display_name: "Traveler".into(),
-            content: OverlayActivityContent {
+            content: ActivityContent {
                 location: "wrld_named:123".into(),
                 world_id: "wrld_named".into(),
                 display_location: "Named World public".into(),
                 world_name: "Named World".into(),
-                ..OverlayActivityContent::default()
+                ..ActivityContent::default()
             },
-            actor_relation: OverlayActivityActorRelation::None,
-            payload: json!({}).into(),
+            actor_relation: ActivityActorRelation::None,
         },
         desktop: false,
         vr: false,

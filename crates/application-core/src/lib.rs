@@ -78,12 +78,12 @@ pub use instance_dwell::{
 };
 pub use interruptible_sleep::sleep_interruptibly;
 pub use ports::{
-    BackgroundCapabilitySession, BackgroundCapabilitySessionIdentity, CurrentUserSnapshot,
-    GameProcessEvent, GameProcessEventSink, HostRealtimeSessionContext,
+    ActivityIngress, BackgroundCapabilitySession, BackgroundCapabilitySessionIdentity,
+    CurrentUserSnapshot, GameProcessEvent, GameProcessEventSink, HostRealtimeSessionContext,
     HostSessionGameProcessStatus, HostSessionProjection, HostSessionRuntime, InstanceRosterMember,
     InstanceRosterObserver, InstanceRosterSnapshot, LocalGameContextSnapshot,
-    LocalGameContextSource, NoopPrintCleanupInputSink, NoopUpdaterPort, OverlayActivityInputSink,
-    PrintCleanupInputSink, PrintCleanupTrigger, RealtimeNotificationProjectionObserver,
+    LocalGameContextSource, NoopPrintCleanupInputSink, NoopUpdaterPort, PrintCleanupInputSink,
+    PrintCleanupTrigger, RealtimeNotificationProjectionObserver,
     RealtimeNotificationProjectionObserverRegistry, SessionHostRuntime,
     UnavailableLocalGameContextSource, UpdaterCheckRequest, UpdaterDownloadOutcome,
     UpdaterDownloadProgress, UpdaterInstallHandle, UpdaterMetadata, UpdaterPort,

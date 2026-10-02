@@ -15,8 +15,8 @@ pub(crate) mod video;
 
 pub use host::{GameLogHostActions, NoopGameLogHostActions};
 pub use ingest::{
-    GameLogIngestEngine, GameLogIngestOptions, GameLogIngestOutput, GameLogProcessEvent,
-    GameLogSideEffect, ScreenshotInput,
+    GameLogAvatarChange, GameLogIngestEngine, GameLogIngestOptions, GameLogIngestOutput,
+    GameLogProcessEvent, GameLogSideEffect, ScreenshotInput,
 };
 pub use instance_history::{
     instance_history_query, InstanceHistoryEntryOutput, InstanceHistoryQueryInput,

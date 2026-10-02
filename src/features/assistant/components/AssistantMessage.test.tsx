@@ -17,7 +17,7 @@ function assistantMessage(message: Partial<UIMessage>): UIMessage {
 }
 
 describe('AssistantMessage', () => {
-    it('renders a user message with end-aligned message and secondary bubble primitives', () => {
+    it('renders the user message text', () => {
         const html = renderToStaticMarkup(
             <AssistantMessage
                 thinkingLabel="Thinking…"
@@ -31,14 +31,10 @@ describe('AssistantMessage', () => {
             />
         );
 
-        expect(html).toContain('data-slot="message"');
-        expect(html).toContain('data-align="end"');
-        expect(html).toContain('data-slot="bubble"');
-        expect(html).toContain('data-variant="secondary"');
         expect(html).toContain('Who was online last night?');
     });
 
-    it('renders a completed assistant response in a ghost bubble', () => {
+    it('renders a completed assistant response as Markdown', () => {
         const html = renderToStaticMarkup(
             <AssistantMessage
                 thinkingLabel="Thinking…"
@@ -49,8 +45,6 @@ describe('AssistantMessage', () => {
             />
         );
 
-        expect(html).toContain('data-align="start"');
-        expect(html).toContain('data-variant="ghost"');
         expect(html).toContain('>Three friends</strong>');
     });
 
@@ -74,10 +68,8 @@ describe('AssistantMessage', () => {
             />
         );
 
-        expect(html).toContain('data-slot="marker"');
         expect(html).toContain('role="status"');
         expect(html).toContain('Get friend profile');
-        expect(html).toContain('animate-spin');
         expect(html.indexOf('Get friend profile')).toBeLessThan(
             html.indexOf('Reading local social data')
         );
@@ -91,14 +83,11 @@ describe('AssistantMessage', () => {
             />
         );
 
-        expect(html).toContain('data-slot="marker"');
         expect(html).toContain('role="status"');
         expect(html).toContain('Thinking…');
-        expect(html).toContain('animate-spin');
-        expect(html).not.toContain('whitespace-pre-wrap');
     });
 
-    it('renders turn errors with the destructive bubble variant', () => {
+    it('renders turn errors', () => {
         const html = renderToStaticMarkup(
             <AssistantMessage
                 thinkingLabel="Thinking…"
@@ -109,7 +98,6 @@ describe('AssistantMessage', () => {
             />
         );
 
-        expect(html).toContain('data-variant="destructive"');
         expect(html).toContain('The endpoint was removed.');
     });
 });

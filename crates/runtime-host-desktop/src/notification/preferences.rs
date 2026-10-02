@@ -4,12 +4,27 @@ use super::{
     NotificationDeliveryCondition, NotificationDeliveryPreferences, NotificationTtsNameMode,
 };
 
+const LEGACY_OVERLAY_NOTIFICATION_KEYS: [(&str, &str); 6] = [
+    ("VRCX-0_xsNotifications", "xsNotifications"),
+    ("VRCX-0_ovrtHudNotifications", "ovrtHudNotifications"),
+    ("VRCX-0_ovrtWristNotifications", "ovrtWristNotifications"),
+    ("VRCX-0_imageNotifications", "imageNotifications"),
+    ("VRCX-0_notificationTimeout", "notificationTimeout"),
+    ("VRCX-0_notificationOpacity", "notificationOpacity"),
+];
+
 pub fn load_preferences(config: &ConfigRepository) -> NotificationDeliveryPreferences {
     NotificationDeliveryPreferences {
         desktop_toast: NotificationDeliveryCondition::from_config(&config_string(
             config,
             "desktopToast",
             "Never",
+        )),
+        afk_desktop_toast: config_bool(config, "afkDesktopToast", false),
+        overlay_toast: NotificationDeliveryCondition::from_config(&config_string(
+            config,
+            "overlayToast",
+            "Game Running",
         )),
         desktop_notification_sound: config_bool(config, "desktopNotificationSound", false),
         notification_tts: NotificationDeliveryCondition::from_config(&config_string(
@@ -19,14 +34,14 @@ pub fn load_preferences(config: &ConfigRepository) -> NotificationDeliveryPrefer
         )),
         notification_tts_name_mode: config_tts_name_mode(config),
         notification_tts_voice_native: config_string(config, "notificationTTSVoiceNative", ""),
-        notification_tts_volume: config_int_with_legacy(config, "notificationTTSVolume", 100)
-            .clamp(0, 100) as u8,
-        xs_notifications: config_bool_with_legacy(config, "xsNotifications", false),
-        ovrt_hud_notifications: config_bool_with_legacy(config, "ovrtHudNotifications", false),
-        ovrt_wrist_notifications: config_bool_with_legacy(config, "ovrtWristNotifications", false),
-        image_notifications: config_bool_with_legacy(config, "imageNotifications", true),
-        notification_timeout_ms: config_int_with_legacy(config, "notificationTimeout", 3000),
-        notification_opacity_percent: config_int_with_legacy(config, "notificationOpacity", 100),
+        notification_tts_volume: config_int(config, "notificationTTSVolume", 100).clamp(0, 100)
+            as u8,
+        xs_notifications: config_bool(config, "xsNotifications", false),
+        ovrt_hud_notifications: config_bool(config, "ovrtHudNotifications", false),
+        ovrt_wrist_notifications: config_bool(config, "ovrtWristNotifications", false),
+        image_notifications: config_bool(config, "imageNotifications", true),
+        notification_timeout_ms: config_int(config, "notificationTimeout", 3000),
+        notification_opacity_percent: config_int(config, "notificationOpacity", 100),
         show_instance_id_in_location: config_bool(config, "VRCX_showInstanceIdInLocation", false),
     }
 }
@@ -43,6 +58,21 @@ pub fn config_tts_name_mode(config: &ConfigRepository) -> NotificationTtsNameMod
     }
 }
 
+pub fn migrate_legacy_overlay_notification_keys(
+    config: &ConfigRepository,
+) -> Result<(), vrcx_0_persistence::Error> {
+    for (legacy_key, key) in LEGACY_OVERLAY_NOTIFICATION_KEYS {
+        let Some(value) = config.get_raw(legacy_key)? else {
+            continue;
+        };
+        if config.get_raw(key)?.is_none() {
+            config.set_raw(key, &value)?;
+        }
+        config.remove(legacy_key)?;
+    }
+    Ok(())
+}
+
 pub fn seed_hmd_notifications_default(
     config: &ConfigRepository,
 ) -> Result<Option<bool>, vrcx_0_persistence::Error> {
@@ -55,7 +85,7 @@ pub fn seed_hmd_notifications_default(
         "ovrtWristNotifications",
     ]
     .into_iter()
-    .any(|key| config_bool_with_legacy(config, key, false));
+    .any(|key| config_bool(config, key, false));
     let enabled = !external_overlay_enabled;
     config.set_bool("hmdNotificationsEnabled", enabled)?;
     Ok(Some(enabled))
@@ -79,61 +109,52 @@ fn config_bool(config: &ConfigRepository, key: &str, default_value: bool) -> boo
     config.get_bool(key, default_value).unwrap_or(default_value)
 }
 
-fn config_bool_with_legacy(config: &ConfigRepository, key: &str, default_value: bool) -> bool {
-    if config.get_raw(key).ok().flatten().is_some() {
-        return config_bool(config, key, default_value);
-    }
-    if let Some(legacy_key) = legacy_overlay_notification_key(key) {
-        if config.get_raw(legacy_key).ok().flatten().is_some() {
-            return config_bool(config, legacy_key, default_value);
-        }
-    }
-    default_value
-}
-
-fn config_int_with_legacy(config: &ConfigRepository, key: &str, default_value: i32) -> i32 {
-    if let Some(raw) = config.get_raw(key).ok().flatten() {
-        return parse_config_int(&raw, default_value);
-    }
-    if let Some(legacy_key) = legacy_overlay_notification_key(key) {
-        if let Some(raw) = config.get_raw(legacy_key).ok().flatten() {
-            return parse_config_int(&raw, default_value);
-        }
-    }
-    default_value
-}
-
-fn parse_config_int(value: &str, default_value: i32) -> i32 {
-    value.trim().parse::<i32>().unwrap_or(default_value)
-}
-
-fn legacy_overlay_notification_key(key: &str) -> Option<&'static str> {
-    match key {
-        "xsNotifications" => Some("VRCX-0_xsNotifications"),
-        "ovrtHudNotifications" => Some("VRCX-0_ovrtHudNotifications"),
-        "ovrtWristNotifications" => Some("VRCX-0_ovrtWristNotifications"),
-        "imageNotifications" => Some("VRCX-0_imageNotifications"),
-        "notificationTimeout" => Some("VRCX-0_notificationTimeout"),
-        "notificationOpacity" => Some("VRCX-0_notificationOpacity"),
-        _ => None,
-    }
+fn config_int(config: &ConfigRepository, key: &str, default_value: i32) -> i32 {
+    config
+        .get_raw(key)
+        .ok()
+        .flatten()
+        .and_then(|value| value.trim().parse::<i32>().ok())
+        .unwrap_or(default_value)
 }
 
 #[cfg(test)]
 mod tests {
     use super::super::test_support::test_config;
-    use super::seed_hmd_notifications_default;
+    use super::{migrate_legacy_overlay_notification_keys, seed_hmd_notifications_default};
 
     #[test]
-    fn hmd_default_seed_preserves_legacy_forwarding_contract() {
-        let (_dir, config) = test_config("legacy-enabled");
+    fn legacy_overlay_keys_move_to_their_current_names_once() {
+        let (_dir, config) = test_config("legacy-keys");
         config.set_bool("VRCX-0_xsNotifications", true).unwrap();
+        config
+            .set_string("VRCX-0_notificationTimeout", "9000")
+            .unwrap();
+        config
+            .set_string("VRCX-0_notificationOpacity", "40")
+            .unwrap();
+        config.set_string("notificationOpacity", "80").unwrap();
 
+        migrate_legacy_overlay_notification_keys(&config).unwrap();
+
+        assert!(config.get_bool("xsNotifications", false).unwrap());
+        assert_eq!(
+            config.get_raw("notificationTimeout").unwrap().as_deref(),
+            Some("9000")
+        );
+        assert_eq!(
+            config.get_raw("notificationOpacity").unwrap().as_deref(),
+            Some("80")
+        );
+        assert!(config.get_raw("VRCX-0_xsNotifications").unwrap().is_none());
+        assert!(config
+            .get_raw("VRCX-0_notificationOpacity")
+            .unwrap()
+            .is_none());
         assert_eq!(
             seed_hmd_notifications_default(&config).unwrap(),
             Some(false)
         );
-        assert!(!config.get_bool("hmdNotificationsEnabled", true).unwrap());
     }
 
     #[test]

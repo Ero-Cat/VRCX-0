@@ -54,7 +54,7 @@ fn player_joining_only_reaches_overlay_for_current_instance_absent_player() -> R
         .collect(),
     )?;
     runtime.runtime().deps.event_bus.take_events_for_test();
-    activity_sink.take_friend_feed_entries();
+    activity_sink.take_events();
     local_game_context.set_location("wrld_current:456");
     let apply_joining = |destination: &str| {
         runtime.runtime().apply_friend_output(joining_output(
@@ -65,7 +65,7 @@ fn player_joining_only_reaches_overlay_for_current_instance_absent_player() -> R
     };
 
     apply_joining("wrld_current:456");
-    assert!(activity_sink.take_friend_feed_entries().is_empty());
+    assert!(activity_sink.take_events().is_empty());
 
     runtime
         .runtime()
@@ -77,19 +77,22 @@ fn player_joining_only_reaches_overlay_for_current_instance_absent_player() -> R
             changed_at: "2026-07-13T09:59:00Z".into(),
         });
     apply_joining("wrld_other:789");
-    assert!(activity_sink.take_friend_feed_entries().is_empty());
+    assert!(activity_sink.take_events().is_empty());
 
     local_game_context.set_player_user_ids(vec!["usr_friend".into()]);
     apply_joining("wrld_current:456");
-    assert!(activity_sink.take_friend_feed_entries().is_empty());
+    assert!(activity_sink.take_events().is_empty());
 
     local_game_context.set_player_user_ids(Vec::new());
     apply_joining("wrld_current:456");
 
-    let entries = activity_sink.take_friend_feed_entries();
+    let entries = activity_sink.take_events();
     assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].to_json()["type"], "OnPlayerJoining");
-    assert_eq!(entries[0].to_json()["userId"], "usr_friend");
+    assert_eq!(
+        entries[0].kind,
+        vrcx_0_contracts::activity::ActivityKind::OnPlayerJoining
+    );
+    assert_eq!(entries[0].actor.user_id, "usr_friend");
     let events = runtime.runtime().deps.event_bus.take_events_for_test();
     assert!(events
         .iter()

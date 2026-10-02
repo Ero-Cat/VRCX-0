@@ -15,6 +15,8 @@ pub struct GameLogRuntimeState {
     pub current_location_started_at_ms: Option<i64>,
     pub has_player_events: bool,
     pub players_by_key: HashMap<String, PlayerState>,
+    #[serde(default)]
+    pub player_avatar_names: HashMap<String, String>,
     pub last_resource_url: String,
     pub last_video_url: String,
     pub now_playing_url: String,

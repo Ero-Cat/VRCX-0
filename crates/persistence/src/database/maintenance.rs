@@ -102,6 +102,7 @@ pub enum DatabaseMaintenanceTask {
     RepairEmptyLeaveLocations,
     RepairExpiredNotificationsSeen,
     ImportUpstreamPrintFavorites,
+    ImportUpstreamHmdNotificationSettings,
 }
 
 impl DatabaseMaintenanceTask {
@@ -128,6 +129,7 @@ impl DatabaseMaintenanceTask {
             Self::RepairEmptyLeaveLocations => "repairEmptyLeaveLocations",
             Self::RepairExpiredNotificationsSeen => "repairExpiredNotificationsSeen",
             Self::ImportUpstreamPrintFavorites => "importUpstreamPrintFavorites",
+            Self::ImportUpstreamHmdNotificationSettings => "importUpstreamHmdNotificationSettings",
         }
     }
 }
@@ -365,6 +367,40 @@ fn run_database_maintenance_task(
         }
         DatabaseMaintenanceTask::ImportUpstreamPrintFavorites => {
             import_upstream_print_favorites(db)?;
+        }
+        DatabaseMaintenanceTask::ImportUpstreamHmdNotificationSettings => {
+            import_upstream_hmd_notification_settings(db)?;
+        }
+    }
+    Ok(())
+}
+
+const HMD_NOTIFICATION_POSITION_CONFIG_KEY: &str = "hmdNotificationPosition";
+const HMD_NOTIFICATION_TIMEOUT_CONFIG_KEY: &str = "hmdNotificationTimeout";
+const UPSTREAM_NOTIFICATION_POSITION_CONFIG_KEY: &str = "VRCX_notificationPosition";
+const UPSTREAM_NOTIFICATION_TIMEOUT_CONFIG_KEY: &str = "VRCX_notificationTimeout";
+
+fn import_upstream_hmd_notification_settings(db: &DatabaseService) -> Result<(), Error> {
+    if crate::config::get_raw(db, HMD_NOTIFICATION_POSITION_CONFIG_KEY)?.is_none() {
+        let position = crate::config::get_raw(db, UPSTREAM_NOTIFICATION_POSITION_CONFIG_KEY)?;
+        if let Some(position) = position.as_deref().and_then(|position| {
+            ["top", "center", "bottom"]
+                .into_iter()
+                .find(|prefix| position.trim().starts_with(prefix))
+        }) {
+            crate::config::set_string(db, HMD_NOTIFICATION_POSITION_CONFIG_KEY, position)?;
+        }
+    }
+    if crate::config::get_raw(db, HMD_NOTIFICATION_TIMEOUT_CONFIG_KEY)?.is_none() {
+        let timeout = crate::config::get_raw(db, UPSTREAM_NOTIFICATION_TIMEOUT_CONFIG_KEY)?
+            .and_then(|timeout| timeout.trim().parse::<u64>().ok())
+            .filter(|timeout| *timeout >= 1_000);
+        if let Some(timeout) = timeout {
+            crate::config::set_string(
+                db,
+                HMD_NOTIFICATION_TIMEOUT_CONFIG_KEY,
+                &timeout.min(30_000).to_string(),
+            )?;
         }
     }
     Ok(())

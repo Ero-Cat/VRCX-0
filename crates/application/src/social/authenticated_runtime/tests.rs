@@ -189,6 +189,46 @@ fn favorites_baseline_emits_full_output_without_storing_it_in_phase() {
 }
 
 #[test]
+fn a_favorites_baseline_for_the_active_session_is_accepted_for_the_activity_router() {
+    let output = |user_id: &str| SocialFavoritesBaselineOutput {
+        user_id: user_id.into(),
+        stale: false,
+        count: 1,
+        snapshot: Some(FavoriteBaselineSnapshot {
+            current_user_id: user_id.into(),
+            grouped_favorite_friend_ids_by_group_key: [(
+                "group_1".to_string(),
+                vec!["usr_friend".to_string()],
+            )]
+            .into(),
+            ..Default::default()
+        }),
+    };
+    let mut state = AuthenticatedRuntimeState::default();
+    state.phase.user_id = "usr_self".into();
+    state.phase.phase = AuthenticatedRuntimePhase::Ready;
+
+    assert!(accept_favorites_baseline(&mut state, output("usr_other")).is_none());
+    let accepted = accept_favorites_baseline(&mut state, output("usr_self"))
+        .expect("the active session accepts its own favorites baseline");
+
+    assert_eq!(
+        accepted.grouped_favorite_friend_ids_by_group_key["group_1"],
+        ["usr_friend"]
+    );
+    assert_eq!(
+        state
+            .favorite_group_memberships
+            .as_ref()
+            .map(|memberships| memberships.friend_groups_by_key.len()),
+        Some(1)
+    );
+
+    state.phase.phase = AuthenticatedRuntimePhase::Stopped;
+    assert!(accept_favorites_baseline(&mut state, output("usr_self")).is_none());
+}
+
+#[test]
 fn combined_favorite_group_memberships_preserve_remote_and_local_groups() {
     let snapshot = FavoriteBaselineSnapshot {
         grouped_favorite_friend_ids_by_group_key: BTreeMap::from([(

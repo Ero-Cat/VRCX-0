@@ -17,8 +17,10 @@ type QueryOptions = {
 
 const mocks = vi.hoisted(() => ({
     copyTextToClipboard: vi.fn().mockResolvedValue(true),
+    fetchGroupProfile: vi.fn(() => Promise.resolve({})),
     getUserProfile: vi.fn(() => Promise.resolve({})),
     knownUser: null as Record<string, unknown> | null,
+    openGroupDialog: vi.fn(),
     openUserDialog: vi.fn(),
     queryData: null as Record<string, unknown> | null
 }));
@@ -53,7 +55,11 @@ vi.mock('@/repositories/gameLogRepository', () => ({ default: {} }));
 vi.mock('@/repositories/userProfileRepository', () => ({
     default: { getUserProfile: mocks.getUserProfile }
 }));
+vi.mock('@/repositories/groupProfileRepository', () => ({
+    default: { fetchGroupProfile: mocks.fetchGroupProfile }
+}));
 vi.mock('@/services/dialogService', () => ({
+    openGroupDialog: mocks.openGroupDialog,
     openUserDialog: mocks.openUserDialog,
     openWorldDialog: vi.fn()
 }));
@@ -82,6 +88,7 @@ vi.mock('./PreviousInstanceInfoChart', () => ({
 
 import {
     CopyInstanceWorldNameButton,
+    InstanceCreatorCell,
     InstanceOwnerCell,
     instanceDetailsSummary
 } from './PreviousInstancesViewParts';
@@ -198,5 +205,58 @@ describe('InstanceOwnerCell', () => {
 
         expect(screen.getByText('Known owner')).toBeTruthy();
         expect(mocks.getUserProfile).not.toHaveBeenCalled();
+    });
+});
+
+describe('InstanceCreatorCell', () => {
+    afterEach(cleanup);
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mocks.knownUser = null;
+        mocks.queryData = null;
+    });
+
+    it('shows the owning group of a group instance and opens it', async () => {
+        mocks.queryData = { id: 'grp_owner', name: 'Resolved group' };
+
+        render(
+            <InstanceCreatorCell
+                row={{
+                    location:
+                        'wrld_test:12345~group(grp_owner)~groupAccessType(public)~region(jp)',
+                    groupName: ''
+                }}
+            />
+        );
+
+        await waitFor(() => {
+            expect(mocks.fetchGroupProfile).toHaveBeenCalledWith({
+                groupId: 'grp_owner',
+                includeRoles: false
+            });
+        });
+        expect(screen.getByText('Resolved group')).toBeTruthy();
+
+        fireEvent.click(screen.getByRole('button'));
+        expect(mocks.openGroupDialog).toHaveBeenCalledWith({
+            groupId: 'grp_owner',
+            title: 'Resolved group'
+        });
+    });
+
+    it('uses the recorded group name without fetching the group', () => {
+        render(
+            <InstanceCreatorCell
+                row={{
+                    location:
+                        'wrld_test:12345~group(grp_owner)~groupAccessType(plus)',
+                    groupName: 'Recorded group'
+                }}
+            />
+        );
+
+        expect(screen.getByText('Recorded group')).toBeTruthy();
+        expect(mocks.fetchGroupProfile).not.toHaveBeenCalled();
     });
 });

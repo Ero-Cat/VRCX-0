@@ -427,6 +427,16 @@ mod tests {
             "Fresh Name"
         );
         assert!(rename.projection.friend_log_changed);
+        let rename_feed: Vec<_> = rename
+            .persistence
+            .feed_entries
+            .iter()
+            .map(|entry| entry.to_json())
+            .filter(|entry| entry["type"] == "DisplayName")
+            .collect();
+        assert_eq!(rename_feed.len(), 1);
+        assert_eq!(rename_feed[0]["displayName"], "Fresh Name");
+        assert_eq!(rename_feed[0]["previousDisplayName"], "Friend");
 
         let result = runtime.apply_refetched_user_profile_if_rev(
             1,

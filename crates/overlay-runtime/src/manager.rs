@@ -156,6 +156,10 @@ where
         self.service.is_surface_visible(surface_id)
     }
 
+    pub fn hmd_user_present(&self) -> Option<bool> {
+        self.service.hmd_user_present()
+    }
+
     pub fn into_inner(self) -> S {
         self.service
     }

@@ -4,15 +4,14 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Utc};
-use vrcx_0_core::json::JsonExt;
+use vrcx_0_contracts::activity::{ActivityEvent, ActivityKind, ActivitySubject};
+use vrcx_0_core::location::parse_location;
 
 use super::content::build_activity_content;
-use super::definitions::{default_rule, known_definition_for_type, normalize_id};
+use super::definitions::{default_rule, definition, normalize_id, KindDefinition};
 use super::types::{
-    OverlayActivityActorRelation, OverlayActivityCandidate, OverlayActivityDelivery,
-    OverlayActivityEntry, OverlayActivityFavoriteGroupKeys, OverlayActivityFavoriteSubject,
-    OverlayActivityFilters, OverlayActivityRule, OverlayActivityScope, OverlayActivitySnapshot,
-    OverlayActivitySurface,
+    ActivityActorRelation, ActivityDelivery, ActivityEntry, ActivityFavoriteGroupKeys,
+    ActivityFilters, ActivityRule, ActivityScope, ActivitySnapshot, NotificationSurface,
 };
 
 const DEFAULT_CAPACITY: usize = 128;
@@ -21,7 +20,7 @@ const DEDUP_TTL: Duration = Duration::from_secs(120);
 const DELIVERY_LIVE_GRACE: chrono::Duration = chrono::Duration::seconds(5);
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct OverlayFavoriteGroups {
+pub struct ActivityFavoriteGroups {
     groups: HashMap<String, HashSet<String>>,
     all_favorites: HashSet<String>,
 }
@@ -32,7 +31,7 @@ struct JoinedDeliveryCoverage {
     hmd: bool,
 }
 
-impl OverlayFavoriteGroups {
+impl ActivityFavoriteGroups {
     pub fn from_map(groups: HashMap<String, Vec<String>>) -> Self {
         let mut normalized_groups = HashMap::new();
         let mut all_favorites = HashSet::new();
@@ -91,28 +90,23 @@ impl OverlayFavoriteGroups {
         }
     }
 
-    pub fn group_instance_notification_group_ids(
-        &self,
-        filters: &OverlayActivityFilters,
-    ) -> Vec<String> {
+    pub fn group_instance_notification_group_ids(&self, filters: &ActivityFilters) -> Vec<String> {
         let mut group_ids = BTreeSet::new();
         for surface in [
-            OverlayActivitySurface::Wrist,
-            OverlayActivitySurface::Desktop,
-            OverlayActivitySurface::Vr,
-            OverlayActivitySurface::Hmd,
-            OverlayActivitySurface::Webhook,
-            OverlayActivitySurface::Tts,
+            NotificationSurface::Wrist,
+            NotificationSurface::Desktop,
+            NotificationSurface::ExternalOverlay,
+            NotificationSurface::Hmd,
+            NotificationSurface::Webhook,
+            NotificationSurface::Tts,
         ] {
-            let rule = filters.rule_for(surface, "group.instanceOpened");
+            let rule = filters.rule_for(surface, ActivityKind::GroupInstanceOpened);
             match rule.scope {
-                OverlayActivityScope::AllFavorites => {
+                ActivityScope::AllFavorites => {
                     group_ids.extend(self.all_favorites.iter().cloned());
                 }
-                OverlayActivityScope::SelectedFavorites => {
-                    if let OverlayActivityFavoriteGroupKeys::Selected(keys) =
-                        rule.favorite_group_keys
-                    {
+                ActivityScope::SelectedFavorites => {
+                    if let ActivityFavoriteGroupKeys::Selected(keys) = rule.favorite_group_keys {
                         for key in keys {
                             if let Some(selected) = self.groups.get(&normalize_id(&key)) {
                                 group_ids.extend(selected.iter().cloned());
@@ -140,35 +134,34 @@ impl OverlayFavoriteGroups {
 }
 
 #[derive(Clone)]
-pub struct OverlayActivityRuntime {
-    pub(super) inner: Arc<OverlayActivityRuntimeInner>,
+pub struct ActivityRouter {
+    pub(super) inner: Arc<ActivityRouterInner>,
 }
 
-pub(super) struct OverlayActivityRuntimeInner {
-    pub(super) state: Mutex<OverlayActivityState>,
-    sink: Mutex<Option<Arc<dyn OverlayActivitySink>>>,
+pub(super) struct ActivityRouterInner {
+    pub(super) state: Mutex<ActivityState>,
+    sink: Mutex<Option<Arc<dyn ActivitySink>>>,
     group_notification_inputs_revision: AtomicU64,
 }
 
-pub trait OverlayActivitySink: Send + Sync {
-    fn emit_overlay_activity_snapshot(&self, snapshot: OverlayActivitySnapshot);
+pub trait ActivitySink: Send + Sync {
+    fn emit_overlay_activity_snapshot(&self, snapshot: ActivitySnapshot);
 
-    fn emit_overlay_activity_delivery(&self, _delivery: OverlayActivityDelivery) {}
+    fn emit_overlay_activity_delivery(&self, _delivery: ActivityDelivery) {}
 }
 
 #[derive(Clone, Debug)]
-pub(super) struct OverlayActivityState {
-    pub(super) filters: OverlayActivityFilters,
-    pub(super) friend_favorite_groups: OverlayFavoriteGroups,
-    pub(super) group_favorite_groups: OverlayFavoriteGroups,
+pub(super) struct ActivityState {
+    pub(super) filters: ActivityFilters,
+    pub(super) friend_favorite_groups: ActivityFavoriteGroups,
+    pub(super) group_favorite_groups: ActivityFavoriteGroups,
     pub(super) friend_user_ids: HashSet<String>,
     location_hidden_user_ids: HashSet<String>,
-    pub(super) group_instance_scope_key: String,
-    pub(super) group_instance_baseline: HashMap<String, Vec<String>>,
+    hide_private_location_changes: bool,
     current_instance_location: String,
     current_instance_user_ids: HashSet<String>,
     joined_delivery_coverage: HashMap<(String, String), JoinedDeliveryCoverage>,
-    pub(super) entries: VecDeque<OverlayActivityEntry>,
+    pub(super) entries: VecDeque<ActivityEntry>,
     pub(super) source_ids: HashSet<String>,
     pub(super) seen_order: VecDeque<(Instant, String)>,
     pub(super) next_sequence: u64,
@@ -177,16 +170,15 @@ pub(super) struct OverlayActivityState {
     pub(super) live_since: Option<DateTime<Utc>>,
 }
 
-impl Default for OverlayActivityState {
+impl Default for ActivityState {
     fn default() -> Self {
         Self {
-            filters: OverlayActivityFilters::default(),
-            friend_favorite_groups: OverlayFavoriteGroups::default(),
-            group_favorite_groups: OverlayFavoriteGroups::default(),
+            filters: ActivityFilters::default(),
+            friend_favorite_groups: ActivityFavoriteGroups::default(),
+            group_favorite_groups: ActivityFavoriteGroups::default(),
             friend_user_ids: HashSet::new(),
             location_hidden_user_ids: HashSet::new(),
-            group_instance_scope_key: String::new(),
-            group_instance_baseline: HashMap::new(),
+            hide_private_location_changes: false,
             current_instance_location: String::new(),
             current_instance_user_ids: HashSet::new(),
             joined_delivery_coverage: HashMap::new(),
@@ -201,30 +193,30 @@ impl Default for OverlayActivityState {
     }
 }
 
-impl Default for OverlayActivityRuntime {
+impl Default for ActivityRouter {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl OverlayActivityRuntime {
+impl ActivityRouter {
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(OverlayActivityRuntimeInner {
-                state: Mutex::new(OverlayActivityState::default()),
+            inner: Arc::new(ActivityRouterInner {
+                state: Mutex::new(ActivityState::default()),
                 sink: Mutex::new(None),
                 group_notification_inputs_revision: AtomicU64::new(0),
             }),
         }
     }
 
-    pub fn with_filters(filters: OverlayActivityFilters) -> Self {
+    pub fn with_filters(filters: ActivityFilters) -> Self {
         let runtime = Self::new();
         runtime.set_filters(filters);
         runtime
     }
 
-    pub fn set_filters(&self, filters: OverlayActivityFilters) {
+    pub fn set_filters(&self, filters: ActivityFilters) {
         let snapshot = {
             let Ok(mut state) = self.inner.state.lock() else {
                 return;
@@ -232,19 +224,6 @@ impl OverlayActivityRuntime {
             if state.filters == filters {
                 return;
             }
-            let previous_group_ids = state
-                .group_favorite_groups
-                .group_instance_notification_group_ids(&state.filters)
-                .into_iter()
-                .collect::<HashSet<_>>();
-            let next_group_ids = state
-                .group_favorite_groups
-                .group_instance_notification_group_ids(&filters)
-                .into_iter()
-                .collect::<HashSet<_>>();
-            state.group_instance_baseline.retain(|group_id, _| {
-                previous_group_ids.contains(group_id) && next_group_ids.contains(group_id)
-            });
             state.filters = filters;
             state.entries.clear();
             state.source_ids.clear();
@@ -270,7 +249,7 @@ impl OverlayActivityRuntime {
 
     pub fn set_sink<S>(&self, sink: S)
     where
-        S: OverlayActivitySink + 'static,
+        S: ActivitySink + 'static,
     {
         if let Ok(mut current) = self.inner.sink.lock() {
             *current = Some(Arc::new(sink));
@@ -283,29 +262,20 @@ impl OverlayActivityRuntime {
         }
     }
 
-    pub fn set_favorite_groups(&self, favorite_groups: OverlayFavoriteGroups) {
+    pub fn set_hide_private_location_changes(&self, hide: bool) {
+        if let Ok(mut state) = self.inner.state.lock() {
+            state.hide_private_location_changes = hide;
+        }
+    }
+
+    pub fn set_favorite_groups(&self, favorite_groups: ActivityFavoriteGroups) {
         if let Ok(mut state) = self.inner.state.lock() {
             state.friend_favorite_groups = favorite_groups;
         }
     }
 
-    pub fn set_group_favorite_groups(&self, favorite_groups: OverlayFavoriteGroups) {
+    pub fn set_group_favorite_groups(&self, favorite_groups: ActivityFavoriteGroups) {
         if let Ok(mut state) = self.inner.state.lock() {
-            if state.group_favorite_groups == favorite_groups {
-                return;
-            }
-            let previous_group_ids = state
-                .group_favorite_groups
-                .group_instance_notification_group_ids(&state.filters)
-                .into_iter()
-                .collect::<HashSet<_>>();
-            let next_group_ids = favorite_groups
-                .group_instance_notification_group_ids(&state.filters)
-                .into_iter()
-                .collect::<HashSet<_>>();
-            state.group_instance_baseline.retain(|group_id, _| {
-                previous_group_ids.contains(group_id) && next_group_ids.contains(group_id)
-            });
             state.group_favorite_groups = favorite_groups;
         }
     }
@@ -349,13 +319,22 @@ impl OverlayActivityRuntime {
         }
     }
 
-    pub fn set_delivery_armed(&self, armed: bool) {
+    pub fn arm_delivery(&self) {
         if let Ok(mut state) = self.inner.state.lock() {
-            if armed {
-                state.live_since.get_or_insert_with(Utc::now);
-            } else {
-                state.live_since = None;
-                state.joined_delivery_coverage.clear();
+            state.live_since.get_or_insert_with(Utc::now);
+        }
+    }
+
+    pub fn update_friend_user_ids(&self, added: Vec<String>, removed: Vec<String>) {
+        if let Ok(mut state) = self.inner.state.lock() {
+            for user_id in added {
+                let user_id = normalize_id(&user_id);
+                if !user_id.is_empty() {
+                    state.friend_user_ids.insert(user_id);
+                }
+            }
+            for user_id in removed {
+                state.friend_user_ids.remove(&normalize_id(&user_id));
             }
         }
     }
@@ -365,11 +344,9 @@ impl OverlayActivityRuntime {
             let Ok(mut state) = self.inner.state.lock() else {
                 return;
             };
-            state.friend_favorite_groups = OverlayFavoriteGroups::default();
-            state.group_favorite_groups = OverlayFavoriteGroups::default();
+            state.friend_favorite_groups = ActivityFavoriteGroups::default();
+            state.group_favorite_groups = ActivityFavoriteGroups::default();
             state.friend_user_ids.clear();
-            state.group_instance_scope_key.clear();
-            state.group_instance_baseline.clear();
             state.current_instance_location.clear();
             state.current_instance_user_ids.clear();
             state.joined_delivery_coverage.clear();
@@ -384,57 +361,61 @@ impl OverlayActivityRuntime {
         self.emit_snapshot(snapshot);
     }
 
-    pub fn ingest_candidate(
-        &self,
-        candidate: OverlayActivityCandidate,
-    ) -> Option<OverlayActivityEntry> {
+    pub fn ingest_activity(&self, events: Vec<ActivityEvent>) -> Vec<ActivityEntry> {
+        events
+            .into_iter()
+            .filter_map(|event| self.ingest(event))
+            .collect()
+    }
+
+    pub fn ingest(&self, event: ActivityEvent) -> Option<ActivityEntry> {
         let (entry, snapshot, delivery) = {
             let mut state = self.inner.state.lock().ok()?;
-            let definition = known_definition_for_type(&candidate.activity_type)?;
+            let definition = definition(event.kind);
 
-            let source_id = normalize_source_id(&candidate);
+            let source_id = normalize_source_id(&event);
             if state.source_ids.contains(&source_id) {
                 return None;
             }
-            clear_joined_delivery_coverage_for_departing_gps(&mut state, &candidate);
-            if candidate.activity_type == "GPS"
+            clear_joined_delivery_coverage_for_departing_gps(&mut state, &event);
+            if event.kind == ActivityKind::Gps
                 && state
                     .location_hidden_user_ids
-                    .contains(&normalize_id(&candidate.actor_user_id))
+                    .contains(&normalize_id(&event.actor.user_id))
             {
                 return None;
             }
 
-            let wrist = surface_matches(
-                &state,
-                &candidate,
-                OverlayActivitySurface::Wrist,
-                definition,
-            );
-            let desktop = surface_matches(
-                &state,
-                &candidate,
-                OverlayActivitySurface::Desktop,
-                definition,
-            );
-            let mut vr =
-                surface_matches(&state, &candidate, OverlayActivitySurface::Vr, definition);
+            let notifies = !(state.hide_private_location_changes
+                && event.kind == ActivityKind::Gps
+                && parse_location(&event.facts.location).is_private);
+            let wrist = surface_matches(&state, &event, NotificationSurface::Wrist, &definition);
+            let desktop = notifies
+                && surface_matches(&state, &event, NotificationSurface::Desktop, &definition);
+            let mut vr = notifies
+                && surface_matches(
+                    &state,
+                    &event,
+                    NotificationSurface::ExternalOverlay,
+                    &definition,
+                );
             let mut hmd =
-                surface_matches(&state, &candidate, OverlayActivitySurface::Hmd, definition);
-            let webhook = surface_matches(
-                &state,
-                &candidate,
-                OverlayActivitySurface::Webhook,
-                definition,
-            );
-            let tts = surface_matches(&state, &candidate, OverlayActivitySurface::Tts, definition);
+                notifies && surface_matches(&state, &event, NotificationSurface::Hmd, &definition);
+            let webhook = notifies
+                && surface_matches(&state, &event, NotificationSurface::Webhook, &definition);
+            let tts =
+                notifies && surface_matches(&state, &event, NotificationSurface::Tts, &definition);
             let vr_suppressed = vr
-                && suppresses_current_instance_gps(&state, &candidate, OverlayActivitySurface::Vr);
+                && suppresses_current_instance_gps(
+                    &state,
+                    &event,
+                    NotificationSurface::ExternalOverlay,
+                );
             if vr_suppressed {
                 vr = false;
             }
-            let hmd_suppressed = hmd
-                && suppresses_current_instance_gps(&state, &candidate, OverlayActivitySurface::Hmd);
+            let hmd_suppressed =
+                hmd && suppresses_current_instance_gps(&state, &event, NotificationSurface::Hmd);
             if hmd_suppressed {
                 hmd = false;
             }
@@ -446,26 +427,18 @@ impl OverlayActivityRuntime {
             }
             remember_source_id(&mut state, source_id.clone());
 
-            let actor_display_name = candidate.actor_display_name.trim().to_string();
-            let content = build_activity_content(
-                definition.key,
-                definition.category,
-                &candidate,
-                &actor_display_name,
-            );
-            let actor_user_id = normalize_id(&candidate.actor_user_id);
+            let actor_user_id = normalize_id(&event.actor.user_id);
             let actor_relation = actor_relation_for_user_id(&state, &actor_user_id);
-            let entry = OverlayActivityEntry {
+            let entry = ActivityEntry {
                 sequence: state.next_sequence,
                 source_id,
-                activity_type: definition.key.to_string(),
+                kind: event.kind,
                 category: definition.category,
-                created_at: candidate.created_at,
+                content: build_activity_content(&event),
+                created_at: event.created_at,
                 actor_user_id,
-                actor_display_name,
-                content,
+                actor_display_name: event.actor.display_name.trim().to_string(),
                 actor_relation,
-                payload: candidate.payload,
             };
             state.next_sequence = state.next_sequence.saturating_add(1);
 
@@ -483,7 +456,7 @@ impl OverlayActivityRuntime {
                 && is_live_event(&state, &entry.created_at);
             let delivery = if delivery_is_live {
                 remember_joined_delivery(&mut state, &entry, vr, hmd);
-                Some(OverlayActivityDelivery {
+                Some(ActivityDelivery {
                     entry: entry.clone(),
                     desktop,
                     vr,
@@ -506,14 +479,50 @@ impl OverlayActivityRuntime {
         Some(entry)
     }
 
-    pub fn snapshot(&self) -> OverlayActivitySnapshot {
+    pub fn deliver_test_notification(&self, message: &str) {
+        let created_at = Utc::now().to_rfc3339();
+        let mut event = ActivityEvent::new(
+            ActivityKind::Event,
+            format!("test-notification:{created_at}"),
+            created_at,
+        );
+        event.facts.message = message.to_string();
+        let sequence = {
+            let Ok(mut state) = self.inner.state.lock() else {
+                return;
+            };
+            let sequence = state.next_sequence;
+            state.next_sequence = sequence.saturating_add(1);
+            sequence
+        };
+        self.emit_delivery(ActivityDelivery {
+            entry: ActivityEntry {
+                sequence,
+                source_id: event.source_id.clone(),
+                kind: event.kind,
+                category: definition(event.kind).category,
+                content: build_activity_content(&event),
+                created_at: event.created_at,
+                actor_user_id: String::new(),
+                actor_display_name: String::new(),
+                actor_relation: ActivityActorRelation::None,
+            },
+            desktop: true,
+            vr: true,
+            hmd: true,
+            webhook: false,
+            tts: true,
+        });
+    }
+
+    pub fn snapshot(&self) -> ActivitySnapshot {
         let Ok(state) = self.inner.state.lock() else {
-            return OverlayActivitySnapshot::default();
+            return ActivitySnapshot::default();
         };
         snapshot_from_state(&state)
     }
 
-    pub fn filters(&self) -> OverlayActivityFilters {
+    pub fn filters(&self) -> ActivityFilters {
         self.inner
             .state
             .lock()
@@ -521,29 +530,14 @@ impl OverlayActivityRuntime {
             .unwrap_or_default()
     }
 
-    pub(super) fn insert_friend_user_id(&self, user_id: String) {
-        if let Ok(mut state) = self.inner.state.lock() {
-            let user_id = normalize_id(&user_id);
-            if !user_id.is_empty() {
-                state.friend_user_ids.insert(user_id);
-            }
-        }
-    }
-
-    pub(super) fn remove_friend_user_id(&self, user_id: &str) {
-        if let Ok(mut state) = self.inner.state.lock() {
-            state.friend_user_ids.remove(&normalize_id(user_id));
-        }
-    }
-
-    fn emit_snapshot(&self, snapshot: OverlayActivitySnapshot) {
+    fn emit_snapshot(&self, snapshot: ActivitySnapshot) {
         let sink = self.inner.sink.lock().ok().and_then(|sink| sink.clone());
         if let Some(sink) = sink {
             sink.emit_overlay_activity_snapshot(snapshot);
         }
     }
 
-    fn emit_delivery(&self, delivery: OverlayActivityDelivery) {
+    fn emit_delivery(&self, delivery: ActivityDelivery) {
         let sink = self.inner.sink.lock().ok().and_then(|sink| sink.clone());
         if let Some(sink) = sink {
             sink.emit_overlay_activity_delivery(delivery);
@@ -552,57 +546,58 @@ impl OverlayActivityRuntime {
 }
 
 fn surface_matches(
-    state: &OverlayActivityState,
-    candidate: &OverlayActivityCandidate,
-    surface: OverlayActivitySurface,
-    definition: &super::definitions::ActivityTypeDefinition,
+    state: &ActivityState,
+    event: &ActivityEvent,
+    surface: NotificationSurface,
+    definition: &KindDefinition,
 ) -> bool {
-    let fallback = default_rule(definition);
+    let fallback = default_rule(definition, surface);
     let rule = state
         .filters
         .surface(surface)
         .types
-        .get(definition.key)
+        .get(definition.kind.key())
         .unwrap_or(&fallback);
-    candidate_matches_rule(state, candidate, rule)
+    event_matches_rule(state, event, rule)
 }
 
 fn suppresses_current_instance_gps(
-    state: &OverlayActivityState,
-    candidate: &OverlayActivityCandidate,
-    surface: OverlayActivitySurface,
+    state: &ActivityState,
+    event: &ActivityEvent,
+    surface: NotificationSurface,
 ) -> bool {
-    if candidate.activity_type != "GPS" {
+    if event.kind != ActivityKind::Gps {
         return false;
     }
-    if state.filters.rule_for(surface, "GPS").scope != OverlayActivityScope::SelectedFavorites
+    if state.filters.rule_for(surface, ActivityKind::Gps).scope != ActivityScope::SelectedFavorites
         || !surface_filters_joined_friends(state, surface)
     {
         return false;
     }
-    let location = candidate.payload.trimmed_text("location");
-    let Some(key) = current_instance_friend_key(state, &candidate.actor_user_id, &location) else {
+    let Some(key) =
+        current_instance_friend_key(state, &event.actor.user_id, event.facts.location.trim())
+    else {
         return false;
     };
     let Some(coverage) = state.joined_delivery_coverage.get(&key) else {
         return false;
     };
     match surface {
-        OverlayActivitySurface::Vr => coverage.vr,
-        OverlayActivitySurface::Hmd => coverage.hmd,
+        NotificationSurface::ExternalOverlay => coverage.vr,
+        NotificationSurface::Hmd => coverage.hmd,
         _ => false,
     }
 }
 
 fn clear_joined_delivery_coverage_for_departing_gps(
-    state: &mut OverlayActivityState,
-    candidate: &OverlayActivityCandidate,
+    state: &mut ActivityState,
+    event: &ActivityEvent,
 ) {
-    if candidate.activity_type != "GPS" {
+    if event.kind != ActivityKind::Gps {
         return;
     }
-    let user_id = normalize_id(&candidate.actor_user_id);
-    let location = candidate.payload.trimmed_text("location");
+    let user_id = normalize_id(&event.actor.user_id);
+    let location = event.facts.location.trim();
     if user_id.is_empty() || location.is_empty() || location == state.current_instance_location {
         return;
     }
@@ -611,13 +606,8 @@ fn clear_joined_delivery_coverage_for_departing_gps(
         .retain(|(covered_user_id, _), _| covered_user_id != &user_id);
 }
 
-fn remember_joined_delivery(
-    state: &mut OverlayActivityState,
-    entry: &OverlayActivityEntry,
-    vr: bool,
-    hmd: bool,
-) {
-    if entry.activity_type != "OnPlayerJoined" {
+fn remember_joined_delivery(state: &mut ActivityState, entry: &ActivityEntry, vr: bool, hmd: bool) {
+    if entry.kind != ActivityKind::OnPlayerJoined {
         return;
     }
     let Some(key) =
@@ -625,8 +615,8 @@ fn remember_joined_delivery(
     else {
         return;
     };
-    let vr = vr && surface_filters_joined_friends(state, OverlayActivitySurface::Vr);
-    let hmd = hmd && surface_filters_joined_friends(state, OverlayActivitySurface::Hmd);
+    let vr = vr && surface_filters_joined_friends(state, NotificationSurface::ExternalOverlay);
+    let hmd = hmd && surface_filters_joined_friends(state, NotificationSurface::Hmd);
     if !vr && !hmd {
         return;
     }
@@ -636,7 +626,7 @@ fn remember_joined_delivery(
 }
 
 fn current_instance_friend_key(
-    state: &OverlayActivityState,
+    state: &ActivityState,
     actor_user_id: &str,
     location: &str,
 ) -> Option<(String, String)> {
@@ -653,14 +643,15 @@ fn current_instance_friend_key(
     Some((user_id, location))
 }
 
-fn surface_filters_joined_friends(
-    state: &OverlayActivityState,
-    surface: OverlayActivitySurface,
-) -> bool {
-    state.filters.rule_for(surface, "OnPlayerJoined").scope == OverlayActivityScope::Friends
+fn surface_filters_joined_friends(state: &ActivityState, surface: NotificationSurface) -> bool {
+    state
+        .filters
+        .rule_for(surface, ActivityKind::OnPlayerJoined)
+        .scope
+        == ActivityScope::Friends
 }
 
-fn remember_source_id(state: &mut OverlayActivityState, source_id: String) {
+fn remember_source_id(state: &mut ActivityState, source_id: String) {
     if state.source_ids.insert(source_id.clone()) {
         let now = Instant::now();
         state.seen_order.push_back((now, source_id));
@@ -677,7 +668,7 @@ fn remember_source_id(state: &mut OverlayActivityState, source_id: String) {
     }
 }
 
-fn is_live_event(state: &OverlayActivityState, created_at: &str) -> bool {
+fn is_live_event(state: &ActivityState, created_at: &str) -> bool {
     let Some(live_since) = state.live_since else {
         return false;
     };
@@ -691,8 +682,8 @@ fn is_live_event(state: &OverlayActivityState, created_at: &str) -> bool {
     }
 }
 
-fn snapshot_from_state(state: &OverlayActivityState) -> OverlayActivitySnapshot {
-    OverlayActivitySnapshot {
+fn snapshot_from_state(state: &ActivityState) -> ActivitySnapshot {
+    ActivitySnapshot {
         entries: state
             .entries
             .iter()
@@ -705,67 +696,60 @@ fn snapshot_from_state(state: &OverlayActivityState) -> OverlayActivitySnapshot 
     }
 }
 
-fn actor_relation_for_user_id(
-    state: &OverlayActivityState,
-    actor_user_id: &str,
-) -> OverlayActivityActorRelation {
+fn actor_relation_for_user_id(state: &ActivityState, actor_user_id: &str) -> ActivityActorRelation {
     let actor_user_id = normalize_id(actor_user_id);
     if actor_user_id.is_empty() {
-        return OverlayActivityActorRelation::None;
+        return ActivityActorRelation::None;
     }
     if state.friend_favorite_groups.contains_any(&actor_user_id) {
-        return OverlayActivityActorRelation::Favorite;
+        return ActivityActorRelation::Favorite;
     }
     if state.friend_user_ids.contains(&actor_user_id) {
-        return OverlayActivityActorRelation::Friend;
+        return ActivityActorRelation::Friend;
     }
-    OverlayActivityActorRelation::None
+    ActivityActorRelation::None
 }
 
-fn candidate_matches_rule(
-    state: &OverlayActivityState,
-    candidate: &OverlayActivityCandidate,
-    rule: &OverlayActivityRule,
-) -> bool {
-    let actor_user_id = normalize_id(&candidate.actor_user_id);
-    let favorite_membership = match &candidate.favorite_subject {
-        OverlayActivityFavoriteSubject::None => None,
-        OverlayActivityFavoriteSubject::UserId(user_id) => {
+fn event_matches_rule(state: &ActivityState, event: &ActivityEvent, rule: &ActivityRule) -> bool {
+    let actor_user_id = normalize_id(&event.actor.user_id);
+    let favorite_membership = match &event.subject {
+        ActivitySubject::None => None,
+        ActivitySubject::User(user_id) => {
             Some((&state.friend_favorite_groups, normalize_id(user_id)))
         }
-        OverlayActivityFavoriteSubject::GroupId(group_id) => {
+        ActivitySubject::Group(group_id) => {
             Some((&state.group_favorite_groups, normalize_id(group_id)))
         }
     };
     match rule.scope {
-        OverlayActivityScope::Off => false,
-        OverlayActivityScope::On => true,
-        OverlayActivityScope::Friends => state.friend_user_ids.contains(&actor_user_id),
-        OverlayActivityScope::SelectedFavorites => match &rule.favorite_group_keys {
-            OverlayActivityFavoriteGroupKeys::All => favorite_membership
+        ActivityScope::Off => false,
+        ActivityScope::On => true,
+        ActivityScope::Friends => state.friend_user_ids.contains(&actor_user_id),
+        ActivityScope::SelectedFavorites => match &rule.favorite_group_keys {
+            ActivityFavoriteGroupKeys::All => favorite_membership
                 .as_ref()
                 .is_some_and(|(groups, subject_id)| groups.contains_any(subject_id)),
-            OverlayActivityFavoriteGroupKeys::Selected(group_keys) => favorite_membership
+            ActivityFavoriteGroupKeys::Selected(group_keys) => favorite_membership
                 .as_ref()
                 .is_some_and(|(groups, subject_id)| {
                     groups.contains_selected(group_keys, subject_id)
                 }),
         },
-        OverlayActivityScope::AllFavorites => favorite_membership
+        ActivityScope::AllFavorites => favorite_membership
             .as_ref()
             .is_some_and(|(groups, subject_id)| groups.contains_any(subject_id)),
-        OverlayActivityScope::EveryoneInInstance => candidate.current_instance,
+        ActivityScope::EveryoneInInstance => event.in_current_instance,
     }
 }
 
-fn normalize_source_id(candidate: &OverlayActivityCandidate) -> String {
-    let source_id = candidate.source_id.trim();
+fn normalize_source_id(event: &ActivityEvent) -> String {
+    let source_id = event.source_id.trim();
     if source_id.is_empty() {
         format!(
             "{}:{}:{}",
-            candidate.activity_type.trim(),
-            candidate.actor_user_id.trim(),
-            candidate.created_at.trim()
+            event.kind.key(),
+            event.actor.user_id.trim(),
+            event.created_at.trim()
         )
     } else {
         source_id.to_string()

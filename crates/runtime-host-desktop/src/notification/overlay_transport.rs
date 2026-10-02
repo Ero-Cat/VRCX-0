@@ -2,23 +2,23 @@ use vrcx_0_application_activity::notification::RenderedNotification;
 
 use super::{NotificationDeliveryPlan, NotificationDeliveryPreferences};
 
-#[cfg(any(windows, target_os = "linux"))]
+#[cfg(windows)]
 use vrcx_0_host_desktop::overlay_notifications::OvrToolkit;
 
-#[cfg(any(windows, target_os = "linux"))]
+#[cfg(windows)]
 use super::ovrt::send_ovrt_notification;
 #[cfg(any(windows, target_os = "linux"))]
 use super::xs_overlay::send_xs_overlay_notification;
 
 pub(super) struct OverlayNotificationTransport {
-    #[cfg(any(windows, target_os = "linux"))]
+    #[cfg(windows)]
     ovrt: OvrToolkit,
 }
 
 impl OverlayNotificationTransport {
     pub(super) fn new() -> Self {
         Self {
-            #[cfg(any(windows, target_os = "linux"))]
+            #[cfg(windows)]
             ovrt: OvrToolkit::new(),
         }
     }
@@ -35,6 +35,9 @@ impl OverlayNotificationTransport {
             if plan.xs {
                 send_xs_overlay_notification(render, preferences, local_image);
             }
+        }
+        #[cfg(windows)]
+        {
             if plan.ovrt {
                 send_ovrt_notification(&self.ovrt, plan, render, local_image);
             }

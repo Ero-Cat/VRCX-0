@@ -57,6 +57,8 @@ impl SlintSurfaceHost for SlintHmdHost {
             model.toasts.iter().map(visible_toast_avatar),
         );
         self.component.set_dark_background(model.dark_background);
+        self.component.set_compact(model.compact);
+        self.component.set_stack_upward(model.stack_upward);
         self.component
             .set_toasts(hmd_toast_model(model, &mut self.avatar_images));
     }
@@ -74,20 +76,21 @@ fn visible_toast_avatar(toast: &ToastCard) -> Option<&crate::AvatarBitmap> {
     }
 }
 
-fn hmd_toast_model(
+pub(super) fn hmd_toast_model(
     model: &MainSurfaceModel,
     cache: &mut AvatarImageCache,
 ) -> ModelRc<HmdToastItem> {
-    ModelRc::new(VecModel::from(
-        model
-            .toasts
-            .iter()
-            .rev()
-            .take(3)
-            .rev()
-            .map(|toast| hmd_toast_item(toast, model.accent, cache))
-            .collect::<Vec<_>>(),
-    ))
+    let mut items = model
+        .toasts
+        .iter()
+        .rev()
+        .take(3)
+        .map(|toast| hmd_toast_item(toast, model.accent, cache))
+        .collect::<Vec<_>>();
+    if model.stack_upward {
+        items.reverse();
+    }
+    ModelRc::new(VecModel::from(items))
 }
 
 fn hmd_toast_item(

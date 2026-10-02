@@ -27,7 +27,6 @@ const mocks = vi.hoisted(() => ({
     handleScreenshotLibraryScanStatusEvent: vi.fn(),
     handleGameRunningUpdate: vi.fn<() => Promise<void>>(),
     isHostCapabilityAvailable: vi.fn<(name: string) => boolean>(),
-    pushSharedFeedNotification: vi.fn<() => Promise<void>>(),
     showSQLiteErrorDialog: vi.fn<() => Promise<void>>(),
     handleBrowserFocus: vi.fn<() => Promise<void>>(),
     getBackendRuntimeCombinedSnapshot: vi.fn(),
@@ -99,10 +98,6 @@ vi.mock('./hostCapabilityService', () => ({
     isHostCapabilityAvailable: mocks.isHostCapabilityAvailable
 }));
 
-vi.mock('./sharedFeedNotificationService', () => ({
-    pushSharedFeedNotification: mocks.pushSharedFeedNotification
-}));
-
 vi.mock('./sqliteErrorDialogService', () => ({
     showSQLiteErrorDialog: mocks.showSQLiteErrorDialog
 }));
@@ -133,9 +128,9 @@ vi.mock('./authSessionRecoveryService', () => ({
     handleRuntimeAuthFailure: mocks.handleRuntimeAuthFailure
 }));
 
+import { toast } from '@/services/toastService';
 import { useDataDirMigrationStore } from '@/state/dataDirMigrationStore';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
-import { useNotificationStore } from '@/state/notificationStore';
 import { useProfileBackupStore } from '@/state/profileBackupStore';
 import { useRuntimeStore } from '@/state/runtimeStore';
 import { useSessionStore } from '@/state/sessionStore';
@@ -443,7 +438,6 @@ describe('runtimeEventBridgeService', () => {
         vi.clearAllMocks();
         useRuntimeStore.getState().resetRuntimeState();
         useFriendRosterStore.getState().resetRoster();
-        useNotificationStore.getState().resetNotificationState();
         useSessionStore.getState().resetSessionState();
         useUserFactsStore.getState().resetUserFacts();
         useProfileBackupStore.getState().resetProfileBackupState();
@@ -460,7 +454,6 @@ describe('runtimeEventBridgeService', () => {
         mocks.runtimeGroupInstancesRefresh.mockResolvedValue(null);
         mocks.handleGameRunningUpdate.mockResolvedValue(undefined);
         mocks.hydrateFavoriteImportRuntimeStatus.mockResolvedValue(undefined);
-        mocks.pushSharedFeedNotification.mockResolvedValue(undefined);
         mocks.bindDeepLinkEvents.mockResolvedValue(mocks.deepLinkUnsubscribe);
         mocks.drainPendingDeepLinks.mockResolvedValue(undefined);
         mocks.bindDesktopNotificationActivationEvents.mockResolvedValue(
@@ -930,7 +923,6 @@ describe('runtimeEventBridgeService', () => {
             name: 'Live Track',
             position: 7
         });
-        expect(mocks.pushSharedFeedNotification).not.toHaveBeenCalled();
     });
 
     it('still hydrates now playing after an unrelated GameLog side effect', async () => {
@@ -1298,6 +1290,7 @@ describe('runtimeEventBridgeService', () => {
     });
 
     it('routes typed game-client variants', async () => {
+        const addToast = vi.spyOn(toast, 'add');
         const { handlers } = await bindCapturedRuntimeEvents();
         mocks.isHostCapabilityAvailable.mockImplementation(
             (name) => name === 'runtimeGameClientLifecycle'
@@ -1312,9 +1305,10 @@ describe('runtimeEventBridgeService', () => {
             }
         });
 
-        expect(useNotificationStore.getState().items[0]).toMatchObject({
-            level: 'warning',
-            title: 'VRChat crash detected'
+        expect(addToast).toHaveBeenCalledWith({
+            type: 'warning',
+            title: 'VRChat crash detected',
+            description: 'VRChat crashed, attempting to rejoin last instance.'
         });
     });
 

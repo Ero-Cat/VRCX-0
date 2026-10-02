@@ -4,8 +4,9 @@ mod dispatcher;
 mod do_not_disturb;
 mod indicator;
 mod overlay_transport;
-#[cfg(any(windows, target_os = "linux"))]
+#[cfg(windows)]
 mod ovrt;
+mod policy;
 mod preferences;
 #[cfg(test)]
 mod test_support;
@@ -20,12 +21,13 @@ pub use delivery::{
 pub use desktop::{
     DesktopNotificationAction, DesktopNotificationTarget, DesktopNotifier, DesktopNotifierSlot,
 };
-pub use dispatcher::{NotificationDispatcher, NotificationDispatcherDeps};
+pub(crate) use dispatcher::{NotificationDispatcher, NotificationDispatcherDeps};
 pub use do_not_disturb::{
     NotificationDoNotDisturbMode, NotificationDoNotDisturbRuntime, NotificationDoNotDisturbSnapshot,
 };
 pub(crate) use indicator::RealtimeNotificationIndicator;
+pub(crate) use policy::LocalNotificationPolicy;
 pub use preferences::{
-    config_tts_name_mode, load_preferences, notification_tts_name_mode,
-    seed_hmd_notifications_default,
+    config_tts_name_mode, load_preferences, migrate_legacy_overlay_notification_keys,
+    notification_tts_name_mode, seed_hmd_notifications_default,
 };

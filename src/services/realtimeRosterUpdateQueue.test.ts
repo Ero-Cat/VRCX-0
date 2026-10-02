@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useFriendLocationTimeStore } from '@/state/friendLocationTimeStore';
 import { useFriendRosterStore } from '@/state/friendRosterStore';
+import { usePreferencesStore } from '@/state/preferencesStore';
+import { useShellStore } from '@/state/shellStore';
 import { useUserFactsStore } from '@/state/userFactsStore';
 
 import {
@@ -75,6 +77,21 @@ describe('realtimeRosterUpdateQueue', () => {
                 'https://api.example.test::usr_friend'
             ]
         ).toMatchObject({ displayName: 'Second' });
+    });
+
+    it('lights the friend log menu dot only when its setting is on', () => {
+        useShellStore.setState({ notifiedMenus: [] });
+        usePreferencesStore.setState({ friendLogNotificationDot: false });
+        queueRealtimeFriendRosterUpdate(friendPatch('Renamed'), true);
+        expect(useShellStore.getState().notifiedMenus).not.toContain(
+            'friend-log'
+        );
+
+        vi.advanceTimersByTime(500);
+        usePreferencesStore.setState({ friendLogNotificationDot: true });
+        queueRealtimeFriendRosterUpdate(friendPatch('Renamed again'), true);
+        flushRealtimeRosterUpdates();
+        expect(useShellStore.getState().notifiedMenus).toContain('friend-log');
     });
 
     it('drops buffered updates when the roster owner changed', () => {

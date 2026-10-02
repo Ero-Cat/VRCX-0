@@ -2,14 +2,11 @@ use std::sync::{Arc, Mutex};
 
 use vrcx_0_application::auth::AuthCredentialStore;
 use vrcx_0_application_activity::notification::{
-    extract_file_version, fallback_file_version, load_location_hidden_user_ids,
-    load_overlay_activity_filters, normalize_avatar_image_url_128,
-    CachedNotificationUserImageResolver, NotificationConfig, RealtimeUserImageResolverSlot,
+    apply_location_notification_rules, extract_file_version, fallback_file_version,
+    load_overlay_activity_filters, rename_local_favorite_group_in_activity_filters,
+    CachedNotificationUserImageResolver, NotificationConfig, NotificationResolver,
 };
-use vrcx_0_application_activity::{
-    OverlayActivityRuntime, OverlayActivitySink, OverlayActivitySinkRegistry,
-    OverlayActivitySurface,
-};
+use vrcx_0_application_activity::{ActivityRouter, ActivitySink, ActivitySinkRegistry};
 use vrcx_0_application_core::{
     FriendProjection, HostSessionRuntime, ImageCache,
     RealtimeNotificationProjectionObserverRegistry, RuntimeAuthScope, RuntimeEventBus,
@@ -29,7 +26,8 @@ use vrcx_0_persistence::{config::ConfigRepository, DatabaseService};
 
 use crate::host_actions::RuntimeHost;
 use crate::notification::{
-    seed_hmd_notifications_default, DesktopNotifier, DesktopNotifierSlot, NotificationDispatcher,
+    migrate_legacy_overlay_notification_keys, seed_hmd_notifications_default, DesktopNotifier,
+    DesktopNotifierSlot, LocalNotificationPolicy, NotificationDispatcher,
     NotificationDispatcherDeps, NotificationDoNotDisturbRuntime, RealtimeNotificationIndicator,
 };
 use crate::privacy_lock::PrivacyLockRuntime;
@@ -42,14 +40,15 @@ pub(crate) struct DesktopRuntimeServicesDeps {
     pub image_cache: Arc<ImageCache>,
     pub config: ConfigRepository,
     pub notification_config: Arc<dyn NotificationConfig>,
+    pub notification_resolver: Arc<NotificationResolver>,
     pub auth_credentials: Arc<dyn AuthCredentialStore>,
     pub auth_scope: RuntimeAuthScope,
     pub session: HostSessionRuntime,
     pub world_cache: Arc<WorldCache>,
     pub tasks: TaskSupervisor,
     pub event_bus: RuntimeEventBus,
-    pub overlay_activity: OverlayActivityRuntime,
-    pub overlay_activity_sinks: OverlayActivitySinkRegistry,
+    pub activity_router: ActivityRouter,
+    pub activity_sinks: ActivitySinkRegistry,
     pub notification_projection_observers: RealtimeNotificationProjectionObserverRegistry,
 }
 
@@ -62,15 +61,16 @@ pub struct DesktopRuntimeServices {
     session: HostSessionRuntime,
     world_cache: Arc<WorldCache>,
     tasks: TaskSupervisor,
-    overlay_activity: OverlayActivityRuntime,
-    overlay_activity_sinks: OverlayActivitySinkRegistry,
+    activity_router: ActivityRouter,
+    activity_sinks: ActivitySinkRegistry,
     notification_do_not_disturb: NotificationDoNotDisturbRuntime,
     notification_indicator: Arc<RealtimeNotificationIndicator>,
     privacy_lock: Arc<PrivacyLockRuntime>,
+    notification_policy: Arc<LocalNotificationPolicy>,
     pub host: RuntimeHost,
     tts: Arc<dyn TtsEngine>,
     notification_desktop_notifier: DesktopNotifierSlot,
-    realtime_user_image_resolver: RealtimeUserImageResolverSlot,
+    notification_resolver: Arc<NotificationResolver>,
     realtime_user_image_resolver_owner: Mutex<Option<Arc<dyn CachedNotificationUserImageResolver>>>,
     game_log_snapshot: RuntimeSnapshotStore,
     now_playing: Arc<Mutex<Arc<NowPlayingSnapshot>>>,
@@ -78,12 +78,14 @@ pub struct DesktopRuntimeServices {
 
 impl DesktopRuntimeServices {
     pub(crate) fn new(deps: DesktopRuntimeServicesDeps) -> vrcx_0_application_core::Result<Self> {
+        if let Err(error) = migrate_legacy_overlay_notification_keys(&deps.config) {
+            tracing::warn!(error = %error, "failed to migrate legacy overlay notification keys");
+        }
         if let Err(error) = seed_hmd_notifications_default(&deps.config) {
             tracing::warn!(error = %error, "failed to seed HMD notification preference");
         }
         let tts: Arc<dyn TtsEngine> = Arc::new(SystemTtsEngine::new());
         let notification_desktop_notifier = DesktopNotifierSlot::default();
-        let realtime_user_image_resolver = RealtimeUserImageResolverSlot::default();
         let host = RuntimeHost::new();
         deps.auth_scope
             .add_vrchat_auth_failure_observer(Arc::new(host.clone()));
@@ -98,6 +100,12 @@ impl DesktopRuntimeServices {
             deps.event_bus,
         )?);
         deps.auth_scope.add_observer(privacy_lock.clone());
+        let notification_policy = Arc::new(LocalNotificationPolicy::new(
+            deps.config.clone(),
+            deps.session.clone(),
+            notification_do_not_disturb.clone(),
+            privacy_lock.clone(),
+        ));
         let notification_indicator = Arc::new(RealtimeNotificationIndicator::new(
             Arc::clone(&deps.db),
             deps.config.clone(),
@@ -108,21 +116,18 @@ impl DesktopRuntimeServices {
         deps.notification_projection_observers
             .add(notification_indicator.clone());
         deps.auth_scope.add_observer(notification_indicator.clone());
-        let notification_sink: Arc<dyn OverlayActivitySink> =
+        let notification_sink: Arc<dyn ActivitySink> =
             Arc::new(NotificationDispatcher::new(NotificationDispatcherDeps {
-                session: deps.session.clone(),
                 auth_scope: deps.auth_scope.clone(),
-                config: deps.config.clone(),
                 db: Arc::clone(&deps.db),
                 image_cache: Arc::clone(&deps.image_cache),
-                realtime_user_image_resolver: realtime_user_image_resolver.clone(),
+                resolver: Arc::clone(&deps.notification_resolver),
                 desktop: Arc::new(notification_desktop_notifier.clone()),
                 tts: Arc::clone(&tts),
                 tasks: deps.tasks.clone(),
-                do_not_disturb: notification_do_not_disturb.clone(),
-                privacy_lock: privacy_lock.clone(),
+                policy: Arc::clone(&notification_policy),
             }));
-        deps.overlay_activity_sinks.add(notification_sink);
+        deps.activity_sinks.add(notification_sink);
         Ok(Self {
             web: deps.web,
             image_cache: deps.image_cache,
@@ -132,34 +137,46 @@ impl DesktopRuntimeServices {
             session: deps.session,
             world_cache: deps.world_cache,
             tasks: deps.tasks,
-            overlay_activity: deps.overlay_activity,
-            overlay_activity_sinks: deps.overlay_activity_sinks,
+            activity_router: deps.activity_router,
+            activity_sinks: deps.activity_sinks,
             notification_do_not_disturb,
             notification_indicator,
             privacy_lock,
+            notification_policy,
             host,
             tts,
             notification_desktop_notifier,
-            realtime_user_image_resolver,
+            notification_resolver: deps.notification_resolver,
             realtime_user_image_resolver_owner: Mutex::new(None),
             game_log_snapshot: RuntimeSnapshotStore::default(),
             now_playing: Arc::new(Mutex::new(Arc::new(NowPlayingSnapshot::default()))),
         })
     }
 
+    pub fn rename_local_favorite_group_in_activity_filters(
+        &self,
+        group_name: &str,
+        new_group_name: &str,
+    ) -> vrcx_0_application_core::Result<()> {
+        rename_local_favorite_group_in_activity_filters(
+            self.notification_config.as_ref(),
+            group_name,
+            new_group_name,
+        )?;
+        self.reload_overlay_activity_filters();
+        Ok(())
+    }
+
     pub fn reload_overlay_activity_filters(&self) {
-        self.overlay_activity
+        self.activity_router
             .set_filters(load_overlay_activity_filters(
                 self.notification_config.as_ref(),
             ));
-        self.overlay_activity
-            .set_location_hidden_user_ids(load_location_hidden_user_ids(
-                self.notification_config.as_ref(),
-            ));
+        apply_location_notification_rules(&self.activity_router, self.notification_config.as_ref());
     }
 
-    pub fn set_overlay_activity_extra_sink(&self, extra_sink: Arc<dyn OverlayActivitySink>) {
-        self.overlay_activity_sinks.add(extra_sink);
+    pub fn set_overlay_activity_extra_sink(&self, extra_sink: Arc<dyn ActivitySink>) {
+        self.activity_sinks.add(extra_sink);
     }
 
     pub fn set_notification_desktop_notifier(&self, desktop: Arc<dyn DesktopNotifier>) {
@@ -174,11 +191,12 @@ impl DesktopRuntimeServices {
         self.notification_indicator.refresh();
     }
 
-    pub fn set_realtime_user_image_resolver(&self, realtime_runtime: &Arc<RealtimeHostRuntime>) {
+    pub fn attach_realtime_runtime(&self, realtime_runtime: &Arc<RealtimeHostRuntime>) {
+        self.notification_policy.attach_realtime(realtime_runtime);
         let resolver: Arc<dyn CachedNotificationUserImageResolver> = Arc::new(
             vrcx_0_outbound_adapters::RealtimeNotificationUserImageResolver::new(realtime_runtime),
         );
-        self.realtime_user_image_resolver.set(&resolver);
+        self.notification_resolver.attach_realtime(&resolver);
         match self.realtime_user_image_resolver_owner.lock() {
             Ok(mut owner) => *owner = Some(resolver),
             Err(error) => tracing::warn!(
@@ -203,8 +221,8 @@ impl DesktopRuntimeServices {
             .unwrap_or_else(|_| Arc::new(NowPlayingSnapshot::default()))
     }
 
-    pub fn overlay_activity(&self) -> OverlayActivityRuntime {
-        self.overlay_activity.clone()
+    pub fn activity_router(&self) -> ActivityRouter {
+        self.activity_router.clone()
     }
 
     pub fn tts(&self) -> Arc<dyn TtsEngine> {
@@ -238,8 +256,7 @@ impl DesktopRuntimeServices {
                 }
             },
             GameLogSideEffectEvent::ScreenshotProcessed(_)
-            | GameLogSideEffectEvent::GameNoVr(_)
-            | GameLogSideEffectEvent::Notification(_) => {}
+            | GameLogSideEffectEvent::GameNoVr(_) => {}
         }
     }
 
@@ -264,13 +281,12 @@ impl DesktopRuntimeServices {
             if !user_id.starts_with("usr_") {
                 continue;
             }
-            let Some(raw_url) = self
-                .realtime_user_image_resolver
-                .cached_url(&endpoint, user_id)
+            let Some(normalized) = self
+                .notification_resolver
+                .cached_user_image(&endpoint, user_id)
             else {
                 continue;
             };
-            let normalized = normalize_avatar_image_url_128(&raw_url, &endpoint);
             let Some(file_id) = extract_file_id(&normalized) else {
                 continue;
             };
@@ -321,14 +337,25 @@ impl VrOverlayRuntimeServices for DesktopRuntimeServices {
         &self.tasks
     }
 
-    fn overlay_activity(&self) -> OverlayActivityRuntime {
-        self.overlay_activity.clone()
+    fn activity_router(&self) -> ActivityRouter {
+        self.activity_router.clone()
     }
 
     fn hmd_notifications_allowed(&self) -> bool {
-        !self
-            .notification_do_not_disturb
-            .suppresses(OverlayActivitySurface::Hmd)
+        self.notification_policy.hmd_allowed()
+    }
+
+    fn notification_images_enabled(&self) -> bool {
+        self.notification_policy.images_enabled()
+    }
+
+    fn notification_user_image(&self, endpoint: &str, user_id: &str) -> Option<String> {
+        self.notification_resolver
+            .cached_user_image(endpoint, user_id)
+    }
+
+    fn set_hmd_afk(&self, is_hmd_afk: bool) {
+        self.session.set_hmd_afk(is_hmd_afk);
     }
 
     fn game_log_snapshot(&self) -> RuntimeSnapshot {

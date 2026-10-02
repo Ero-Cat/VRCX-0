@@ -5,57 +5,47 @@ use std::time::Duration;
 
 use tokio::sync::{mpsc, oneshot};
 use vrcx_0_application_activity::notification::{
-    extract_file_version, fallback_file_version, load_notification_locale,
-    normalize_avatar_image_url_128, render_delivery, NotificationConfig, OverlayLocale,
-    RealtimeUserImageResolverSlot, RenderedNotification,
+    extract_file_version, fallback_file_version, render_delivery, NotificationResolver,
+    OverlayLocale, RenderedNotification,
 };
-use vrcx_0_application_activity::{
-    OverlayActivityDelivery, OverlayActivitySink, OverlayActivitySnapshot, OverlayActivitySurface,
-};
-use vrcx_0_application_core::{HostSessionRuntime, ImageCache, RuntimeAuthScope, TaskSupervisor};
+use vrcx_0_application_activity::{ActivityDelivery, ActivitySink, ActivitySnapshot};
+use vrcx_0_application_core::{ImageCache, RuntimeAuthScope, TaskSupervisor};
 use vrcx_0_host_desktop::tts::TtsEngine;
-use vrcx_0_persistence::{config::ConfigRepository, DatabaseService};
-
-use crate::privacy_lock::PrivacyLockRuntime;
+use vrcx_0_persistence::DatabaseService;
 
 use super::desktop::{send_desktop_notification, DesktopNotificationAction, DesktopNotifier};
 use super::overlay_transport::OverlayNotificationTransport;
+use super::policy::LocalNotificationPolicy;
 use super::tts::{notification_tts_memo_actor_user_id, send_tts_notification};
-use super::{
-    decide_notification_plan, load_preferences, NotificationDeliveryGameState,
-    NotificationDeliveryPlan, NotificationDeliveryPreferences, NotificationDoNotDisturbRuntime,
-};
+use super::{NotificationDeliveryPlan, NotificationDeliveryPreferences};
+use vrcx_0_contracts::activity::ActivityKind;
 use vrcx_0_core::files::extract_file_id;
-use vrcx_0_core::json::JsonExt;
+use vrcx_0_core::location::is_meaningful_world_name;
 use vrcx_0_core::OwnerId;
 
 const NOTIFICATION_IMAGE_FIRST_SEND_BUDGET: Duration = Duration::from_secs(1);
+const NOTIFICATION_USER_IMAGE_FIRST_SEND_BUDGET: Duration = Duration::from_secs(2);
+const NOTIFICATION_WORLD_NAME_FIRST_SEND_BUDGET: Duration = Duration::from_secs(2);
 
 pub struct NotificationDispatcher {
-    session: HostSessionRuntime,
     auth_scope: RuntimeAuthScope,
-    config: ConfigRepository,
-    notification_config: Arc<dyn NotificationConfig>,
     image_cache: Arc<ImageCache>,
-    realtime_user_image_resolver: RealtimeUserImageResolverSlot,
+    resolver: Arc<NotificationResolver>,
     output: Arc<NotificationOutputContext>,
     completion_tx: mpsc::UnboundedSender<NotificationCompletion>,
     next_sequence: AtomicU64,
     tasks: TaskSupervisor,
 }
 
-pub struct NotificationDispatcherDeps {
-    pub session: HostSessionRuntime,
+pub(crate) struct NotificationDispatcherDeps {
     pub auth_scope: RuntimeAuthScope,
-    pub config: ConfigRepository,
     pub db: Arc<DatabaseService>,
     pub image_cache: Arc<ImageCache>,
-    pub realtime_user_image_resolver: RealtimeUserImageResolverSlot,
+    pub resolver: Arc<NotificationResolver>,
     pub desktop: Arc<dyn DesktopNotifier>,
     pub tts: Arc<dyn TtsEngine>,
     pub tasks: TaskSupervisor,
-    pub do_not_disturb: NotificationDoNotDisturbRuntime,
-    pub privacy_lock: Arc<PrivacyLockRuntime>,
+    pub policy: Arc<LocalNotificationPolicy>,
 }
 
 struct NotificationOutputContext {
@@ -63,20 +53,20 @@ struct NotificationOutputContext {
     db: Arc<DatabaseService>,
     desktop: Arc<dyn DesktopNotifier>,
     tts: Arc<dyn TtsEngine>,
-    do_not_disturb: NotificationDoNotDisturbRuntime,
-    privacy_lock: Arc<PrivacyLockRuntime>,
+    policy: Arc<LocalNotificationPolicy>,
 }
 
 struct NotificationJob {
-    delivery: OverlayActivityDelivery,
+    delivery: ActivityDelivery,
     preferences: NotificationDeliveryPreferences,
     plan: NotificationDeliveryPlan,
     locale: OverlayLocale,
+    endpoint: String,
     current_user_id: String,
 }
 
 struct PreparedNotification {
-    delivery: OverlayActivityDelivery,
+    delivery: ActivityDelivery,
     preferences: NotificationDeliveryPreferences,
     plan: NotificationDeliveryPlan,
     render: RenderedNotification,
@@ -125,17 +115,13 @@ impl<T> OrderedDeliveryBuffer<T> {
 }
 
 impl NotificationDispatcher {
-    pub fn new(deps: NotificationDispatcherDeps) -> Self {
-        let notification_config: Arc<dyn NotificationConfig> = Arc::new(
-            vrcx_0_outbound_adapters::LocalNotificationConfig::new(deps.config.clone()),
-        );
+    pub(crate) fn new(deps: NotificationDispatcherDeps) -> Self {
         let output = Arc::new(NotificationOutputContext {
             overlay_transport: OverlayNotificationTransport::new(),
             db: deps.db,
             desktop: deps.desktop,
             tts: deps.tts,
-            do_not_disturb: deps.do_not_disturb,
-            privacy_lock: deps.privacy_lock,
+            policy: deps.policy,
         });
         let (completion_tx, completion_rx) = mpsc::unbounded_channel();
         let worker_output = Arc::clone(&output);
@@ -143,12 +129,9 @@ impl NotificationDispatcher {
             run_ordered_output(completion_rx, worker_output).await;
         });
         Self {
-            session: deps.session,
             auth_scope: deps.auth_scope,
-            config: deps.config,
-            notification_config,
             image_cache: deps.image_cache,
-            realtime_user_image_resolver: deps.realtime_user_image_resolver,
+            resolver: deps.resolver,
             output,
             completion_tx,
             next_sequence: AtomicU64::new(0),
@@ -157,37 +140,34 @@ impl NotificationDispatcher {
     }
 }
 
-impl OverlayActivitySink for NotificationDispatcher {
-    fn emit_overlay_activity_snapshot(&self, _snapshot: OverlayActivitySnapshot) {}
+impl ActivitySink for NotificationDispatcher {
+    fn emit_overlay_activity_snapshot(&self, _snapshot: ActivitySnapshot) {}
 
-    fn emit_overlay_activity_delivery(&self, delivery: OverlayActivityDelivery) {
-        let preferences = load_preferences(&self.config);
-        let game = load_game_state(&self.session, &self.config);
-        let plan = plan_allowed_by_suppressors(
-            decide_notification_plan(&delivery, &preferences, &game),
-            &self.output,
-        );
+    fn emit_overlay_activity_delivery(&self, delivery: ActivityDelivery) {
+        let settings = self.output.policy.settings();
+        let plan = self.output.policy.plan(&delivery, &settings);
         if !plan.has_local_transport() {
             return;
         }
-        let locale = load_notification_locale(self.notification_config.as_ref());
+        let preferences = settings.preferences.clone();
+        let locale = settings.locale;
         let (endpoint, current_user_id) = notification_session_identity(&self.auth_scope);
         let sequence = self.next_sequence.fetch_add(1, Ordering::Relaxed);
-        let priority = delivery.entry.activity_type == "OnPlayerJoining";
+        let priority = delivery.entry.kind == ActivityKind::OnPlayerJoining;
         let mut delivery = delivery;
         if !priority {
-            apply_cached_actor_image(
-                &mut delivery,
-                &endpoint,
-                &current_user_id,
-                &self.realtime_user_image_resolver,
-            );
+            if let Some(actor_user_id) = image_actor_user_id(&delivery, &current_user_id) {
+                if let Some(image_url) = self.resolver.cached_user_image(&endpoint, actor_user_id) {
+                    delivery.entry.content.image_url = image_url;
+                }
+            }
         }
         let job = NotificationJob {
             delivery,
             preferences,
             plan,
             locale,
+            endpoint,
             current_user_id,
         };
 
@@ -206,10 +186,11 @@ impl OverlayActivitySink for NotificationDispatcher {
         }
 
         let image_cache = Arc::clone(&self.image_cache);
+        let resolver = Arc::clone(&self.resolver);
         let tasks = self.tasks.clone();
         let completion_tx = self.completion_tx.clone();
         self.tasks.spawn(async move {
-            let notification = prepare_notification(job, image_cache, tasks).await;
+            let notification = prepare_notification(job, image_cache, resolver, tasks).await;
             let _ = completion_tx.send(NotificationCompletion::Ready {
                 sequence,
                 notification: Box::new(notification),
@@ -238,11 +219,31 @@ async fn run_ordered_output(
 }
 
 async fn prepare_notification(
-    job: NotificationJob,
+    mut job: NotificationJob,
     image_cache: Arc<ImageCache>,
+    resolver: Arc<NotificationResolver>,
     tasks: TaskSupervisor,
 ) -> PreparedNotification {
     let needs_local_image = job.preferences.image_notifications && job.plan.needs_local_image();
+    let (actor_image, world) = tokio::join!(
+        async {
+            if needs_local_image {
+                resolve_actor_image_with_budget(&tasks, Arc::clone(&resolver), &job).await
+            } else {
+                None
+            }
+        },
+        resolve_world_name_with_budget(&tasks, Arc::clone(&resolver), &job),
+    );
+    if let Some(image_url) = actor_image {
+        job.delivery.entry.content.image_url = image_url;
+    }
+    if let Some((world_name, display_location)) = world {
+        job.delivery.entry.content.world_name = world_name;
+        if !display_location.trim().is_empty() {
+            job.delivery.entry.content.display_location = display_location;
+        }
+    }
     let render = render_delivery(
         &job.delivery,
         job.locale,
@@ -262,10 +263,10 @@ fn prepare_rendered_notification(
     local_image: Option<String>,
 ) -> PreparedNotification {
     let owner_user_id = OwnerId::new(job.current_user_id);
-    let desktop_action = if job.delivery.entry.activity_type == "group.instanceOpened" {
+    let desktop_action = if job.delivery.entry.kind == ActivityKind::GroupInstanceOpened {
         DesktopNotificationAction::open_group_profile(
             &owner_user_id,
-            &job.delivery.entry.payload.trimmed_text("groupId"),
+            &job.delivery.entry.content.group_id,
         )
     } else {
         DesktopNotificationAction::open_user_profile(
@@ -284,40 +285,14 @@ fn prepare_rendered_notification(
     }
 }
 
-fn plan_without_suppressed_surfaces(
-    plan: NotificationDeliveryPlan,
-    suppresses: impl Fn(OverlayActivitySurface) -> bool,
-) -> NotificationDeliveryPlan {
-    let mut plan = plan;
-    if suppresses(OverlayActivitySurface::Desktop) {
-        plan.desktop = false;
-    }
-    if suppresses(OverlayActivitySurface::Vr) {
-        plan.xs = false;
-        plan.ovrt = false;
-        plan.ovrt_hud = false;
-        plan.ovrt_wrist = false;
-    }
-    if suppresses(OverlayActivitySurface::Tts) {
-        plan.tts = false;
-    }
-    plan
-}
-
-fn plan_allowed_by_suppressors(
-    plan: NotificationDeliveryPlan,
-    output: &NotificationOutputContext,
-) -> NotificationDeliveryPlan {
-    plan_without_suppressed_surfaces(plan, |surface| {
-        output.do_not_disturb.suppresses(surface) || output.privacy_lock.suppresses(surface)
-    })
-}
-
 fn dispatch_prepared_notification(
     notification: &PreparedNotification,
     output: &NotificationOutputContext,
 ) {
-    let plan = plan_allowed_by_suppressors(notification.plan, output);
+    if output.policy.paused(&output.policy.settings()) {
+        return;
+    }
+    let plan = notification.plan;
     if plan.tts {
         let user_memo = notification_tts_memo_actor_user_id(
             &notification.delivery,
@@ -340,7 +315,7 @@ fn dispatch_prepared_notification(
         send_desktop_notification(
             output.desktop.as_ref(),
             &notification.render,
-            &notification.delivery.entry.activity_type,
+            notification.delivery.entry.kind,
             &notification.delivery.entry.content.group_name,
             &notification.preferences,
             local_image,
@@ -370,22 +345,55 @@ fn load_user_memo(db: &DatabaseService, actor_user_id: &str) -> Option<String> {
     }
 }
 
-fn apply_cached_actor_image(
-    delivery: &mut OverlayActivityDelivery,
-    endpoint: &str,
+fn image_actor_user_id<'a>(
+    delivery: &'a ActivityDelivery,
     current_user_id: &str,
-    resolver: &RealtimeUserImageResolverSlot,
-) {
+) -> Option<&'a str> {
     if !delivery.entry.content.image_url.trim().is_empty() {
-        return;
+        return None;
     }
     let actor_user_id = delivery.entry.actor_user_id.trim();
-    if !actor_user_id.starts_with("usr_") || actor_user_id == current_user_id.trim() {
-        return;
+    (actor_user_id.starts_with("usr_") && actor_user_id != current_user_id.trim())
+        .then_some(actor_user_id)
+}
+
+async fn resolve_actor_image_with_budget(
+    tasks: &TaskSupervisor,
+    resolver: Arc<NotificationResolver>,
+    job: &NotificationJob,
+) -> Option<String> {
+    let actor_user_id = image_actor_user_id(&job.delivery, &job.current_user_id)?.to_string();
+    let endpoint = job.endpoint.clone();
+    let (result_tx, result_rx) = oneshot::channel();
+    tasks.spawn(async move {
+        let result = resolver.user_image(&endpoint, &actor_user_id).await;
+        let _ = result_tx.send(result);
+    });
+    tokio::time::timeout(NOTIFICATION_USER_IMAGE_FIRST_SEND_BUDGET, result_rx)
+        .await
+        .ok()?
+        .ok()?
+}
+
+async fn resolve_world_name_with_budget(
+    tasks: &TaskSupervisor,
+    resolver: Arc<NotificationResolver>,
+    job: &NotificationJob,
+) -> Option<(String, String)> {
+    if is_meaningful_world_name(&job.delivery.entry.content.world_name) {
+        return None;
     }
-    if let Some(image_url) = resolver.cached_url(endpoint, actor_user_id) {
-        delivery.entry.content.image_url = normalize_avatar_image_url_128(&image_url, endpoint);
-    }
+    let endpoint = job.endpoint.clone();
+    let delivery = job.delivery.clone();
+    let (result_tx, result_rx) = oneshot::channel();
+    tasks.spawn(async move {
+        let result = resolver.world_name(&endpoint, &delivery).await;
+        let _ = result_tx.send(result);
+    });
+    tokio::time::timeout(NOTIFICATION_WORLD_NAME_FIRST_SEND_BUDGET, result_rx)
+        .await
+        .ok()?
+        .ok()?
 }
 
 fn notification_session_identity(auth_scope: &RuntimeAuthScope) -> (String, String) {
@@ -394,18 +402,6 @@ fn notification_session_identity(auth_scope: &RuntimeAuthScope) -> (String, Stri
         return (auth_scope.endpoint, auth_scope.current_user_id);
     }
     Default::default()
-}
-
-fn load_game_state(
-    session: &HostSessionRuntime,
-    config: &ConfigRepository,
-) -> NotificationDeliveryGameState {
-    let snapshot = session.snapshot();
-    NotificationDeliveryGameState {
-        is_game_running: snapshot.is_game_running,
-        is_steamvr_running: snapshot.is_steamvr_running,
-        is_game_no_vr: config.get_bool("isGameNoVR", false).unwrap_or(false),
-    }
 }
 
 #[derive(Clone)]

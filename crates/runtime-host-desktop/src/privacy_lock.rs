@@ -5,7 +5,6 @@ use serde::Serialize;
 use vrcx_0_application::auth::{
     verify_saved_account_password, AuthCredentialStore, PrivacyLockPasswordCheck, PrivacyLockStore,
 };
-use vrcx_0_application_activity::OverlayActivitySurface;
 use vrcx_0_application_core::{
     Result, RuntimeAuthScopeObserver, RuntimeAuthScopeSnapshot, RuntimeEventBus,
     RuntimeEventPayload,
@@ -97,17 +96,6 @@ impl PrivacyLockRuntime {
 
     pub fn take_setup_request(&self) -> bool {
         self.setup_requested.swap(false, Ordering::AcqRel)
-    }
-
-    pub fn suppresses(&self, surface: OverlayActivitySurface) -> bool {
-        self.is_locked()
-            && matches!(
-                surface,
-                OverlayActivitySurface::Desktop
-                    | OverlayActivitySurface::Vr
-                    | OverlayActivitySurface::Hmd
-                    | OverlayActivitySurface::Tts
-            )
     }
 
     pub fn engage(&self) -> Result<PrivacyLockOutcome> {
@@ -317,8 +305,6 @@ mod tests {
         );
         assert!(matches!(runtime.engage()?, PrivacyLockOutcome::Ok { .. }));
         assert!(runtime.is_locked());
-        assert!(runtime.suppresses(OverlayActivitySurface::Desktop));
-        assert!(!runtime.suppresses(OverlayActivitySurface::Wrist));
 
         scope.set("", "https://api.example.test/api/1");
         assert!(!runtime.is_locked());
@@ -335,7 +321,6 @@ mod tests {
             PrivacyLockOutcome::Ok { .. }
         ));
         assert!(!runtime.is_locked());
-        assert!(!runtime.suppresses(OverlayActivitySurface::Desktop));
         Ok(())
     }
 

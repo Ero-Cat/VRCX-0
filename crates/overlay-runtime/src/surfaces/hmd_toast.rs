@@ -2,18 +2,16 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use vrcx_0_application_activity::notification::normalize_avatar_image_url_128;
-use vrcx_0_application_activity::{
-    OverlayActivityActorRelation, OverlayActivityDelivery, OverlayActivityEntry,
-};
+use vrcx_0_application_activity::{ActivityActorRelation, ActivityDelivery, ActivityEntry};
 use vrcx_0_application_core::WorldCache;
-use vrcx_0_core::friends::FriendRecord;
+use vrcx_0_contracts::activity::ActivityKind;
 use vrcx_0_core::location::{is_meaningful_world_name, parse_location, world_id_from_location};
 use vrcx_0_vr_overlay::{AvatarBitmap, OverlaySurfaceId, RgbaFrame, MAIN_SURFACE_ID};
 
-use super::super::localization::OverlayLocale;
 use super::super::manager::VrOverlayManager;
-use super::super::runtime::{render_slint_hmd_frame, VrOverlayRuntime, VrOverlayRuntimeConfig};
+use super::super::runtime::{
+    render_slint_hmd_frame, HmdNotificationStyle, VrOverlayRuntime, VrOverlayRuntimeConfig,
+};
 use super::super::service::HostVrOverlayService;
 use super::super::test_preview::test_hmd_toast_views;
 use super::main::{build_main_surface_model, HmdToastView, MainOverlayFrameInput};
@@ -24,7 +22,7 @@ const HMD_JOIN_LEAVE_MERGE_WINDOW: Duration = Duration::from_secs(4);
 
 #[derive(Clone)]
 pub(crate) struct HmdToastState {
-    entry: OverlayActivityEntry,
+    entry: ActivityEntry,
     expires_at: Instant,
     last_updated_at: Instant,
     avatar: Option<AvatarBitmap>,
@@ -32,7 +30,7 @@ pub(crate) struct HmdToastState {
 }
 
 impl VrOverlayRuntime {
-    pub(crate) fn ingest_hmd_delivery(self: &Arc<Self>, delivery: OverlayActivityDelivery) {
+    pub(crate) fn ingest_hmd_delivery(self: &Arc<Self>, delivery: ActivityDelivery) {
         if !delivery.hmd
             || !self.hmd_notifications_allowed()
             || !self.is_hmd_surface_active(self.current_runtime_config())
@@ -40,7 +38,7 @@ impl VrOverlayRuntime {
             return;
         }
         let entry = delivery.entry;
-        if entry.activity_type == "OnPlayerJoining" {
+        if entry.kind == ActivityKind::OnPlayerJoining {
             self.deliver_hmd_toast(entry);
             return;
         }
@@ -74,7 +72,7 @@ impl VrOverlayRuntime {
         });
     }
 
-    fn deliver_hmd_toast(self: &Arc<Self>, entry: OverlayActivityEntry) {
+    fn deliver_hmd_toast(self: &Arc<Self>, entry: ActivityEntry) {
         let config = self.current_runtime_config();
         if !self.hmd_notifications_allowed() || !self.is_hmd_surface_active(config) {
             return;
@@ -87,12 +85,7 @@ impl VrOverlayRuntime {
         self.spawn_avatar_fetch(&entry);
     }
 
-    fn enqueue_hmd_toast(
-        &self,
-        entry: OverlayActivityEntry,
-        now: Instant,
-        timeout: Duration,
-    ) -> bool {
+    fn enqueue_hmd_toast(&self, entry: ActivityEntry, now: Instant, timeout: Duration) -> bool {
         let Ok(mut queue) = self.hmd_toasts.lock() else {
             return false;
         };
@@ -164,15 +157,13 @@ impl VrOverlayRuntime {
             self.release_hmd_renderer_on_current_thread();
             return;
         }
-        let frame =
-            match self.render_hmd_frame(toasts, config.locale, config.show_instance_id_in_location)
-            {
-                Ok(frame) => frame,
-                Err(error) => {
-                    tracing::warn!(error = %error, "failed to render HMD overlay frame");
-                    return;
-                }
-            };
+        let frame = match self.render_hmd_frame(toasts, config) {
+            Ok(frame) => frame,
+            Err(error) => {
+                tracing::warn!(error = %error, "failed to render HMD overlay frame");
+                return;
+            }
+        };
         if let Err(error) = manager.update_surface_frame(&surface_id, frame) {
             tracing::warn!(error = %error, "failed to update HMD overlay frame");
             return;
@@ -188,6 +179,7 @@ impl VrOverlayRuntime {
     }
 
     fn hmd_toast_views(&self, now: Instant) -> Vec<HmdToastView> {
+        let images = self.current_runtime_config().hmd.images;
         let Ok(mut queue) = self.hmd_toasts.lock() else {
             return Vec::new();
         };
@@ -204,7 +196,7 @@ impl VrOverlayRuntime {
                 if let Some(services) = &self.services {
                     refresh_cached_world_name(services.world_cache(), &mut toast.entry);
                 }
-                let show_avatar = self.is_current_hmd_friend(&toast.entry.actor_user_id);
+                let show_avatar = images && self.is_current_hmd_friend(&toast.entry.actor_user_id);
                 HmdToastView {
                     entry: toast.entry.clone(),
                     avatar: if show_avatar {
@@ -230,26 +222,22 @@ impl VrOverlayRuntime {
     fn render_hmd_frame(
         &self,
         toasts: Vec<HmdToastView>,
-        locale: OverlayLocale,
-        show_instance_id_in_location: bool,
+        config: VrOverlayRuntimeConfig,
     ) -> Result<RgbaFrame, String> {
         let model = build_main_surface_model(MainOverlayFrameInput {
             toasts,
-            locale,
-            show_instance_id_in_location,
+            locale: config.locale,
+            show_instance_id_in_location: config.show_instance_id_in_location,
+            compact: config.hmd.style == HmdNotificationStyle::Compact,
+            stack_upward: config.hmd.position.stacks_upward(),
         });
         render_slint_hmd_frame(&model)
     }
 
-    fn hmd_avatar_friend_context(&self, actor_user_id: &str) -> Option<(FriendRecord, String)> {
-        let actor_user_id = actor_user_id.trim();
-        if !actor_user_id.starts_with("usr_") {
-            return None;
+    fn spawn_avatar_fetch(self: &Arc<Self>, entry: &ActivityEntry) {
+        if !self.current_runtime_config().hmd.images {
+            return;
         }
-        self.current_hmd_friend_context(actor_user_id)
-    }
-
-    fn spawn_avatar_fetch(self: &Arc<Self>, entry: &OverlayActivityEntry) {
         let Some(services) = self.services.as_ref().cloned() else {
             return;
         };
@@ -258,33 +246,26 @@ impl VrOverlayRuntime {
             return;
         }
         let actor_user_id = entry.actor_user_id.trim().to_string();
-        let Some((friend_record, snapshot_endpoint)) =
-            self.hmd_avatar_friend_context(&actor_user_id)
-        else {
+        if !self.is_current_hmd_friend(&actor_user_id) {
             tracing::debug!(
                 source_id = %source_id,
                 actor_user_id = %actor_user_id,
                 "HMD avatar fetch skipped: actor is not a current friend"
             );
             return;
-        };
-        let auth = services.auth_scope().snapshot();
-        let endpoint = if snapshot_endpoint.trim().is_empty() {
-            auth.endpoint.clone()
-        } else {
-            snapshot_endpoint
-        };
-        let initial_image_url = normalize_avatar_image_url_128(&friend_record.icon_url, &endpoint);
-        if let Some(bitmap) = self.cached_hmd_avatar(&initial_image_url, &actor_user_id) {
-            self.update_hmd_avatar(&source_id, bitmap);
-            return;
         }
-        if initial_image_url.is_empty() {
+        let endpoint = services.auth_scope().snapshot().endpoint;
+        let Some(initial_image_url) = services.notification_user_image(&endpoint, &actor_user_id)
+        else {
             tracing::debug!(
                 source_id = %source_id,
                 actor_user_id = %actor_user_id,
-                "HMD avatar fetch skipped: current friend record has no image url"
+                "HMD avatar fetch skipped: no cached image url for the actor"
             );
+            return;
+        };
+        if let Some(bitmap) = self.cached_hmd_avatar(&initial_image_url, &actor_user_id) {
+            self.update_hmd_avatar(&source_id, bitmap);
             return;
         }
         let avatar_cache = Arc::clone(&self.avatar_bitmap_cache);
@@ -360,30 +341,26 @@ fn prune_expired_hmd_toasts(queue: &mut VecDeque<HmdToastState>, now: Instant) -
     had_toasts && queue.is_empty()
 }
 
-fn should_merge_hmd_toast(
-    existing: &HmdToastState,
-    entry: &OverlayActivityEntry,
-    now: Instant,
-) -> bool {
+fn should_merge_hmd_toast(existing: &HmdToastState, entry: &ActivityEntry, now: Instant) -> bool {
     let existing_instance_key = hmd_instance_key(&existing.entry);
     let entry_instance_key = hmd_instance_key(entry);
     existing.last_updated_at + HMD_JOIN_LEAVE_MERGE_WINDOW >= now
         && is_mergeable_hmd_activity(&existing.entry)
         && is_mergeable_hmd_activity(entry)
-        && existing.entry.activity_type == entry.activity_type
+        && existing.entry.kind == entry.kind
         && existing_instance_key.is_some()
         && existing_instance_key == entry_instance_key
 }
 
-fn is_mergeable_hmd_activity(entry: &OverlayActivityEntry) -> bool {
-    entry.actor_relation == OverlayActivityActorRelation::None
+fn is_mergeable_hmd_activity(entry: &ActivityEntry) -> bool {
+    entry.actor_relation == ActivityActorRelation::None
         && matches!(
-            entry.activity_type.as_str(),
-            "OnPlayerJoined" | "OnPlayerLeft"
+            entry.kind,
+            ActivityKind::OnPlayerJoined | ActivityKind::OnPlayerLeft
         )
 }
 
-fn hmd_instance_key(entry: &OverlayActivityEntry) -> Option<String> {
+fn hmd_instance_key(entry: &ActivityEntry) -> Option<String> {
     let location = parse_location(&entry.content.location);
     if location.world_id.is_empty() || location.instance_name.is_empty() {
         return None;
@@ -391,7 +368,7 @@ fn hmd_instance_key(entry: &OverlayActivityEntry) -> Option<String> {
     Some(format!("{}:{}", location.world_id, location.instance_name))
 }
 
-fn unresolved_entry_world_id(entry: &OverlayActivityEntry) -> Option<String> {
+fn unresolved_entry_world_id(entry: &ActivityEntry) -> Option<String> {
     if is_meaningful_world_name(&entry.content.world_name) {
         return None;
     }
@@ -404,10 +381,7 @@ fn unresolved_entry_world_id(entry: &OverlayActivityEntry) -> Option<String> {
     (!world_id.is_empty()).then_some(world_id)
 }
 
-pub(crate) fn refresh_cached_world_name(
-    world_cache: &WorldCache,
-    entry: &mut OverlayActivityEntry,
-) {
+pub(crate) fn refresh_cached_world_name(world_cache: &WorldCache, entry: &mut ActivityEntry) {
     let Some(world_id) = unresolved_entry_world_id(entry) else {
         return;
     };

@@ -6,14 +6,9 @@ import {
     composeCustomFontFamily,
     createEffectiveCustomFontDraft,
     createCustomFontDraftFromPrefs,
-    DEFAULT_HMD_NOTIFICATION_ACTIVITY_FILTERS,
     filterTablePageSizeOptions,
-    HMD_DEFAULT_SCOPES,
     isValidFontFamilyList,
-    normalizeOverlayActivityFilters,
     normalizeTablePageSizes,
-    overlayActivityTypeLabelKey,
-    OVERLAY_ACTIVITY_TYPE_DEFINITIONS,
     parseIntegerInput,
     parseWebJson,
     quoteCssFontFamilyName,
@@ -53,106 +48,6 @@ describe('settingsValues', () => {
             filterTablePageSizeOptions([10, 15, 25, 50, 100], ' 5 ')
         ).toEqual([15, 25, 50]);
         expect(filterTablePageSizeOptions(options, '')).toEqual(options);
-    });
-
-    it('normalizes wrist activity filters with type-specific scopes', () => {
-        const filters = normalizeOverlayActivityFilters({
-            wrist: {
-                types: {
-                    invite: {
-                        scope: 'selectedFavorites',
-                        favoriteGroupKeys: ['group_2', '', 'group_2']
-                    },
-                    friendRequest: {
-                        scope: 'friends',
-                        favoriteGroupKeys: ['group_3']
-                    },
-                    'group.queueReady': {
-                        scope: 'everyoneInInstance',
-                        favoriteGroupKeys: ['group_4']
-                    },
-                    OnPlayerJoined: {
-                        scope: 'everyoneInInstance',
-                        favoriteGroupKeys: ['group_5']
-                    },
-                    Avatar: {
-                        scope: 'selectedFavorites',
-                        favoriteGroupKeys: ['group_avatar']
-                    },
-                    unknown: {
-                        scope: 'on'
-                    }
-                }
-            }
-        });
-
-        expect(filters).toMatchObject({
-            version: 1,
-            wrist: {
-                types: {
-                    invite: {
-                        scope: 'selectedFavorites',
-                        favoriteGroupKeys: ['group_2']
-                    },
-                    friendRequest: {
-                        scope: 'on',
-                        favoriteGroupKeys: 'all'
-                    },
-                    'group.queueReady': {
-                        scope: 'on',
-                        favoriteGroupKeys: 'all'
-                    },
-                    OnPlayerJoined: {
-                        scope: 'everyoneInInstance',
-                        favoriteGroupKeys: 'all'
-                    },
-                    AvatarChange: {
-                        scope: 'selectedFavorites',
-                        favoriteGroupKeys: ['group_avatar']
-                    }
-                }
-            }
-        });
-        expect(Object.keys(filters.wrist.types)).toHaveLength(
-            OVERLAY_ACTIVITY_TYPE_DEFINITIONS.length + 1
-        );
-        expect(filters.wrist.types.Avatar).toBeUndefined();
-        expect(filters.wrist.types.unknown).toEqual({
-            scope: 'on',
-            favoriteGroupKeys: 'all'
-        });
-    });
-
-    it('builds HMD activity filters from the shared HMD default scope contract', () => {
-        const scopes = Object.fromEntries(
-            Object.entries(DEFAULT_HMD_NOTIFICATION_ACTIVITY_FILTERS.types).map(
-                ([key, rule]) => [key, rule.scope]
-            )
-        );
-
-        expect(scopes).toEqual(HMD_DEFAULT_SCOPES);
-        expect(Object.keys(HMD_DEFAULT_SCOPES).sort()).toEqual(
-            OVERLAY_ACTIVITY_TYPE_DEFINITIONS.map(
-                (definition) => definition.key
-            ).sort()
-        );
-        expect(
-            Object.values(
-                DEFAULT_HMD_NOTIFICATION_ACTIVITY_FILTERS.types
-            ).every((rule) => rule.favoriteGroupKeys === 'all')
-        ).toBe(true);
-    });
-
-    it('maps wrist activity raw type keys to locale-safe label keys', () => {
-        expect(overlayActivityTypeLabelKey('group.queueReady')).toBe(
-            'group_queueReady'
-        );
-        expect(overlayActivityTypeLabelKey('instance.closed')).toBe(
-            'instance_closed'
-        );
-        expect(overlayActivityTypeLabelKey('OnPlayerJoined')).toBe(
-            'OnPlayerJoined'
-        );
     });
 
     it('parses JSON responses from web requests regardless of object or text payload shape', () => {

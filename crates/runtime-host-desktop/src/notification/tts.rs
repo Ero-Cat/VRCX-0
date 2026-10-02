@@ -3,14 +3,14 @@ use std::borrow::Cow;
 use vrcx_0_application_activity::notification::{
     render_delivery, OverlayLocale, RenderedNotification,
 };
-use vrcx_0_application_activity::OverlayActivityDelivery;
+use vrcx_0_application_activity::ActivityDelivery;
 use vrcx_0_host_desktop::tts::TtsEngine;
 
 use super::{NotificationDeliveryPreferences, NotificationTtsNameMode};
 
 pub(super) fn send_tts_notification(
     tts: &dyn TtsEngine,
-    delivery: &OverlayActivityDelivery,
+    delivery: &ActivityDelivery,
     render: &RenderedNotification,
     preferences: &NotificationDeliveryPreferences,
     locale: OverlayLocale,
@@ -27,7 +27,7 @@ pub(super) fn send_tts_notification(
 }
 
 pub(super) fn notification_tts_text(
-    delivery: &OverlayActivityDelivery,
+    delivery: &ActivityDelivery,
     render: &RenderedNotification,
     preferences: &NotificationDeliveryPreferences,
     locale: OverlayLocale,
@@ -51,7 +51,7 @@ pub(super) fn notification_tts_text(
 }
 
 pub(super) fn notification_tts_memo_actor_user_id<'a>(
-    delivery: &'a OverlayActivityDelivery,
+    delivery: &'a ActivityDelivery,
     render: &RenderedNotification,
     preferences: &NotificationDeliveryPreferences,
     locale: OverlayLocale,
@@ -61,7 +61,7 @@ pub(super) fn notification_tts_memo_actor_user_id<'a>(
 }
 
 fn notification_tts_render<'a>(
-    delivery: &OverlayActivityDelivery,
+    delivery: &ActivityDelivery,
     render: &'a RenderedNotification,
     preferences: &NotificationDeliveryPreferences,
     locale: OverlayLocale,
@@ -74,7 +74,7 @@ fn notification_tts_render<'a>(
 }
 
 fn memo_actor_user_id<'a>(
-    delivery: &'a OverlayActivityDelivery,
+    delivery: &'a ActivityDelivery,
     render: &RenderedNotification,
     preferences: &NotificationDeliveryPreferences,
 ) -> Option<&'a str> {

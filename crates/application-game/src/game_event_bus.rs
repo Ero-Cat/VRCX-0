@@ -7,7 +7,6 @@ use crate::{DebugLoggingOutcome, GameLogProjection, RuntimeEventBus};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum RuntimeNotificationLevel {
-    Info,
     Warning,
     Error,
 }
@@ -161,8 +160,6 @@ pub enum GameLogSideEffectEvent {
     ScreenshotProcessed(ScreenshotProcessedPayload),
     #[serde(rename = "gameNoVR")]
     GameNoVr(GameNoVrPayload),
-    #[serde(rename = "notification")]
-    Notification(RuntimeNotificationPayload),
 }
 
 pub trait GameLogSideEffectObserver: Send + Sync {

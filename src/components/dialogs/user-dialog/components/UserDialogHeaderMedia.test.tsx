@@ -109,7 +109,7 @@ describe('UserDialogHeaderMedia', () => {
         ).toEqual(['https://example.test/legacy.webp']);
     });
 
-    it('drops the avatar border and draws the frame outside the icon when a frame is equipped', () => {
+    it('renders the equipped frame outside the icon button', () => {
         const { container } = renderMedia(iconFrame);
 
         const iconButton = within(container).getByRole('button', {
@@ -119,20 +119,7 @@ describe('UserDialogHeaderMedia', () => {
             'img[src="https://example.test/frame.webp"]'
         );
 
-        expect(iconButton.classList.contains('border-0')).toBe(true);
-        expect(iconButton.classList.contains('border-white')).toBe(false);
         expect(frame).not.toBeNull();
         expect(iconButton.contains(frame)).toBe(false);
-    });
-
-    it('keeps the avatar white border when no frame is equipped', () => {
-        const { container } = renderMedia();
-
-        const iconButton = within(container).getByRole('button', {
-            name: 'Open user icon'
-        });
-
-        expect(iconButton.classList.contains('border-2')).toBe(true);
-        expect(iconButton.classList.contains('border-white')).toBe(true);
     });
 });

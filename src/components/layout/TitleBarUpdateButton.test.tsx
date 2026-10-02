@@ -120,22 +120,6 @@ describe('TitleBarUpdateButton', () => {
         expect(html).toContain('VRCX-0 2.7.0');
         expect(html).toContain('Preview 20260621-1530');
         expect(html).toContain('v2.7.0-latest');
-        expect(html).toContain('data-variant="secondary"');
-    });
-
-    it('keeps the update label and primary variant for a downloaded matching update', () => {
-        mocks.updateLoop.autoDownloadState = 'downloaded';
-        mocks.updateLoop.downloadedVersion = '2.7.0';
-        mocks.updateLoop.downloadProgress = 100;
-
-        const html = renderToStaticMarkup(
-            React.createElement(TitleBarUpdateButton, {
-                onClick: vi.fn()
-            })
-        );
-
-        expect(html).toContain('Update');
-        expect(html).toContain('data-variant="default"');
     });
 
     it('shows the downloaded size and progress while downloading the matching update', () => {

@@ -845,17 +845,21 @@ fn reconcile_records_display_name_change_for_existing_friend() -> Result<()> {
     .into_iter()
     .collect();
 
-    assert!(
-        reconcile_friend_roster_records(
-            &db,
-            "usr_self",
-            &friends_by_id,
-            None,
-            false,
-            &no_verdicts(),
-        )
-        .changed
+    let outcome = reconcile_friend_roster_records(
+        &db,
+        "usr_self",
+        &friends_by_id,
+        None,
+        false,
+        &no_verdicts(),
     );
+    assert!(outcome.changed);
+    assert_eq!(outcome.feed_entries.len(), 1);
+    let rename = outcome.feed_entries[0].to_json();
+    assert_eq!(rename["type"], "DisplayName");
+    assert_eq!(rename["displayName"], "New Name");
+    assert_eq!(rename["previousDisplayName"], "Old Name");
+    assert_eq!(rename["friendNumber"], 1);
     assert!(
         !reconcile_friend_roster_records(
             &db,
@@ -1891,13 +1895,7 @@ fn disabled_feed_persistence_keeps_projection_and_other_batch_writes() -> Result
         feed_projection.payload["upserts"].as_array().unwrap().len(),
         3
     );
-    assert_eq!(
-        runtime
-            .activity_sink_for_test()
-            .take_friend_projections()
-            .len(),
-        1
-    );
+    assert_eq!(runtime.activity_sink_for_test().take_friend_updates(), 1);
     assert_eq!(
         friend_log_current_list(runtime.database(), active_session.user_id.clone(),)?.len(),
         1

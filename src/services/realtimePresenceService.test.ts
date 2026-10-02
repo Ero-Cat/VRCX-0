@@ -7,7 +7,6 @@ const serviceMocks = vi.hoisted(() => ({
     configRepository: {
         getString: vi.fn()
     },
-    pushSharedFeedNotification: vi.fn(),
     recordCurrentUserSnapshot: vi.fn()
 }));
 
@@ -19,10 +18,6 @@ vi.mock('./domainIngestionService', () => ({
     recordCurrentUserSnapshot: serviceMocks.recordCurrentUserSnapshot
 }));
 
-vi.mock('./sharedFeedNotificationService', () => ({
-    pushSharedFeedNotification: serviceMocks.pushSharedFeedNotification
-}));
-
 vi.mock('./shellIntegrationService', () => ({
     setTrayIconNotification: vi.fn(async () => undefined),
     setTaskbarOverlayNotification: vi.fn(async () => undefined)
@@ -32,7 +27,6 @@ describe('realtimePresenceService projection boundary', () => {
     beforeEach(async () => {
         vi.clearAllMocks();
         serviceMocks.configRepository.getString.mockResolvedValue('[]');
-        serviceMocks.pushSharedFeedNotification.mockResolvedValue(undefined);
 
         const { useFriendRosterStore } =
             await import('@/state/friendRosterStore');
@@ -226,9 +220,6 @@ describe('realtimePresenceService projection boundary', () => {
                 }
             ]
         });
-        expect(serviceMocks.pushSharedFeedNotification).toHaveBeenCalledTimes(
-            1
-        );
     });
 
     it('bumps the friend-log revision so the active friend-log page refreshes in place', async () => {

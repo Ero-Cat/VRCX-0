@@ -625,10 +625,9 @@ fn parse_attachment(placement: &OverlayPlacement) -> Result<Attachment, String> 
         OverlayPlacement::TrackedDeviceRelative { device_hint } => match device_hint.as_str() {
             "left-hand" => Ok(Attachment::Hand(Hand::Left)),
             "right-hand" => Ok(Attachment::Hand(Hand::Right)),
-            "hmd" | "head" => Ok(Attachment::Head),
-            value if value.starts_with("hmd:") => Ok(Attachment::Head),
             _ => Err(format!("unknown tracked device hint '{device_hint}'")),
         },
+        OverlayPlacement::HeadLocked { .. } => Ok(Attachment::Head),
     }
 }
 
@@ -648,21 +647,14 @@ fn placement_pose(placement: &OverlayPlacement) -> xr::Posef {
                 [1.0, 0.0, 0.0, 0.06],
             ])
         }
-        OverlayPlacement::TrackedDeviceRelative { device_hint }
-            if device_hint.starts_with("hmd") =>
-        {
-            let (x, y) = match device_hint.as_str() {
-                "hmd:top" => (0.0, 0.38),
-                "hmd:left" => (-0.52, -0.12),
-                "hmd:right" => (0.52, -0.12),
-                _ => (0.0, -0.38),
-            };
-            matrix3x4_to_posef([
-                [1.0, 0.0, 0.0, x],
-                [0.0, 1.0, 0.0, y],
-                [0.0, 0.0, 1.0, -1.15],
-            ])
-        }
+        OverlayPlacement::HeadLocked {
+            offset_y_meters,
+            distance_meters,
+        } => matrix3x4_to_posef([
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, *offset_y_meters],
+            [0.0, 0.0, 1.0, -distance_meters],
+        ]),
         OverlayPlacement::TrackedDeviceRelative { .. } => matrix3x4_to_posef([
             [1.0, 0.0, 0.0, 0.0],
             [0.0, 1.0, 0.0, 0.035],

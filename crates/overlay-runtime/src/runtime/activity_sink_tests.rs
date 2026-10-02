@@ -9,5 +9,5 @@ fn activity_sink_does_not_retain_runtime() {
     drop(runtime);
 
     assert!(weak_runtime.upgrade().is_none());
-    sink.emit_overlay_activity_snapshot(OverlayActivitySnapshot::default());
+    sink.emit_overlay_activity_snapshot(ActivitySnapshot::default());
 }

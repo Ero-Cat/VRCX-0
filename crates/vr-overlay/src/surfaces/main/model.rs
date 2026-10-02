@@ -24,5 +24,7 @@ pub struct MainSurfaceModel {
     pub size: OverlaySize,
     pub dark_background: bool,
     pub accent: Color,
+    pub compact: bool,
+    pub stack_upward: bool,
     pub toasts: Vec<ToastCard>,
 }

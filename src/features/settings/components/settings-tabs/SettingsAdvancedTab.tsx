@@ -34,6 +34,7 @@ import { Field } from '../SettingsField';
 import { SettingsTabContent } from '../SettingsViewParts';
 import { useSettingsAdvancedTabState } from '../useSettingsAdvancedTabState';
 import { AdvancedTroubleshootingGroup } from './AdvancedTroubleshootingGroup';
+import { GameLogImportField } from './GameLogImportField';
 import type { SettingsAdvancedModel } from './settingsAdvancedTypes';
 
 type SettingsAdvancedTabContentProps = {
@@ -524,6 +525,7 @@ export function SettingsAdvancedTabContent({
                         )}
                     </Button>
                 </Field>
+                {gameLogPersistenceSupported ? <GameLogImportField /> : null}
             </SettingsCard>
             <SettingsCard
                 cardId="advanced.usage-data"

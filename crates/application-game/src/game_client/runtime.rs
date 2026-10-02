@@ -4,6 +4,7 @@ use std::time::Duration;
 use crate::worker::{RuntimeWorker, RuntimeWorkerOptions};
 use crate::Result;
 use crate::{HostSessionRuntime, RuntimeAuthScope, RuntimeEventBus, TaskSupervisor};
+use vrcx_0_application_core::ActivityIngress;
 use vrcx_0_application_core::BackendRuntimeStatusPublisher;
 use vrcx_0_application_core::GameProcessEvent;
 use vrcx_0_application_core::InstanceRosterObserver;
@@ -28,6 +29,7 @@ pub struct GameClientRuntimeDeps {
     pub window_actions: Arc<dyn GameClientWindowActions>,
     pub debug_logging_actions: Arc<dyn GameClientDebugLoggingActions>,
     pub instance_roster_observer: Option<Arc<dyn InstanceRosterObserver>>,
+    pub activity: Arc<dyn ActivityIngress>,
 }
 
 impl GameClientRuntimeDeps {
@@ -45,6 +47,7 @@ impl GameClientRuntimeDeps {
         window_actions: Arc<dyn GameClientWindowActions>,
         debug_logging_actions: Arc<dyn GameClientDebugLoggingActions>,
         instance_roster_observer: Option<Arc<dyn InstanceRosterObserver>>,
+        activity: Arc<dyn ActivityIngress>,
     ) -> Self {
         Self {
             store,
@@ -59,6 +62,7 @@ impl GameClientRuntimeDeps {
             window_actions,
             debug_logging_actions,
             instance_roster_observer,
+            activity,
         }
     }
 }
@@ -86,6 +90,7 @@ impl GameClientRuntime {
                 location_source: deps.location_source,
                 window_actions: deps.window_actions,
                 debug_logging_actions: deps.debug_logging_actions,
+                activity: deps.activity,
             },
             Arc::clone(&state),
         );

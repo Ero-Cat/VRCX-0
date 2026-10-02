@@ -22,7 +22,6 @@ import {
     queueRealtimeFriendRosterUpdate,
     queueRealtimeUserFactsUpdate
 } from './realtimeRosterUpdateQueue';
-import { pushSharedFeedNotification } from './sharedFeedNotificationService';
 
 type ProjectionRecord = Record<string, unknown>;
 type RuntimeState = ReturnType<typeof useRuntimeStore.getState>;
@@ -123,14 +122,6 @@ function handleRealtimeFeedProjection(payload: RealtimeFeedProjectionPayload) {
         ownerUserId: payload.ownerUserId
     });
     useFeedLiveStore.getState().pushPatches(payload.patches);
-    for (const upsert of upserts) {
-        pushSharedFeedNotification(upsert.entry).catch((error: unknown) => {
-            console.warn(
-                'Failed to publish realtime feed notification:',
-                error
-            );
-        });
-    }
 }
 
 function clearNotificationMenuIfNoUnseen() {

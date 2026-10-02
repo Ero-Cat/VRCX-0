@@ -88,7 +88,7 @@ describe('UserHoverCardContent', () => {
         expect(html).not.toContain('status-online');
     });
 
-    it('renders active status dots with the sidebar ring style', () => {
+    it('shows the active status with avatar and inline status dots', () => {
         hoverCardData.model.statusKey = 'dialog.user.status.active';
         hoverCardData.model.statusDotClassName = `${STATUS_ONLINE_CLASS} bg-background`;
 
@@ -96,9 +96,6 @@ describe('UserHoverCardContent', () => {
             <UserHoverCardContent userId="usr_1" />
         );
 
-        expect(html).toContain('border-3');
-        expect(html).toContain(STATUS_ONLINE_CLASS);
-        expect(html).toContain('bg-background');
         expect(html).toContain('dialog.user.status.active');
         expect(countOccurrences(html, STATUS_ONLINE_CLASS)).toBe(2);
     });

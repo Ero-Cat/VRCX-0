@@ -3,8 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
     appLanguageChanged: vi.fn(),
     appRestartApplication: vi.fn(),
-    appOverlayActivityDefinitionsGet: vi.fn(),
-    appOverlayActivityFiltersSet: vi.fn(),
+    appNotificationActivityFiltersGet: vi.fn(),
     appNotificationActivityFiltersSet: vi.fn(),
     appVrOverlayEnabledSet: vi.fn(),
     appDisableVrchatRichPresence: vi.fn(),
@@ -41,9 +40,8 @@ vi.mock('@/platform/tauri/bindings', () => ({
     commands: {
         appLanguageChanged: mocks.appLanguageChanged,
         appRestartApplication: mocks.appRestartApplication,
-        appOverlayActivityDefinitionsGet:
-            mocks.appOverlayActivityDefinitionsGet,
-        appOverlayActivityFiltersSet: mocks.appOverlayActivityFiltersSet,
+        appNotificationActivityFiltersGet:
+            mocks.appNotificationActivityFiltersGet,
         appNotificationActivityFiltersSet:
             mocks.appNotificationActivityFiltersSet,
         appVrOverlayEnabledSet: mocks.appVrOverlayEnabledSet,
@@ -117,7 +115,6 @@ vi.mock('./trustColorService', () => ({
 }));
 
 import type { useSettingsPreferenceActions } from '@/features/settings/useSettingsPreferenceActions';
-import { OVERLAY_ACTIVITY_TYPE_DEFINITIONS } from '@/shared/constants/overlayActivityFilters';
 import {
     DEFAULT_PREFERENCES,
     usePreferencesStore
@@ -266,9 +263,14 @@ describe('preferencesService characterization', () => {
                 Promise.resolve(String(fallback ?? ''))
         );
         mocks.storageSetString.mockResolvedValue(undefined);
-        mocks.appOverlayActivityDefinitionsGet.mockResolvedValue([]);
-        mocks.appOverlayActivityFiltersSet.mockResolvedValue(undefined);
-        mocks.appNotificationActivityFiltersSet.mockResolvedValue(undefined);
+        mocks.appNotificationActivityFiltersGet.mockResolvedValue({
+            wrist: { version: 1, types: {} },
+            vr: { version: 1, types: {} },
+            hmd: { version: 1, types: {} },
+            desktop: { version: 1, types: {} },
+            webhook: { version: 1, types: {} },
+            tts: { version: 1, types: {} }
+        });
         mocks.appLanguageChanged.mockResolvedValue(undefined);
         mocks.appRestartApplication.mockResolvedValue(undefined);
         mocks.appDisableVrchatRichPresence.mockResolvedValue({ changed: true });
@@ -302,27 +304,17 @@ describe('preferencesService characterization', () => {
         });
     });
 
-    it('loads preference snapshots with legacy overlay notification keys', async () => {
-        mocks.getRawValue.mockImplementation((key: string) =>
-            Promise.resolve(
-                key === 'VRCX-0_xsNotifications' ||
-                    key === 'VRCX-0_notificationTimeout'
-                    ? 'legacy'
-                    : null
-            )
-        );
+    it('loads preference snapshots and syncs shell state', async () => {
         mocks.getBool.mockImplementation((key: string, fallback = false) =>
             Promise.resolve(
-                key === 'VRCX-0_xsNotifications'
+                key === 'xsNotifications' || key === 'compactTableMode'
                     ? true
-                    : key === 'compactTableMode'
-                      ? true
-                      : Boolean(fallback)
+                    : Boolean(fallback)
             )
         );
         mocks.getInt.mockImplementation((key: string, fallback = 0) =>
             Promise.resolve(
-                key === 'VRCX-0_notificationTimeout' ? 9000 : Number(fallback)
+                key === 'notificationTimeout' ? 9000 : Number(fallback)
             )
         );
         mocks.appSystemCulture.mockResolvedValue('ja-JP');
@@ -392,125 +384,41 @@ describe('preferencesService characterization', () => {
         );
     });
 
-    it('persists HMD notification activity filters with HMD defaults and reloads filters', async () => {
-        mocks.appOverlayActivityDefinitionsGet.mockResolvedValue(
-            OVERLAY_ACTIVITY_TYPE_DEFINITIONS
-        );
+    it('stores the activity filters Rust normalized for the saved surface', async () => {
+        const normalized = {
+            version: 1,
+            types: {
+                Online: { scope: 'off' as const, favoriteGroupKeys: 'all' },
+                VideoPlay: { scope: 'off' as const, favoriteGroupKeys: 'all' }
+            }
+        };
+        mocks.appNotificationActivityFiltersSet.mockResolvedValue(normalized);
 
         await expect(
             setHmdNotificationActivityFiltersPreference({
+                version: 1,
                 types: {
-                    Online: {
-                        scope: 'off'
-                    }
+                    Online: { scope: 'off', favoriteGroupKeys: 'all' }
                 }
             })
-        ).resolves.toMatchObject({
-            types: {
-                OnPlayerJoined: {
-                    scope: 'off',
-                    favoriteGroupKeys: 'all'
-                },
-                Online: {
-                    scope: 'off',
-                    favoriteGroupKeys: 'all'
-                },
-                VideoPlay: {
-                    scope: 'off',
-                    favoriteGroupKeys: 'all'
+        ).resolves.toEqual(normalized);
+
+        expect(mocks.appNotificationActivityFiltersSet).toHaveBeenCalledWith({
+            surface: 'hmd',
+            filters: {
+                version: 1,
+                types: {
+                    Online: { scope: 'off', favoriteGroupKeys: 'all' }
                 }
             }
         });
-
-        expect(mocks.appNotificationActivityFiltersSet).toHaveBeenCalledWith({
-            surface: 'hmd',
-            filters: expect.objectContaining({
-                types: expect.objectContaining({
-                    OnPlayerJoined: {
-                        scope: 'off',
-                        favoriteGroupKeys: 'all'
-                    },
-                    Online: {
-                        scope: 'off',
-                        favoriteGroupKeys: 'all'
-                    }
-                })
-            })
-        });
-        expect(mocks.applyServerEntry).toHaveBeenCalledWith(
-            'hmdNotificationActivityFilters',
-            expect.any(String)
-        );
         expect(mocks.publishPreferenceChanged).toHaveBeenCalledWith(
             'hmdNotificationActivityFilters',
-            expect.objectContaining({
-                types: expect.objectContaining({
-                    Online: {
-                        scope: 'off',
-                        favoriteGroupKeys: 'all'
-                    }
-                })
-            })
+            normalized
         );
         expect(
-            usePreferencesStore.getState().hmdNotificationActivityFilters.types
-                .OnPlayerJoined
-        ).toEqual({
-            scope: 'off',
-            favoriteGroupKeys: 'all'
-        });
-    });
-
-    it('persists HMD notification activity filters with HMD defaults when definitions fail to load', async () => {
-        const warn = vi
-            .spyOn(console, 'warn')
-            .mockImplementation(() => undefined);
-        mocks.appOverlayActivityDefinitionsGet.mockRejectedValueOnce(
-            new Error('definitions unavailable')
-        );
-
-        try {
-            await expect(
-                setHmdNotificationActivityFiltersPreference({})
-            ).resolves.toMatchObject({
-                types: {
-                    OnPlayerJoined: {
-                        scope: 'off',
-                        favoriteGroupKeys: 'all'
-                    },
-                    Online: {
-                        scope: 'friends',
-                        favoriteGroupKeys: 'all'
-                    },
-                    VideoPlay: {
-                        scope: 'off',
-                        favoriteGroupKeys: 'all'
-                    }
-                }
-            });
-        } finally {
-            warn.mockRestore();
-        }
-
-        expect(mocks.appNotificationActivityFiltersSet).toHaveBeenCalledWith({
-            surface: 'hmd',
-            filters: expect.objectContaining({
-                types: expect.objectContaining({
-                    OnPlayerJoined: {
-                        scope: 'off',
-                        favoriteGroupKeys: 'all'
-                    },
-                    Online: {
-                        scope: 'friends',
-                        favoriteGroupKeys: 'all'
-                    },
-                    VideoPlay: {
-                        scope: 'off',
-                        favoriteGroupKeys: 'all'
-                    }
-                })
-            })
-        });
+            usePreferencesStore.getState().hmdNotificationActivityFilters
+        ).toEqual(normalized);
     });
 
     it('syncs language, document lang, app fonts, and overlay runtime config', async () => {

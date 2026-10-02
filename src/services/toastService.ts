@@ -23,7 +23,7 @@ export type AppToastOptions = Omit<ManagerAddOptions, 'data'> & {
 
 const VRCHAT_STATUS_HOST = new URL(links.vrchatStatus).hostname.toLowerCase();
 const URL_PATTERN = /\bhttps?:\/\/[^\s"'<>]+/gi;
-const VRCHAT_API_UNAVAILABLE_TIMEOUT_MS = 12000;
+const VRCHAT_API_UNAVAILABLE_TIMEOUT_MS = 6000;
 
 function isVrchatApiUnavailableMessage(message: unknown): boolean {
     if (typeof message !== 'string') {

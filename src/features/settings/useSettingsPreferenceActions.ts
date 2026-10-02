@@ -9,7 +9,6 @@ import {
 } from '@/services/systemFontsService';
 import type { AppToastOptions } from '@/services/toastService';
 import { loadVrchatConfigSnapshot } from '@/services/vrchatConfigService';
-import type { OverlayActivityTypeDefinition } from '@/shared/constants/overlayActivityFilters';
 import type {
     PreferencesSnapshot,
     PreferencesStoreState,
@@ -102,8 +101,7 @@ type SettingsPreferenceActionsDeps = {
         value: string
     ) => Promise<PreferencesSnapshot['trustColor']>;
     setOverlayActivityFiltersPreference: (
-        value: PreferencesSnapshot['overlayActivityFilters'],
-        definitions?: OverlayActivityTypeDefinition[]
+        value: PreferencesSnapshot['overlayActivityFilters']
     ) => Promise<PreferencesSnapshot['overlayActivityFilters']>;
     setVrNotificationActivityFiltersPreference: (
         value: PreferencesSnapshot['vrNotificationActivityFilters']
@@ -153,8 +151,7 @@ type ActivityFilterSurfaceField =
     | 'ttsNotificationActivityFilters';
 
 type ActivityFilterSurfaceSetter<Field extends ActivityFilterSurfaceField> = (
-    value: PreferencesSnapshot[Field],
-    definitions?: OverlayActivityTypeDefinition[]
+    value: PreferencesSnapshot[Field]
 ) => Promise<PreferencesSnapshot[Field]>;
 
 export function useSettingsPreferenceActions({
@@ -545,14 +542,13 @@ export function useSettingsPreferenceActions({
         Field extends ActivityFilterSurfaceField
     >(field: Field, setPreference: ActivityFilterSurfaceSetter<Field>) {
         return async function saveActivityFilterSurface(
-            value: PreferencesSnapshot[Field],
-            definitions?: OverlayActivityTypeDefinition[]
+            value: PreferencesSnapshot[Field]
         ) {
             let savedFilters = prefs[field];
             const previousFilters = prefs[field];
             const saved = await commit(
                 async () => {
-                    savedFilters = await setPreference(value, definitions);
+                    savedFilters = await setPreference(value);
                 },
                 () => {
                     setPrefs((current) => ({

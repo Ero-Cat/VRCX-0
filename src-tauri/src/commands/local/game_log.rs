@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::commands::blocking::run_blocking;
 use crate::error::AppError;
@@ -8,8 +8,8 @@ use crate::state::AppState;
 
 use serde_json::Value;
 use vrcx_0_application_game::{
-    GameLogSessionDto, GameLogSessionsQueryInput, InstanceHistoryEntryOutput,
-    InstanceHistoryQueryInput,
+    GameLogImportConsent, GameLogImportFile, GameLogSessionDto, GameLogSessionsQueryInput,
+    InstanceHistoryEntryOutput, InstanceHistoryQueryInput,
 };
 use vrcx_0_host_desktop::host_capabilities::{require_host_capability_supported, HostCapability};
 use vrcx_0_runtime_host_desktop::local_data::{
@@ -142,6 +142,65 @@ pub async fn app__instance_history_query(
     let local_data = state.runtime_host().local_data().clone();
     run_blocking("instance history query", move || {
         local_data.instance_history_query(input)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__game_log_import_select_files(
+    state: State<'_, AppState>,
+    app_handle: AppHandle,
+) -> Result<Vec<GameLogImportFile>, AppError> {
+    use tauri_plugin_dialog::DialogExt;
+
+    require_host_capability_supported(HostCapability::GameLogWatcher)?;
+    let mut builder = app_handle
+        .dialog()
+        .file()
+        .add_filter("VRChat log", &["txt"]);
+    let log_dir = vrcx_0_host_desktop::vrchat_paths::vrchat_app_data();
+    if log_dir.is_dir() {
+        builder = builder.set_directory(log_dir);
+    }
+    let Some(selected) = crate::commands::host::dialog::pick_files(builder).await else {
+        return Ok(Vec::new());
+    };
+    let paths: Vec<String> = selected
+        .into_iter()
+        .map(|file_path| match file_path {
+            tauri_plugin_dialog::FilePath::Path(path) => path.to_string_lossy().into_owned(),
+            other => other.to_string(),
+        })
+        .collect();
+    let runtime_host = state.runtime_host();
+    for path in &paths {
+        runtime_host.register_host_file_access(path);
+    }
+    let game_running = runtime_host.is_game_running();
+    let local_data = runtime_host.local_data().clone();
+    run_blocking("game log import inspect", move || {
+        local_data.game_log_import_inspect(paths, game_running)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn app__game_log_import(
+    state: State<'_, AppState>,
+    paths: Vec<String>,
+    consent: GameLogImportConsent,
+) -> Result<Vec<GameLogImportFile>, AppError> {
+    require_host_capability_supported(HostCapability::GameLogWatcher)?;
+    let runtime_host = state.runtime_host();
+    for path in &paths {
+        runtime_host.ensure_host_read_allowed(path)?;
+    }
+    let game_running = runtime_host.is_game_running();
+    let local_data = runtime_host.local_data().clone();
+    run_blocking("game log import", move || {
+        local_data.game_log_import(paths, consent, game_running)
     })
     .await
 }

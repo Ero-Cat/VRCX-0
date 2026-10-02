@@ -1,0 +1,114 @@
+use std::sync::{Arc, Mutex, Weak};
+
+use crate::ActivityDelivery;
+use vrcx_0_core::location::{format_display_location, is_meaningful_world_name, parse_location};
+
+use super::user_image::{normalize_avatar_image_url_128, UserImageCache};
+use super::{CachedNotificationUserImageResolver, NotificationRemote};
+
+#[derive(Clone, Default)]
+pub(crate) struct RealtimeUserImageResolverSlot {
+    inner: Arc<Mutex<Option<Weak<dyn CachedNotificationUserImageResolver>>>>,
+}
+
+impl RealtimeUserImageResolverSlot {
+    pub(crate) fn set(&self, resolver: &Arc<dyn CachedNotificationUserImageResolver>) {
+        match self.inner.lock() {
+            Ok(mut slot) => {
+                *slot = Some(Arc::downgrade(resolver));
+            }
+            Err(error) => {
+                tracing::warn!("failed to set realtime user image resolver bridge: {error}");
+            }
+        }
+    }
+
+    pub(crate) fn cached_url(&self, endpoint: &str, user_id: &str) -> Option<String> {
+        let resolver = self.inner.lock().ok()?.as_ref()?.upgrade()?;
+        resolver.cached_url(endpoint, user_id)
+    }
+}
+
+pub struct NotificationResolver {
+    realtime: RealtimeUserImageResolverSlot,
+    user_images: UserImageCache,
+    remote: Arc<dyn NotificationRemote>,
+}
+
+impl NotificationResolver {
+    pub fn new(remote: Arc<dyn NotificationRemote>) -> Self {
+        Self {
+            realtime: RealtimeUserImageResolverSlot::default(),
+            user_images: UserImageCache::new(),
+            remote,
+        }
+    }
+
+    pub fn attach_realtime(&self, resolver: &Arc<dyn CachedNotificationUserImageResolver>) {
+        self.realtime.set(resolver);
+    }
+
+    pub fn cached_user_image(&self, endpoint: &str, user_id: &str) -> Option<String> {
+        let image_url = self
+            .realtime
+            .cached_url(endpoint, user_id)
+            .or_else(|| self.user_images.cached_url(user_id))?;
+        Some(normalize_avatar_image_url_128(&image_url, endpoint))
+    }
+
+    pub async fn user_image(&self, endpoint: &str, user_id: &str) -> Option<String> {
+        if let Some(image_url) = self.cached_user_image(endpoint, user_id) {
+            return Some(image_url);
+        }
+        let image_url = self
+            .user_images
+            .resolve(self.remote.as_ref(), endpoint, user_id)
+            .await?;
+        Some(normalize_avatar_image_url_128(&image_url, endpoint))
+    }
+
+    pub async fn world_name(
+        &self,
+        endpoint: &str,
+        delivery: &ActivityDelivery,
+    ) -> Option<(String, String)> {
+        if is_meaningful_world_name(&delivery.entry.content.world_name) {
+            return None;
+        }
+        let world_id = delivery_world_id(delivery);
+        if world_id.is_empty() {
+            return None;
+        }
+        let name = self.remote.world_name(endpoint, &world_id).await?;
+        let parsed = parse_location(&delivery.entry.content.location);
+        let display_location =
+            format_display_location(&parsed, &name, &delivery.entry.content.group_name);
+        Some((name, display_location))
+    }
+
+    pub async fn world_image_url(
+        &self,
+        endpoint: &str,
+        delivery: &ActivityDelivery,
+    ) -> Option<String> {
+        let world_id = delivery_world_id(delivery);
+        if world_id.is_empty() {
+            return None;
+        }
+        self.remote.world_image_url(endpoint, &world_id).await
+    }
+
+    pub async fn avatar_name(&self, endpoint: &str, file_id: &str) -> Option<String> {
+        self.remote.avatar_name(endpoint, file_id).await
+    }
+}
+
+fn delivery_world_id(delivery: &ActivityDelivery) -> String {
+    let content = &delivery.entry.content;
+    let explicit = content.world_id.trim();
+    if explicit.is_empty() {
+        parse_location(&content.location).world_id
+    } else {
+        explicit.to_string()
+    }
+}

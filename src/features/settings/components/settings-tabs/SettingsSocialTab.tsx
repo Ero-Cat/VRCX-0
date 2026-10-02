@@ -60,11 +60,13 @@ export function SettingsSocialTab() {
         useShallow((state) => ({
             recentActionCooldownEnabled: state.recentActionCooldownEnabled,
             recentActionCooldownMinutes: state.recentActionCooldownMinutes,
+            autoDeclineFriendRequests: state.autoDeclineFriendRequests,
             friendLogNotificationDot: state.friendLogNotificationDot,
             hideUnfriends: state.hideUnfriends,
             profileBioScanEnabled: state.profileBioScanEnabled,
             feedHiddenUsersHideNotifications:
-                state.feedHiddenUsersHideNotifications
+                state.feedHiddenUsersHideNotifications,
+            hidePrivateFromFeed: state.hidePrivateFromFeed
         }))
     );
     const {
@@ -75,7 +77,9 @@ export function SettingsSocialTab() {
         localFavoriteFriendsGroups,
         feedHiddenUsers = [],
         onAddFeedHiddenUser,
+        onAutoDeclineFriendRequestsChange,
         onFeedHiddenUsersHideNotificationsChange,
+        onHidePrivateFromFeedChange,
         onFriendLogNotificationDotChange,
         onHideUnfriendsChange,
         onProfileBioScanEnabledChange,
@@ -189,6 +193,19 @@ export function SettingsSocialTab() {
                             </NumberField>
                         ) : null}
                     </div>
+                </Field>
+                <Field
+                    label={t(
+                        'view.settings.social.interaction.auto_decline_friend_requests'
+                    )}
+                    description={t(
+                        'view.settings.social.interaction.auto_decline_friend_requests_description'
+                    )}
+                >
+                    <Switch
+                        checked={prefs.autoDeclineFriendRequests}
+                        onCheckedChange={onAutoDeclineFriendRequestsChange}
+                    />
                 </Field>
             </SettingsCard>
             <SettingsCard
@@ -385,6 +402,19 @@ export function SettingsSocialTab() {
                         onCheckedChange={
                             onFeedHiddenUsersHideNotificationsChange
                         }
+                    />
+                </Field>
+                <Field
+                    label={t(
+                        'view.settings.social.hidden_feed.hide_private_location_changes'
+                    )}
+                    description={t(
+                        'view.settings.social.hidden_feed.hide_private_location_changes_description'
+                    )}
+                >
+                    <Switch
+                        checked={prefs.hidePrivateFromFeed}
+                        onCheckedChange={onHidePrivateFromFeedChange}
                     />
                 </Field>
             </SettingsCard>

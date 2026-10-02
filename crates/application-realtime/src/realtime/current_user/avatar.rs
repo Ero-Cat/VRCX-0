@@ -24,12 +24,53 @@ pub(super) fn insert_avatar_swap_time(
     );
 }
 
+fn avatar_wear_time_spent(
+    avatar_id: String,
+    swap_time: i64,
+    checkpoint_ms: i64,
+    now: &EventTime,
+) -> AvatarTimeSpentUpsert {
+    AvatarTimeSpentUpsert {
+        avatar_id,
+        created_at: now.iso.clone(),
+        time_spent: now
+            .timestamp_ms
+            .saturating_sub(swap_time.max(checkpoint_ms)),
+        started_at_ms: swap_time,
+        ended_at_ms: now.timestamp_ms,
+    }
+}
+
+pub(super) fn checkpoint_avatar_wear(
+    snapshot: &RealtimeCurrentUserStateSnapshot,
+    checkpoint_ms: i64,
+    game: &LocalGameContextSnapshot,
+    now: &EventTime,
+) -> Option<AvatarTimeSpentUpsert> {
+    let swap_time = snapshot.previous_avatar_swap_time;
+    if !game.is_available()
+        || !game.is_game_running()
+        || snapshot.current_avatar.is_empty()
+        || swap_time <= 0
+        || now.timestamp_ms <= swap_time.max(checkpoint_ms)
+    {
+        return None;
+    }
+    Some(avatar_wear_time_spent(
+        snapshot.current_avatar.clone(),
+        swap_time,
+        checkpoint_ms,
+        now,
+    ))
+}
+
 pub(super) fn apply_avatar_wear_transition(
     mut next: RealtimeCurrentUserStateSnapshot,
     previous: &RealtimeCurrentUserStateSnapshot,
     game: &LocalGameContextSnapshot,
     now: &EventTime,
     records_current_avatar_history: bool,
+    checkpoint_ms: i64,
 ) -> (RealtimeCurrentUserStateSnapshot, RealtimePersistenceBatch) {
     let previous_avatar_id = previous.current_avatar.clone();
     let next_avatar_id = next.current_avatar.clone();
@@ -58,13 +99,12 @@ pub(super) fn apply_avatar_wear_transition(
         if !previous_avatar_id.is_empty() && previous_swap_time > 0 {
             persistence
                 .avatar_time_spent_upserts
-                .push(AvatarTimeSpentUpsert {
-                    avatar_id: previous_avatar_id,
-                    created_at: now.iso.clone(),
-                    time_spent: now.timestamp_ms.saturating_sub(previous_swap_time),
-                    started_at_ms: previous_swap_time,
-                    ended_at_ms: now.timestamp_ms,
-                });
+                .push(avatar_wear_time_spent(
+                    previous_avatar_id,
+                    previous_swap_time,
+                    checkpoint_ms,
+                    now,
+                ));
         }
         next.set_previous_avatar_swap_time(None);
         return (next, persistence);
@@ -95,13 +135,12 @@ pub(super) fn apply_avatar_wear_transition(
         if previous_swap_time > 0 {
             persistence
                 .avatar_time_spent_upserts
-                .push(AvatarTimeSpentUpsert {
-                    avatar_id: previous_avatar_id,
-                    created_at: now.iso.clone(),
-                    time_spent: now.timestamp_ms.saturating_sub(previous_swap_time),
-                    started_at_ms: previous_swap_time,
-                    ended_at_ms: now.timestamp_ms,
-                });
+                .push(avatar_wear_time_spent(
+                    previous_avatar_id,
+                    previous_swap_time,
+                    checkpoint_ms,
+                    now,
+                ));
         }
         return (next, persistence);
     }

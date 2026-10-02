@@ -58,6 +58,21 @@ pub enum GameLogSideEffect {
     UdonException {
         data: String,
     },
+    LocationGroupName {
+        created_at: String,
+        location: String,
+        group_id: String,
+    },
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct GameLogAvatarChange {
+    pub created_at: String,
+    pub user_id: String,
+    pub display_name: String,
+    pub avatar_name: String,
+    pub location: String,
+    pub world_name: String,
 }
 
 #[derive(Debug, Default, PartialEq)]
@@ -69,6 +84,7 @@ pub struct GameLogIngestOutput {
     pub instance_roster_changed: bool,
     pub departed_user_ids: Vec<String>,
     pub replayed_departed_user_ids: Vec<String>,
+    pub avatar_changes: Vec<GameLogAvatarChange>,
     pub projection: Option<GameLogProjection>,
     pub side_effects: Vec<GameLogSideEffect>,
 }
@@ -98,6 +114,7 @@ impl GameLogIngestOutput {
         self.departed_user_ids.append(&mut next.departed_user_ids);
         self.replayed_departed_user_ids
             .append(&mut next.replayed_departed_user_ids);
+        self.avatar_changes.append(&mut next.avatar_changes);
         self.side_effects.append(&mut next.side_effects);
     }
 }
@@ -149,6 +166,18 @@ impl GameLogIngestEngine {
                     world_name,
                 } => {
                     self.ingest_location(&mut output.batch, event, location, world_name);
+                    if let Some(group_id) = parse_location(location)
+                        .group_id
+                        .filter(|id| !id.is_empty())
+                    {
+                        output
+                            .side_effects
+                            .push(GameLogSideEffect::LocationGroupName {
+                                created_at: event.created_at.clone(),
+                                location: location.to_string(),
+                                group_id,
+                            });
+                    }
                     output.instance_roster_changed |= !location.is_empty();
                 }
                 GameLogEventKind::LocationDestination { .. } => {
@@ -188,7 +217,11 @@ impl GameLogIngestEngine {
                     output.instance_roster_changed = true;
                 }
                 GameLogEventKind::PortalSpawn => self.ingest_portal_spawn(&mut output.batch, event),
-                GameLogEventKind::Notification { .. } | GameLogEventKind::AvatarChange { .. } => {}
+                GameLogEventKind::AvatarChange {
+                    display_name,
+                    avatar_name,
+                } => self.ingest_avatar_change(&mut output, event, display_name, avatar_name),
+                GameLogEventKind::Notification { .. } => {}
                 GameLogEventKind::ResourceLoad {
                     resource_type,
                     resource_url,
@@ -374,6 +407,7 @@ impl GameLogIngestEngine {
         self.state.current_location_started_at = event.created_at.clone();
         self.state.current_location_started_at_ms = parse_event_time_ms(&event.created_at);
         self.state.players_by_key.clear();
+        self.state.player_avatar_names.clear();
         self.state.has_player_events = false;
         self.state.last_resource_url.clear();
         self.state.last_video_url.clear();
@@ -436,6 +470,42 @@ impl GameLogIngestEngine {
             .or_else(|| (!user_id.trim().is_empty()).then(|| user_id.trim().to_string()))
     }
 
+    fn ingest_avatar_change(
+        &mut self,
+        output: &mut GameLogIngestOutput,
+        event: &GameLogEvent,
+        display_name: &str,
+        avatar_name: &str,
+    ) {
+        let display_name = display_name.trim();
+        let avatar_name = avatar_name.trim();
+        if display_name.is_empty() || avatar_name.is_empty() {
+            return;
+        }
+        let previous = self
+            .state
+            .player_avatar_names
+            .insert(display_name.to_string(), avatar_name.to_string());
+        if previous.is_none_or(|previous| previous == avatar_name) {
+            return;
+        }
+        let user_id = self
+            .state
+            .players_by_key
+            .values()
+            .find(|player| player.display_name == display_name)
+            .map(|player| player.user_id.clone())
+            .unwrap_or_default();
+        output.avatar_changes.push(GameLogAvatarChange {
+            created_at: event.created_at.clone(),
+            user_id,
+            display_name: display_name.to_string(),
+            avatar_name: avatar_name.to_string(),
+            location: self.state.current_location.clone(),
+            world_name: self.state.current_world_name.clone(),
+        });
+    }
+
     fn ingest_portal_spawn(&self, batch: &mut GameLogWriteBatch, event: &GameLogEvent) {
         batch.portal_spawns.push(GameLogPortalSpawnEntry {
             created_at: event.created_at.clone(),
@@ -473,6 +543,7 @@ impl GameLogIngestEngine {
 
     fn finalize_location_session(&mut self, batch: &mut GameLogWriteBatch, stopped_at: &str) {
         let stopped_at_ms = parse_event_time_ms(stopped_at);
+        self.state.player_avatar_names.clear();
         if self.state.current_location.is_empty() || stopped_at_ms.is_none() {
             self.state.players_by_key.clear();
             return;
