@@ -410,12 +410,20 @@ fn ensure_synced_table_exists(db: &DatabaseService, table: &str) -> Result<(), E
 /// catalog: credentials, re-derivable caches, and per-device read models.
 const DERIVATION_EXCLUDED_TABLES: [&str; 2] = ["cookies", "favorite_print"];
 const DERIVATION_EXCLUDED_PREFIXES: [&str; 4] = ["cache_", "screenshot_", "_sync_", "sqlite_"];
-const DERIVATION_EXCLUDED_SUFFIXES: [&str; 5] = [
+const DERIVATION_EXCLUDED_SUFFIXES: [&str; 12] = [
     "_activity_sessions_v2",
     "_activity_bucket_cache_v2",
     "_activity_page_cache",
     "_activity_sync_state_v2",
     "_avatar_history",
+    // v1 activity caches left behind by older builds; re-derivable locally.
+    "_activity_cache_meta",
+    "_activity_cache_sessions",
+    "_activity_range_cache_v2",
+    "_activity_top_worlds_cache_v",
+    "_watched_users",
+    "_mutual_graph_external_users",
+    "_mutual_graph_manual_links",
 ];
 
 fn is_derivation_excluded(table: &str) -> bool {
@@ -1123,8 +1131,10 @@ pub struct ApplyStats {
 }
 
 /// Apply one batch of pulled ops (in remote arrival order) and advance the
-/// pull cursor atomically. The transaction deletes its own echo (capture rows
-/// with seq above the pre-transaction watermark) before commit.
+/// pull cursor atomically. The transaction deletes only its own echo: rows
+/// its applied ops produced (seq above the pre-transaction floor AND a
+/// table/entity pair this batch actually wrote), never neighbouring local
+/// facts that commit into the outbox while the batch is in flight.
 pub fn apply_pulled_ops(
     db: &DatabaseService,
     device_id: &str,
@@ -1145,18 +1155,25 @@ pub fn apply_pulled_ops(
         plans.insert(table.to_string(), columns);
     }
 
-    db.write_transaction(move |tx| {
-        let watermark_rows = tx.execute(
-            "SELECT COALESCE(MAX(seq), 0) FROM _sync_outbox",
-            &Default::default(),
-        )?;
-        let watermark = watermark_rows
-            .first()
-            .and_then(|row| row.first())
-            .and_then(Value::as_i64)
-            .unwrap_or(0);
+    // Capture the outbox floor before the write transaction opens: a local
+    // write racing in later gets a rowid above this floor, so it can only be
+    // mistaken for an echo if it touches the exact entity this batch applied
+    // — and then it would have been skipped as pending anyway.
+    let floor_rows = db.execute(
+        "SELECT COALESCE(MAX(seq), 0) FROM _sync_outbox",
+        &Default::default(),
+    )?;
+    let echo_floor = floor_rows
+        .first()
+        .and_then(|row| row.first())
+        .and_then(Value::as_i64)
+        .unwrap_or(0);
 
+    db.write_transaction(move |tx| {
         let mut stats = ApplyStats::default();
+        // (table -> entity keys) whose rows were written by this batch, and
+        // whose trigger-inserted echo rows are therefore safe to remove.
+        let mut echoes: HashMap<String, Vec<String>> = HashMap::new();
         for op in ops {
             if op.device == device_id {
                 stats.skipped_self += 1;
@@ -1193,17 +1210,45 @@ pub fn apply_pulled_ops(
                 }
             };
             match applied {
-                ApplyOutcome::Applied => stats.applied += 1,
+                ApplyOutcome::Applied => {
+                    stats.applied += 1;
+                    echoes
+                        .entry(op.table.clone())
+                        .or_default()
+                        .push(entity_text);
+                }
                 ApplyOutcome::SkippedPending => stats.skipped_pending += 1,
                 ApplyOutcome::SkippedStale => stats.skipped_stale += 1,
                 ApplyOutcome::SkippedMissing => stats.skipped_missing += 1,
             }
         }
 
-        tx.execute_non_query(
-            "DELETE FROM _sync_outbox WHERE seq > @watermark",
-            &params(&[("watermark", Value::from(watermark))]),
-        )?;
+        const ECHO_CHUNK: usize = 200;
+        for (table, keys) in &echoes {
+            for chunk in keys.chunks(ECHO_CHUNK) {
+                let mut args = params(&[
+                    ("floor", Value::from(echo_floor)),
+                    ("table", Value::String(table.clone())),
+                ]);
+                let clauses: Vec<String> = chunk
+                    .iter()
+                    .enumerate()
+                    .map(|(index, key)| {
+                        args.insert(format!("@ek{index}"), Value::String(key.clone()));
+                        format!("@ek{index}")
+                    })
+                    .collect();
+                tx.execute_non_query(
+                    &format!(
+                        "DELETE FROM _sync_outbox
+                         WHERE seq > @floor AND table_name = @table
+                           AND entity_key IN ({})",
+                        clauses.join(", ")
+                    ),
+                    &args,
+                )?;
+            }
+        }
         tx.execute_non_query(
             "INSERT INTO _sync_meta (key, value) VALUES (@k, @v)
              ON CONFLICT(key) DO UPDATE SET value = @v",

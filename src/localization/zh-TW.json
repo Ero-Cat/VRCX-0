@@ -2554,6 +2554,10 @@
                 "options": {
                     "title": "同步頻率",
                     "description": "自動交換變更的頻率。"
+                },
+                "cloud": {
+                    "title": "VRCX-Cloud 與資料同步",
+                    "body": "VRCX-Cloud 是本資料同步功能的官方自架伺服器實作：一個 Rust (axum) 伺服器，作為同步網格中的對等節點，與桌面端共用同一套基於操作日誌的 PostgreSQL 同步協定（HLC 衝突仲裁、冪等推送與斷點續傳）。在 Settings → Data Sync 填入 VRCX-Cloud 使用的 PostgreSQL 連線資訊即可加入同一網格；部署後可透過手機或區域網路瀏覽器使用完整 VRCX 體驗，並在桌面端靜默時自動接管即時會話。"
                 }
             },
             "advanced_groups": {

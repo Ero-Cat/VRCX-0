@@ -2560,6 +2560,10 @@
                 "options": {
                     "title": "Sync Schedule",
                     "description": "How often changes are exchanged automatically."
+                },
+                "cloud": {
+                    "title": "VRCX-Cloud and data sync",
+                    "body": "VRCX-Cloud is the official self-hosted server companion for this data sync feature: a Rust (axum) server that joins the same sync mesh as a peer, sharing the same op-log based PostgreSQL sync protocol (HLC conflict resolution, idempotent pushes, resumable transfers). Enter the PostgreSQL connection details used by your VRCX-Cloud instance under Settings → Data Sync to join the same mesh. Once deployed, the full VRCX experience is available from a phone or LAN browser, and it automatically takes over the realtime session while your desktop is quiet."
                 }
             },
             "advanced_groups": {

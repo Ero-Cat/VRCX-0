@@ -2,11 +2,12 @@ import {
     ArrowDownIcon,
     ArrowUpIcon,
     CheckCircle2Icon,
+    ChevronDownIcon,
     CloudCogIcon,
     DatabaseIcon,
+    ExternalLinkIcon,
     HistoryIcon,
     LaptopIcon,
-    MonitorOffIcon,
     RefreshCwIcon,
     ShieldCheckIcon,
     XCircleIcon
@@ -23,7 +24,6 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { cn } from '@/lib/utils';
 import type {
     SyncBootstrapProgress,
     SyncConnectionTestResult,
@@ -296,6 +296,11 @@ export function SettingsSyncTab() {
     };
 
     const canTest = host.trim().length > 0 && database.trim().length > 0;
+    // Offline devices linger in the presence table until they age out of the
+    // database; hiding them keeps the list to peers that can actually sync.
+    const onlineDevices = status
+        ? status.remoteDevices.filter((device) => device.online)
+        : [];
 
     return (
         <SettingsTabContent value="sync">
@@ -707,35 +712,27 @@ export function SettingsSyncTab() {
                             <BootstrapProgressView progress={bootstrap} />
                         ) : null}
 
-                        {status.remoteDevices.length > 0 ? (
+                        {onlineDevices.length > 0 ? (
                             <div>
                                 <p className="mb-2 flex items-center gap-1.5 text-xs font-medium">
                                     <LaptopIcon className="size-3.5" />
                                     {t('view.settings.sync.status.devices')}
                                 </p>
                                 <ul className="flex flex-col gap-1.5">
-                                    {status.remoteDevices.map((device) => {
+                                    {onlineDevices.map((device) => {
                                         const isSelf =
                                             device.deviceId === status.deviceId;
                                         return (
                                             <li
                                                 key={device.deviceId}
                                                 title={device.deviceId}
-                                                className={cn(
-                                                    'flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-xs',
-                                                    !device.online &&
-                                                        'opacity-60'
-                                                )}
+                                                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-xs"
                                             >
                                                 <span className="flex min-w-0 items-center gap-1.5 font-medium">
-                                                    {device.online ? (
-                                                        isSelf ? (
-                                                            <CloudCogIcon className="text-primary size-3.5 shrink-0" />
-                                                        ) : (
-                                                            <LaptopIcon className="text-muted-foreground size-3.5 shrink-0" />
-                                                        )
+                                                    {isSelf ? (
+                                                        <CloudCogIcon className="text-primary size-3.5 shrink-0" />
                                                     ) : (
-                                                        <MonitorOffIcon className="text-muted-foreground size-3.5 shrink-0" />
+                                                        <LaptopIcon className="text-muted-foreground size-3.5 shrink-0" />
                                                     )}
                                                     <span className="truncate">
                                                         {device.deviceName?.trim() ||
@@ -768,16 +765,10 @@ export function SettingsSyncTab() {
                                                     />
                                                     <Badge
                                                         variant="secondary"
-                                                        className={
-                                                            device.online
-                                                                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                                                                : 'bg-muted text-muted-foreground'
-                                                        }
+                                                        className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                                                     >
                                                         {t(
-                                                            device.online
-                                                                ? 'view.settings.sync.status.device_online'
-                                                                : 'view.settings.sync.status.device_offline'
+                                                            'view.settings.sync.status.device_online'
                                                         )}
                                                     </Badge>
                                                 </span>
@@ -794,6 +785,28 @@ export function SettingsSyncTab() {
                     </p>
                 )}
             </SettingsCard>
+
+            <details className="group border-stroke-subtle text-sm">
+                <summary className="text-muted-foreground hover:text-foreground flex cursor-pointer list-none items-center gap-2 py-2 text-xs select-none">
+                    <CloudCogIcon className="size-3.5" />
+                    {t('view.settings.sync.cloud.title')}
+                    <ChevronDownIcon className="size-3 transition-transform group-open:rotate-180" />
+                </summary>
+                <p className="text-muted-foreground pb-2 text-xs leading-relaxed">
+                    {t('view.settings.sync.cloud.body')}
+                </p>
+                <p className="pb-1 text-xs">
+                    <a
+                        href="https://github.com/Ero-Cat/VRCX-Cloud"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary inline-flex items-center gap-1 hover:underline"
+                    >
+                        <ExternalLinkIcon className="size-3" />
+                        github.com/Ero-Cat/VRCX-Cloud
+                    </a>
+                </p>
+            </details>
         </SettingsTabContent>
     );
 }
