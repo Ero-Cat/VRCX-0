@@ -65,6 +65,8 @@ pub struct RuntimeHostOptions {
     pub launched_from_autostart: bool,
     pub app_data_dir: AppDataDirResolution,
     pub app_version: String,
+    /// Machine hostname reported to remote sync presence; empty hides it.
+    pub device_hostname: String,
     pub profile: RuntimeHostProfile,
     pub database_maintenance_cache_dir: Option<PathBuf>,
     pub task_executor: Option<Arc<dyn RuntimeTaskExecutor>>,
@@ -265,6 +267,7 @@ impl RuntimeHostStateBuilder {
             launched_from_autostart,
             mut app_data_dir,
             app_version,
+            device_hostname,
             profile,
             database_maintenance_cache_dir,
             task_executor,
@@ -330,8 +333,10 @@ impl RuntimeHostStateBuilder {
         let remote_sync_host = Arc::new(crate::state::remote_sync::RemoteSyncHost::new(
             Arc::clone(&db),
             runtime_context.background_jobs.clone(),
+            runtime_context.event_bus.clone(),
             runtime_context.tasks.clone(),
             app_version.clone(),
+            device_hostname,
         ));
         let desktop_assembly =
             RuntimeHostDesktopAssemblyDeps::from_context(Arc::clone(&runtime_context));

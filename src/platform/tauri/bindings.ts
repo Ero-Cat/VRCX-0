@@ -3290,6 +3290,7 @@ export type BackendRuntimeEventPayloadMap = {
     runtimeGroupInstancesProjection: RuntimeGroupInstancesProjection;
     printsAutoCleanup: PrintAutoCleanupEvent;
     profileBackupStatus: ProfileBackupStatus;
+    syncStatusChanged: SyncStatusChangedEvent;
     profileRestoreProgress: ProfileRestoreProgress;
     dataDirMigration: DataDirMigrationStatus;
     favoritesChanged: FavoritesChangedPayload;
@@ -6403,12 +6404,47 @@ export type SyncConnectionTestResult = {
     latencyMs: number;
     error: string | null;
 };
+/**
+ * One completed sync cycle in the persisted history ring.
+ */
+export type SyncCycleRecord = {
+    at: string;
+    durationMs: number;
+    pushed: number;
+    pulled: number;
+    error?: string | null;
+};
 export type SyncDeviceRecord = {
     deviceId: string;
     appVersion: string;
-    lastPushAt: string | null;
-    lastPullAt: string | null;
+    /**
+     * Human-readable machine name (hostname) reported by the device.
+     */
+    deviceName?: string;
+    /**
+     * Server-captured client address (PostgreSQL inet_client_addr).
+     */
+    ipAddr?: string;
+    /**
+     * Server-clock timestamp of the device's last heartbeat (per cycle).
+     */
+    lastSeenAt?: string | null;
+    /**
+     * Age of the last heartbeat in seconds, computed on the server so
+     * skewed client clocks cannot fake presence.
+     */
+    seenSecondsAgo?: number;
+    /**
+     * Derived by the engine: heartbeat is recent enough for the device to
+     * be considered online.
+     */
+    online?: boolean;
 };
+/**
+ * Pushed to the frontend after every completed cycle so the status card
+ * reflects a finished sync immediately instead of on the next poll.
+ */
+export type SyncStatusChangedEvent = SyncStatusSnapshot;
 /**
  * Snapshot of sync health surfaced to the frontend.
  */
@@ -6435,6 +6471,16 @@ export type SyncStatusSnapshot = {
      * empty when the cycle moved nothing.
      */
     lastCycleTables?: SyncTableOpCount[];
+    /**
+     * Seconds until the interval loop fires the next cycle; null while
+     * disabled, bootstrapping, or before the first cycle completes.
+     */
+    nextCycleInSecs?: number | null;
+    /**
+     * Most recent cycles, newest first (bounded ring, persisted across
+     * restarts).
+     */
+    cycleHistory?: SyncCycleRecord[];
 };
 /**
  * Per-table ops moved by the most recent completed cycle, so the status

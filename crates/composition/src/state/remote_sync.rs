@@ -7,7 +7,7 @@
 
 use std::sync::{Arc, RwLock};
 
-use vrcx_0_application_core::{RuntimeBackgroundJobs, TaskSupervisor};
+use vrcx_0_application_core::{RuntimeBackgroundJobs, RuntimeEventBus, TaskSupervisor};
 use vrcx_0_application_sync::{
     RemoteSyncEngine, CONFIG_ALLOW_PLAINTEXT, CONFIG_DATABASE, CONFIG_ENABLED, CONFIG_HOST,
     CONFIG_PASSWORD, CONFIG_PORT, CONFIG_TLS_VERIFY, CONFIG_USER,
@@ -20,8 +20,10 @@ use vrcx_0_persistence::DatabaseService;
 pub struct RemoteSyncHost {
     db: Arc<DatabaseService>,
     background_jobs: RuntimeBackgroundJobs,
+    event_bus: RuntimeEventBus,
     tasks: TaskSupervisor,
     app_version: String,
+    device_name: String,
     engine: RwLock<Option<Arc<RemoteSyncEngine>>>,
 }
 
@@ -29,14 +31,18 @@ impl RemoteSyncHost {
     pub fn new(
         db: Arc<DatabaseService>,
         background_jobs: RuntimeBackgroundJobs,
+        event_bus: RuntimeEventBus,
         tasks: TaskSupervisor,
         app_version: String,
+        device_name: String,
     ) -> Self {
         Self {
             db,
             background_jobs,
+            event_bus,
             tasks,
             app_version,
+            device_name,
             engine: RwLock::new(None),
         }
     }
@@ -112,7 +118,9 @@ impl RemoteSyncHost {
             Arc::clone(&self.db),
             store,
             self.background_jobs.clone(),
+            self.event_bus.clone(),
             self.app_version.clone(),
+            self.device_name.clone(),
         )
         .map_err(|error| Error::Custom(error.to_string()))?;
         engine
@@ -206,6 +214,8 @@ impl RemoteSyncHost {
             last_pulled_ops: 0,
             last_cycle_at: None,
             last_cycle_tables: Vec::new(),
+            next_cycle_in_secs: None,
+            cycle_history: Vec::new(),
         }
     }
 
@@ -385,8 +395,10 @@ mod pg_integration {
         let host_state = RemoteSyncHost::new(
             Arc::clone(&db),
             RuntimeBackgroundJobs::new(),
+            RuntimeEventBus::new(),
             TaskSupervisor::default(),
             "integration-test".into(),
+            "integration-host".into(),
         );
         let settings = host_state.settings();
         assert!(

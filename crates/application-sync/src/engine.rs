@@ -16,12 +16,13 @@ use std::time::Duration;
 use serde_json::{Map, Value};
 use tokio::sync::Notify;
 use vrcx_0_application_core::{
-    sleep_until_due_or_stopped, RuntimeBackgroundJobs, TaskSpawnOutcome, TaskSupervisor,
+    sleep_until_due_or_stopped, RuntimeBackgroundJobs, RuntimeEventBus, RuntimeEventPayload,
+    TaskSpawnOutcome, TaskSupervisor,
 };
 use vrcx_0_contracts::{
-    sync_table_descriptor, SyncBootstrapProgress, SyncConnectionTestResult, SyncDeviceRecord,
-    SyncFieldSemantic, SyncHlc, SyncOpKind, SyncOpRecord, SyncStatusSnapshot, SyncTableOpCount,
-    SyncTableProgress, SYNC_PROTOCOL_SCHEMA_VERSION,
+    sync_table_descriptor, SyncBootstrapProgress, SyncConnectionTestResult, SyncCycleRecord,
+    SyncDeviceRecord, SyncFieldSemantic, SyncHlc, SyncOpKind, SyncOpRecord, SyncStatusSnapshot,
+    SyncTableOpCount, SyncTableProgress, SYNC_PROTOCOL_SCHEMA_VERSION,
 };
 use vrcx_0_persistence::sync::{
     apply_pulled_ops, bootstrap_set_ops, bootstrap_state_get, bootstrap_state_set, install_capture,
@@ -60,6 +61,9 @@ const BOOTSTRAP_MATERIALIZED_PAGE: i64 = 1000;
 const GC_INTERVAL_HOURS: i64 = 24;
 /// Persistent timestamp of the most recent completed cycle (auto or manual).
 const META_LAST_CYCLE_AT: &str = "sync.lastCycleAt";
+/// Ring of the most recent completed cycles, JSON-encoded SyncCycleRecords.
+const META_CYCLE_HISTORY: &str = "sync.cycleHistory";
+const CYCLE_HISTORY_LEN: usize = 30;
 /// Set while a first-time bootstrap should (re)run; cleared on completion.
 const META_BOOTSTRAP_PENDING: &str = "sync.pendingBootstrap";
 /// Written once after the first successful bootstrap.
@@ -126,7 +130,9 @@ pub struct RemoteSyncEngine {
     db: Arc<DatabaseService>,
     store: Arc<dyn RemoteSyncStore>,
     background_jobs: RuntimeBackgroundJobs,
+    event_bus: RuntimeEventBus,
     app_version: String,
+    device_name: String,
     handle: SyncCaptureHandle,
     waker: Arc<Notify>,
     state: Mutex<EngineState>,
@@ -137,6 +143,16 @@ pub struct RemoteSyncEngine {
     cycle_lock: tokio::sync::Mutex<()>,
 }
 
+/// Pushed to the frontend after every completed cycle so the status card
+/// reflects a finished sync immediately instead of on the next poll.
+#[derive(Clone, Debug, serde::Serialize, specta::Type)]
+#[serde(transparent)]
+pub struct SyncStatusChangedEvent(pub SyncStatusSnapshot);
+
+impl RuntimeEventPayload for SyncStatusChangedEvent {
+    const EVENT_NAME: &'static str = "syncStatusChanged";
+}
+
 impl RemoteSyncEngine {
     /// Build the engine and install local change capture. Fails if the local
     /// database is unavailable.
@@ -144,14 +160,18 @@ impl RemoteSyncEngine {
         db: Arc<DatabaseService>,
         store: Arc<dyn RemoteSyncStore>,
         background_jobs: RuntimeBackgroundJobs,
+        event_bus: RuntimeEventBus,
         app_version: String,
+        device_name: String,
     ) -> EngineResult<Arc<Self>> {
         let handle = install_capture(&db)?;
         Ok(Arc::new(Self {
             db,
             store,
             background_jobs,
+            event_bus,
             app_version,
+            device_name,
             handle,
             waker: Arc::new(Notify::new()),
             ensured_schema_hash: Mutex::new(None),
@@ -237,12 +257,15 @@ impl RemoteSyncEngine {
 
     pub async fn run_one_cycle(self: &Arc<Self>) -> EngineResult<()> {
         let _guard = self.cycle_lock.lock().await;
+        self.set_phase("running");
+        let started_at = std::time::Instant::now();
         self.background_jobs
             .mark_running(JOB_NAME, "Remote sync cycle running.");
         let result = self.cycle_inner().await;
+        let duration_ms = started_at.elapsed().as_millis() as u64;
         match &result {
             Ok(counts) => {
-                self.record_cycle_stats(counts.clone());
+                self.record_cycle_stats(counts.clone(), duration_ms);
                 self.set_error(None);
                 self.set_phase("idle");
                 self.background_jobs
@@ -250,19 +273,34 @@ impl RemoteSyncEngine {
             }
             Err(error) => {
                 let message = error.to_string();
+                self.record_failed_cycle(&message, duration_ms);
                 self.set_error(Some(message.clone()));
                 self.set_phase("error");
                 self.background_jobs.mark_failed(JOB_NAME, message);
-                let _ = sync_meta_set(&self.db, META_LAST_CYCLE_AT, &now_iso());
             }
         }
+        let _ = self.publish_status().await;
         result.map(|_| ())
     }
 
-    fn record_cycle_stats(&self, counts: CycleCounts) {
+    /// Push a fresh snapshot after each cycle so the UI learns a sync just
+    /// finished the moment it happens; polling stays as the fallback.
+    async fn publish_status(self: &Arc<Self>) {
+        let snapshot = self.status().await;
+        self.event_bus.emit(SyncStatusChangedEvent(snapshot));
+    }
+
+    fn record_cycle_stats(&self, counts: CycleCounts, duration_ms: u64) {
         let finished_at = now_iso();
         // Persisted so "last sync" survives an app restart.
         let _ = sync_meta_set(&self.db, META_LAST_CYCLE_AT, &finished_at);
+        self.append_cycle_history(&SyncCycleRecord {
+            at: finished_at.clone(),
+            duration_ms,
+            pushed: counts.pushed,
+            pulled: counts.pulled,
+            error: None,
+        });
         let mut state = self.state.lock().unwrap();
         state.stats = CycleStats {
             pushed: counts.pushed,
@@ -270,6 +308,26 @@ impl RemoteSyncEngine {
             tables: counts.tables,
             finished_at: Some(finished_at),
         };
+    }
+
+    fn record_failed_cycle(&self, message: &str, duration_ms: u64) {
+        let finished_at = now_iso();
+        let _ = sync_meta_set(&self.db, META_LAST_CYCLE_AT, &finished_at);
+        self.append_cycle_history(&SyncCycleRecord {
+            at: finished_at,
+            duration_ms,
+            pushed: 0,
+            pulled: 0,
+            error: Some(message.to_string()),
+        });
+    }
+
+    fn append_cycle_history(&self, record: &SyncCycleRecord) {
+        let existing = cycle_history_get(&self.db).unwrap_or_default();
+        let updated = push_cycle_history(existing, record.clone());
+        if let Ok(serialized) = serde_json::to_string(&updated) {
+            let _ = sync_meta_set(&self.db, META_CYCLE_HISTORY, &serialized);
+        }
     }
 
     fn stats_snapshot(&self) -> CycleStats {
@@ -285,8 +343,8 @@ impl RemoteSyncEngine {
             .devices_upsert(&SyncDeviceRecord {
                 device_id: self.handle.device_id().to_string(),
                 app_version: self.app_version.clone(),
-                last_push_at: Some(now_iso()),
-                last_pull_at: Some(now_iso()),
+                device_name: self.device_name.clone(),
+                ..SyncDeviceRecord::default()
             })
             .await;
 
@@ -738,18 +796,32 @@ impl RemoteSyncEngine {
             .flatten()
             .and_then(|value| value.parse().ok())
             .unwrap_or(0);
-        let remote_devices = match self.store.devices_list().await {
+        let interval_secs = self.configured_interval() as i64;
+        // A device counts as online while its per-cycle heartbeat is fresh;
+        // three intervals (floor 60s) tolerates one missed cycle.
+        let presence_threshold = (interval_secs * 3).max(60);
+        let mut remote_devices = match self.store.devices_list().await {
             Ok(devices) => devices,
             Err(error) => {
                 tracing::debug!(error = %error, "failed to list remote sync devices");
                 Vec::new()
             }
         };
+        for device in &mut remote_devices {
+            device.online = device.seen_seconds_ago <= presence_threshold;
+        }
         let stats = self.stats_snapshot();
         let last_cycle_at = stats
             .finished_at
             .clone()
             .or_else(|| sync_meta_get(&self.db, META_LAST_CYCLE_AT).ok().flatten());
+        let last_cycle_at = last_cycle_at.or(last_pull_at.clone());
+        let next_cycle_in_secs = last_cycle_at.as_ref().and_then(|raw| {
+            chrono::DateTime::parse_from_rfc3339(raw).ok().map(|at| {
+                let elapsed = (chrono::Utc::now() - at.with_timezone(&chrono::Utc)).num_seconds();
+                (interval_secs - elapsed).max(0)
+            })
+        });
         let last_cycle_tables = stats
             .tables
             .iter()
@@ -764,8 +836,10 @@ impl RemoteSyncEngine {
             configured,
             last_pushed_ops: stats.pushed,
             last_pulled_ops: stats.pulled,
-            last_cycle_at: last_cycle_at.or(last_pull_at.clone()),
+            last_cycle_at,
             last_cycle_tables,
+            next_cycle_in_secs,
+            cycle_history: cycle_history_get(&self.db).unwrap_or_default(),
             phase,
             device_id: self.handle.device_id().to_string(),
             last_push_at,
@@ -777,6 +851,24 @@ impl RemoteSyncEngine {
             remote_devices,
         }
     }
+}
+
+/// Read the persisted cycle history ring; corrupt entries are dropped.
+fn cycle_history_get(db: &DatabaseService) -> EngineResult<Vec<SyncCycleRecord>> {
+    Ok(sync_meta_get(db, META_CYCLE_HISTORY)?
+        .and_then(|raw| serde_json::from_str::<Vec<SyncCycleRecord>>(&raw).ok())
+        .unwrap_or_default())
+}
+
+/// Prepend a cycle record and bound the ring; pure so the trimming behavior
+/// is unit-testable without a database.
+fn push_cycle_history(
+    mut history: Vec<SyncCycleRecord>,
+    record: SyncCycleRecord,
+) -> Vec<SyncCycleRecord> {
+    history.insert(0, record);
+    history.truncate(CYCLE_HISTORY_LEN);
+    history
 }
 
 /// Stamp a bootstrap op from the row's own business timestamp when one exists,
@@ -923,4 +1015,47 @@ pub async fn test_store_connection(store: &Arc<dyn RemoteSyncStore>) -> SyncConn
 /// Provision the device id without a running engine (status before start).
 pub fn local_device_id(db: &DatabaseService) -> EngineResult<String> {
     sync_device_id(db).map_err(SyncEngineError::from)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cycle_history_prepends_newest_and_bounds_length() {
+        let mut history = Vec::new();
+        for second in 0..(CYCLE_HISTORY_LEN + 5) {
+            history = push_cycle_history(
+                history,
+                SyncCycleRecord {
+                    at: format!("2026-10-02T00:00:{second:02}Z"),
+                    duration_ms: second as u64,
+                    pushed: second as u64,
+                    ..SyncCycleRecord::default()
+                },
+            );
+        }
+        assert_eq!(history.len(), CYCLE_HISTORY_LEN);
+        assert!(history[0].at > history[1].at, "newest entry comes first");
+        assert_eq!(history[0].pushed, CYCLE_HISTORY_LEN as u64 + 4);
+    }
+
+    #[test]
+    fn cycle_history_round_trips_through_json() {
+        let history = push_cycle_history(
+            Vec::new(),
+            SyncCycleRecord {
+                at: "2026-10-02T00:00:00Z".into(),
+                duration_ms: 1200,
+                pushed: 3,
+                pulled: 5,
+                error: Some("boom".into()),
+            },
+        );
+        let serialized = serde_json::to_string(&history).unwrap();
+        let parsed: Vec<SyncCycleRecord> = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].error.as_deref(), Some("boom"));
+        assert_eq!(parsed[0].duration_ms, 1200);
+    }
 }

@@ -271,6 +271,7 @@ impl DesktopRuntimeHostState {
             launched_from_autostart,
             app_data_dir,
             app_version: app_version.clone(),
+            device_hostname: vrcx_0_host_desktop::machine::machine_hostname(),
             profile: RuntimeHostProfile::Desktop,
             database_maintenance_cache_dir,
             task_executor: Some(task_executor),

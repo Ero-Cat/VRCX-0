@@ -4,7 +4,9 @@ import {
     CheckCircle2Icon,
     CloudCogIcon,
     DatabaseIcon,
+    HistoryIcon,
     LaptopIcon,
+    MonitorOffIcon,
     RefreshCwIcon,
     ShieldCheckIcon,
     XCircleIcon
@@ -21,9 +23,11 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { cn } from '@/lib/utils';
 import type {
     SyncBootstrapProgress,
     SyncConnectionTestResult,
+    SyncDeviceRecord,
     SyncStatusSnapshot
 } from '@/platform/tauri/bindings';
 import {
@@ -35,6 +39,7 @@ import {
     triggerSyncNow
 } from '@/repositories/syncRepository';
 import { toast } from '@/services/toastService';
+import { useSyncStatusStore } from '@/state/syncStatusStore';
 import { Badge } from '@/ui/shadcn/badge';
 import { Button } from '@/ui/shadcn/button';
 import { FieldLabel } from '@/ui/shadcn/field';
@@ -92,6 +97,42 @@ export function SettingsSyncTab() {
     const [bootstrap, setBootstrap] = useState<SyncBootstrapProgress | null>(
         null
     );
+
+    // The engine pushes a fresh snapshot after every completed cycle; the
+    // poll below is only the fallback between cycles.
+    const pushedStatus = useSyncStatusStore((state) => state.snapshot);
+    useEffect(() => {
+        if (pushedStatus) {
+            setStatus(pushedStatus);
+            setEnabled(pushedStatus.enabled);
+        }
+    }, [pushedStatus]);
+
+    // Per-second ticker for the next-sync countdown, anchored to the moment
+    // the latest snapshot arrived.
+    const [nowMs, setNowMs] = useState(() => Date.now());
+    const [snapshotAtMs, setSnapshotAtMs] = useState(() => Date.now());
+    const statusEnabled = status?.enabled ?? false;
+    useEffect(() => {
+        setSnapshotAtMs(Date.now());
+    }, [status]);
+    useEffect(() => {
+        if (!statusEnabled) {
+            return;
+        }
+        const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
+        return () => window.clearInterval(timer);
+    }, [statusEnabled]);
+    const nextSyncCountdown =
+        statusEnabled && status?.nextCycleInSecs != null
+            ? Math.max(
+                  0,
+                  Math.ceil(
+                      (status.nextCycleInSecs ?? 0) -
+                          (nowMs - snapshotAtMs) / 1000
+                  )
+              )
+            : null;
 
     const refreshStatus = useCallback(async () => {
         try {
@@ -467,6 +508,15 @@ export function SettingsSyncTab() {
                                     })}
                                 </span>
                             ) : null}
+                            {status.enabled &&
+                            nextSyncCountdown !== null &&
+                            status.phase !== 'running' ? (
+                                <span className="text-muted-foreground text-xs tabular-nums">
+                                    {t('view.settings.sync.status.next_sync', {
+                                        secs: nextSyncCountdown
+                                    })}
+                                </span>
+                            ) : null}
                         </div>
 
                         <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
@@ -571,6 +621,79 @@ export function SettingsSyncTab() {
                             </div>
                         ) : null}
 
+                        {status.enabled &&
+                        (status.cycleHistory?.length ?? 0) > 0 ? (
+                            <div>
+                                <p className="mb-2 flex items-center gap-1.5 text-xs font-medium">
+                                    <HistoryIcon className="size-3.5" />
+                                    {t(
+                                        'view.settings.sync.status.history_title'
+                                    )}
+                                </p>
+                                <div className="max-h-44 overflow-y-auto rounded-md border px-3 py-1.5">
+                                    {(status.cycleHistory ?? []).map(
+                                        (cycle, index) => (
+                                            <div
+                                                key={`${cycle.at}-${index}`}
+                                                className="flex items-center justify-between gap-3 py-1 text-[11px]"
+                                            >
+                                                <span className="shrink-0 font-mono">
+                                                    {formatTime(cycle.at)}
+                                                </span>
+                                                <span className="flex min-w-0 shrink-0 items-center gap-2">
+                                                    {cycle.error ? (
+                                                        <span
+                                                            className="text-destructive flex items-center gap-1"
+                                                            title={cycle.error}
+                                                        >
+                                                            <XCircleIcon className="size-3" />
+                                                            {t(
+                                                                'view.settings.sync.status.history_failed'
+                                                            )}
+                                                        </span>
+                                                    ) : cycle.pushed === 0 &&
+                                                      cycle.pulled === 0 ? (
+                                                        <span className="text-muted-foreground">
+                                                            {t(
+                                                                'view.settings.sync.status.history_no_change'
+                                                            )}
+                                                        </span>
+                                                    ) : (
+                                                        <>
+                                                            {cycle.pushed >
+                                                            0 ? (
+                                                                <span className="text-primary flex items-center gap-0.5">
+                                                                    <ArrowUpIcon className="size-3" />
+                                                                    {
+                                                                        cycle.pushed
+                                                                    }
+                                                                </span>
+                                                            ) : null}
+                                                            {cycle.pulled >
+                                                            0 ? (
+                                                                <span className="text-muted-foreground flex items-center gap-0.5">
+                                                                    <ArrowDownIcon className="size-3" />
+                                                                    {
+                                                                        cycle.pulled
+                                                                    }
+                                                                </span>
+                                                            ) : null}
+                                                        </>
+                                                    )}
+                                                    <span className="text-muted-foreground tabular-nums">
+                                                        {cycle.durationMs >=
+                                                        1000
+                                                            ? `${(cycle.durationMs / 1000).toFixed(1)}s`
+                                                            : `${cycle.durationMs}ms`}
+                                                    </span>
+                                                </span>
+                                            </div>
+                                        )
+                                    )}
+                                </div>
+                            </div>
+                        ) : null}
+
                         {status.lastError ? (
                             <div className="text-destructive border-destructive/30 bg-destructive/5 flex items-start gap-2 rounded-md border px-3 py-2 text-xs">
                                 <XCircleIcon className="mt-0.5 size-3.5 shrink-0" />
@@ -597,19 +720,29 @@ export function SettingsSyncTab() {
                                         return (
                                             <li
                                                 key={device.deviceId}
-                                                className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-xs"
+                                                title={device.deviceId}
+                                                className={cn(
+                                                    'flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-xs',
+                                                    !device.online &&
+                                                        'opacity-60'
+                                                )}
                                             >
-                                                <span className="flex min-w-0 items-center gap-1.5">
-                                                    {isSelf ? (
-                                                        <CloudCogIcon className="text-primary size-3.5 shrink-0" />
+                                                <span className="flex min-w-0 items-center gap-1.5 font-medium">
+                                                    {device.online ? (
+                                                        isSelf ? (
+                                                            <CloudCogIcon className="text-primary size-3.5 shrink-0" />
+                                                        ) : (
+                                                            <LaptopIcon className="text-muted-foreground size-3.5 shrink-0" />
+                                                        )
                                                     ) : (
-                                                        <LaptopIcon className="text-muted-foreground size-3.5 shrink-0" />
+                                                        <MonitorOffIcon className="text-muted-foreground size-3.5 shrink-0" />
                                                     )}
-                                                    <span className="truncate font-mono">
-                                                        {device.deviceId.slice(
-                                                            0,
-                                                            8
-                                                        )}
+                                                    <span className="truncate">
+                                                        {device.deviceName?.trim() ||
+                                                            device.deviceId.slice(
+                                                                0,
+                                                                8
+                                                            )}
                                                     </span>
                                                     {isSelf ? (
                                                         <Badge
@@ -622,8 +755,31 @@ export function SettingsSyncTab() {
                                                         </Badge>
                                                     ) : null}
                                                 </span>
-                                                <span className="text-muted-foreground shrink-0">
-                                                    {device.appVersion || '—'}
+                                                <span className="text-muted-foreground shrink-0 font-mono">
+                                                    {device.ipAddr || '—'}
+                                                </span>
+                                                <span className="ml-auto flex shrink-0 items-center gap-3">
+                                                    <span className="text-muted-foreground">
+                                                        {device.appVersion ||
+                                                            '—'}
+                                                    </span>
+                                                    <DeviceSeenLabel
+                                                        device={device}
+                                                    />
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className={
+                                                            device.online
+                                                                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                                                                : 'bg-muted text-muted-foreground'
+                                                        }
+                                                    >
+                                                        {t(
+                                                            device.online
+                                                                ? 'view.settings.sync.status.device_online'
+                                                                : 'view.settings.sync.status.device_offline'
+                                                        )}
+                                                    </Badge>
                                                 </span>
                                             </li>
                                         );
@@ -834,5 +990,30 @@ function StatusCell({
             </span>
             <span className="font-mono text-xs">{value}</span>
         </div>
+    );
+}
+
+function DeviceSeenLabel({ device }: { device: SyncDeviceRecord }) {
+    const { t } = useTranslation();
+    const seconds = device.seenSecondsAgo ?? 0;
+    let label: string;
+    if (seconds > 0 && seconds < 60) {
+        label = t('view.settings.sync.status.seen_seconds_ago', {
+            count: seconds
+        });
+    } else if (seconds > 0 && seconds < 3600) {
+        label = t('view.settings.sync.status.seen_minutes_ago', {
+            count: Math.floor(seconds / 60)
+        });
+    } else {
+        label = formatTime(device.lastSeenAt);
+    }
+    return (
+        <span
+            className="text-muted-foreground tabular-nums"
+            title={t('view.settings.sync.status.device_last_seen')}
+        >
+            {label}
+        </span>
     );
 }

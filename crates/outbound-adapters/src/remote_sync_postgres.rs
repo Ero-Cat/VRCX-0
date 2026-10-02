@@ -837,12 +837,16 @@ impl RemoteSyncStore for PostgresSyncStore {
     async fn devices_upsert(&self, record: &SyncDeviceRecord) -> SyncStoreResult<()> {
         let record = record.clone();
         self.with_client(move |client| async move {
+            // client_addr is captured by the server from the connection
+            // itself, so a device cannot misreport its own address.
             client
                 .execute(
-                    "INSERT INTO _sync_devices (device_id, app_version, last_seen_at)
-                     VALUES ($1, $2, now())
-                     ON CONFLICT (device_id) DO UPDATE SET app_version = EXCLUDED.app_version, last_seen_at = now()",
-                    &[&record.device_id, &record.app_version],
+                    "INSERT INTO _sync_devices (device_id, app_version, device_name, client_addr, last_seen_at)
+                     VALUES ($1, $2, $3, inet_client_addr()::text, now())
+                     ON CONFLICT (device_id) DO UPDATE SET app_version = EXCLUDED.app_version,
+                       device_name = EXCLUDED.device_name, client_addr = EXCLUDED.client_addr,
+                       last_seen_at = now()",
+                    &[&record.device_id, &record.app_version, &record.device_name],
                 )
                 .await
                 .map_err(pg_error)?;
@@ -855,7 +859,10 @@ impl RemoteSyncStore for PostgresSyncStore {
         self.with_client(|client| async move {
             let rows = client
                 .query(
-                    "SELECT device_id, app_version, last_seen_at FROM _sync_devices ORDER BY last_seen_at DESC",
+                    "SELECT device_id, app_version, device_name, client_addr,
+                            last_seen_at::text,
+                            EXTRACT(EPOCH FROM (now() - last_seen_at))::bigint AS seen_seconds_ago
+                     FROM _sync_devices ORDER BY last_seen_at DESC",
                     &[],
                 )
                 .await
@@ -865,12 +872,11 @@ impl RemoteSyncStore for PostgresSyncStore {
                     .map(|row| SyncDeviceRecord {
                         device_id: row.try_get(0).unwrap_or_default(),
                         app_version: row.try_get(1).unwrap_or_default(),
-                        last_push_at: row
-                            .try_get::<_, Option<chrono_ish::Timestamp>>(2)
-                            .ok()
-                            .flatten()
-                            .map(|ts| ts.0),
-                        last_pull_at: None,
+                        device_name: row.try_get(2).unwrap_or_default(),
+                        ip_addr: row.try_get(3).unwrap_or_default(),
+                        last_seen_at: row.try_get(4).ok(),
+                        seen_seconds_ago: row.try_get(5).unwrap_or_default(),
+                        ..SyncDeviceRecord::default()
                     })
                     .collect(),
                 client,
@@ -897,27 +903,7 @@ impl RemoteSyncStore for PostgresSyncStore {
     }
 }
 
-// Minimal timestamp shim so we do not pull chrono into this adapter.
-mod chrono_ish {
-    pub struct Timestamp(pub String);
-}
-
-impl<'a> tokio_postgres::types::FromSql<'a> for chrono_ish::Timestamp {
-    fn from_sql(
-        _ty: &tokio_postgres::types::Type,
-        raw: &'a [u8],
-    ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
-        Ok(chrono_ish::Timestamp(
-            String::from_utf8_lossy(raw).to_string(),
-        ))
-    }
-
-    fn accepts(ty: &tokio_postgres::types::Type) -> bool {
-        matches!(*ty, tokio_postgres::types::Type::TIMESTAMPTZ)
-    }
-}
-
-const PROTOCOL_TABLE_DDL: [&str; 4] = [
+const PROTOCOL_TABLE_DDL: [&str; 6] = [
     "CREATE TABLE IF NOT EXISTS _sync_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '')",
     "CREATE TABLE IF NOT EXISTS sync_ops (
         server_seq BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -934,8 +920,12 @@ const PROTOCOL_TABLE_DDL: [&str; 4] = [
     "CREATE TABLE IF NOT EXISTS _sync_devices (
         device_id TEXT PRIMARY KEY,
         app_version TEXT NOT NULL DEFAULT '',
+        device_name TEXT NOT NULL DEFAULT '',
+        client_addr TEXT NOT NULL DEFAULT '',
         last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )",
+    "ALTER TABLE _sync_devices ADD COLUMN IF NOT EXISTS device_name TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE _sync_devices ADD COLUMN IF NOT EXISTS client_addr TEXT NOT NULL DEFAULT ''",
 ];
 
 async fn ensure_protocol_tables(
@@ -1303,7 +1293,7 @@ mod pg_smoke {
             payload.insert("id".to_string(), Value::String("row-1".into()));
             payload.insert("name".to_string(), Value::String("alpha".into()));
             let set_op = SyncOpRecord {
-                op_id: "smoke-set-1".into(),
+                op_id: "smoke-1-set".into(),
                 table: "smoke_test_rows".into(),
                 entity_key: key.clone(),
                 kind: SyncOpKind::Set,
@@ -1315,7 +1305,7 @@ mod pg_smoke {
             inc_payload.insert("field".to_string(), Value::String("tally".into()));
             inc_payload.insert("delta".to_string(), Value::from(5i64));
             let inc_op = SyncOpRecord {
-                op_id: "smoke-inc-1".into(),
+                op_id: "smoke-2-inc".into(),
                 table: "smoke_test_rows".into(),
                 entity_key: key,
                 kind: SyncOpKind::Inc,
@@ -1333,7 +1323,11 @@ mod pg_smoke {
 
             let pulled = store.fetch_ops(0, 10).await.expect("fetch ops");
             assert_eq!(pulled.len(), 2, "op log contains exactly the two ops");
-            assert_eq!(pulled[0].op.op_id, "smoke-set-1");
+            // The engine's derive contract stamps Set ops to sort before
+            // their Inc facts (same key, op_id order); the ids above honor
+            // it, so the set precedes the inc in the log.
+            let pushed_ids: Vec<&str> = pulled.iter().map(|item| item.op.op_id.as_str()).collect();
+            assert_eq!(pushed_ids, vec!["smoke-1-set", "smoke-2-inc"]);
 
             let materialized = store
                 .fetch_materialized("smoke_test_rows", 10, 0)
@@ -1349,6 +1343,35 @@ mod pg_smoke {
                 materialized[0].columns.get("name"),
                 Some(&Value::String("alpha".into()))
             );
+
+            // Device presence roundtrip: name stored, address captured by the
+            // server, heartbeat age computable without client clocks.
+            store
+                .devices_upsert(&SyncDeviceRecord {
+                    device_id: "smoketest-device".into(),
+                    app_version: "0.0.0-smoke".into(),
+                    device_name: "smoke-host".into(),
+                    ..SyncDeviceRecord::default()
+                })
+                .await
+                .expect("devices upsert");
+            let devices = store.devices_list().await.expect("devices list");
+            let device = devices
+                .iter()
+                .find(|device| device.device_id == "smoketest-device")
+                .expect("upserted device listed");
+            assert_eq!(device.device_name, "smoke-host");
+            assert_eq!(device.app_version, "0.0.0-smoke");
+            assert!(
+                device.seen_seconds_ago <= 5,
+                "heartbeat age is server-computed and fresh, got {}",
+                device.seen_seconds_ago
+            );
+            assert!(
+                device.last_seen_at.is_some(),
+                "last seen timestamp returned"
+            );
+            println!("device addr captured by server: {:?}", device.ip_addr);
 
             // Cleanup so the app's real bootstrap starts from a clean slate.
             let mut raw_config = tokio_postgres::Config::from_str(&dsn).unwrap();

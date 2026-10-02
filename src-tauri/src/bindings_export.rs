@@ -26,6 +26,7 @@ use vrcx_0_application_game::{
     RuntimeGameLogEventPayload, RuntimeWorkerErrorPayload,
 };
 use vrcx_0_application_realtime::RealtimeFeedProjection;
+use vrcx_0_application_sync::SyncStatusChangedEvent;
 use vrcx_0_assistant::{
     AssistantDeltaEvent, AssistantDoneEvent, AssistantErrorEvent, AssistantToolCallEvent,
     AssistantToolResultEvent, AssistantTurnEntitiesEvent,
@@ -65,6 +66,7 @@ struct BackendRuntimeEventPayloadMap {
     runtime_group_instances_projection: RuntimeGroupInstancesProjection,
     prints_auto_cleanup: PrintAutoCleanupEvent,
     profile_backup_status: ProfileBackupStatus,
+    sync_status_changed: SyncStatusChangedEvent,
     profile_restore_progress: ProfileRestoreProgress,
     data_dir_migration: DataDirMigrationStatus,
     favorites_changed: FavoritesChangedPayload,

@@ -9213,6 +9213,7 @@ dependencies = [
  "vrcx-0-application-core",
  "vrcx-0-application-game",
  "vrcx-0-application-realtime",
+ "vrcx-0-application-sync",
  "vrcx-0-assistant",
  "vrcx-0-composition",
  "vrcx-0-contracts",

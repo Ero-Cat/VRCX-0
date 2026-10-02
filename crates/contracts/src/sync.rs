@@ -654,6 +654,18 @@ pub struct SyncTableOpCount {
     pub pulled: u64,
 }
 
+/// One completed sync cycle in the persisted history ring.
+#[derive(Clone, Debug, Default, serde::Deserialize, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncCycleRecord {
+    pub at: String,
+    pub duration_ms: u64,
+    pub pushed: u64,
+    pub pulled: u64,
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
 /// Snapshot of sync health surfaced to the frontend.
 #[derive(Clone, Debug, Default, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -680,6 +692,14 @@ pub struct SyncStatusSnapshot {
     /// empty when the cycle moved nothing.
     #[serde(default)]
     pub last_cycle_tables: Vec<SyncTableOpCount>,
+    /// Seconds until the interval loop fires the next cycle; null while
+    /// disabled, bootstrapping, or before the first cycle completes.
+    #[serde(default)]
+    pub next_cycle_in_secs: Option<i64>,
+    /// Most recent cycles, newest first (bounded ring, persisted across
+    /// restarts).
+    #[serde(default)]
+    pub cycle_history: Vec<SyncCycleRecord>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, specta::Type)]
@@ -687,8 +707,23 @@ pub struct SyncStatusSnapshot {
 pub struct SyncDeviceRecord {
     pub device_id: String,
     pub app_version: String,
-    pub last_push_at: Option<String>,
-    pub last_pull_at: Option<String>,
+    /// Human-readable machine name (hostname) reported by the device.
+    #[serde(default)]
+    pub device_name: String,
+    /// Server-captured client address (PostgreSQL inet_client_addr).
+    #[serde(default)]
+    pub ip_addr: String,
+    /// Server-clock timestamp of the device's last heartbeat (per cycle).
+    #[serde(default)]
+    pub last_seen_at: Option<String>,
+    /// Age of the last heartbeat in seconds, computed on the server so
+    /// skewed client clocks cannot fake presence.
+    #[serde(default)]
+    pub seen_seconds_ago: i64,
+    /// Derived by the engine: heartbeat is recent enough for the device to
+    /// be considered online.
+    #[serde(default)]
+    pub online: bool,
 }
 
 #[derive(Clone, Debug, Default, Serialize, specta::Type)]
