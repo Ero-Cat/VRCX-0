@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
     avatarFeedEntry,
-    bioFeedEntry
+    bioFeedEntry,
+    gpsFeedEntry,
+    statusFeedEntry
 } from '@/components/feed/feedLiveTestEntries';
 import type { FeedLiveEntryPayload } from '@/state/feedLiveTypes';
 
@@ -66,5 +68,32 @@ describe('mergeFeedRowsWithSnapshot', () => {
             bio: 'new bio',
             previousBio: 'old bio'
         });
+    });
+
+    it('drops only the location changes of location-hidden users', () => {
+        const result = mergeFeedRowsWithSnapshot({
+            buildMergeOptions: ({ rows }) => ({
+                rows,
+                userId: 'usr_self',
+                locationHiddenUserIds: ['usr_friend'],
+                maxRows: 10
+            }),
+            liveEntries: [
+                { sequence: 1, entry: gpsFeedEntry() },
+                { sequence: 2, entry: statusFeedEntry() },
+                {
+                    sequence: 3,
+                    entry: gpsFeedEntry({ userId: 'usr_other' })
+                }
+            ],
+            livePatches: [],
+            minLiveSequence: 0,
+            rows: []
+        });
+
+        expect(result.rows.map((row) => [row.userId, row.type])).toEqual([
+            ['usr_other', 'GPS'],
+            ['usr_friend', 'Status']
+        ]);
     });
 });

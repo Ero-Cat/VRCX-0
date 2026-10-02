@@ -83,6 +83,7 @@ impl TestRealtimeStore {
             &query.vip_list,
             &query.scoped_user_ids,
             &query.excluded_user_ids,
+            &query.location_hidden_user_ids,
             query.max_entries,
         );
         let mut rows = state

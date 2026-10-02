@@ -59,6 +59,19 @@ fn query_feed_rows(
         format!("AND user_id NOT IN ({})", excluded_placeholders.join(", "))
     };
     let user_scope_query = format!("{vip_query} {scoped_query} {excluded_query}");
+    let location_hidden_placeholders = add_list_params(
+        &mut params,
+        &query.location_hidden_user_ids,
+        "location_hidden",
+    );
+    let gps_user_scope_query = if location_hidden_placeholders.is_empty() {
+        user_scope_query.clone()
+    } else {
+        format!(
+            "{user_scope_query} AND user_id NOT IN ({})",
+            location_hidden_placeholders.join(", ")
+        )
+    };
 
     let normalize_created_at = should_interrupt.is_some();
     let created_at_expression = if normalize_created_at {
@@ -116,7 +129,7 @@ fn query_feed_rows(
                 FeedSelectOptions {
                     source_rank: FEED_GPS_SOURCE_RANK,
                     where_sql: &format!(
-                        "(location LIKE @instance_like ESCAPE '\\' OR previous_location LIKE @instance_like ESCAPE '\\') {date_query} {user_scope_query}"
+                        "(location LIKE @instance_like ESCAPE '\\' OR previous_location LIKE @instance_like ESCAPE '\\') {date_query} {gps_user_scope_query}"
                     ),
                     cursor_source_rank,
                     order_sql: &recent_order_sql,
@@ -157,7 +170,7 @@ fn query_feed_rows(
                 FEED_GPS_PROJECTION,
                 FeedSelectOptions {
                     source_rank: FEED_GPS_SOURCE_RANK,
-                    where_sql: &format!("1=1 {date_query} {user_scope_query}"),
+                    where_sql: &format!("1=1 {date_query} {gps_user_scope_query}"),
                     cursor_source_rank,
                     order_sql: &recent_order_sql,
                     created_at_expression,
@@ -248,7 +261,7 @@ fn query_feed_rows(
                 FeedSelectOptions {
                     source_rank: FEED_GPS_SOURCE_RANK,
                     where_sql: &format!(
-                        "(display_name LIKE @search_like ESCAPE '\\' OR location LIKE @search_like ESCAPE '\\' OR world_name LIKE @search_like ESCAPE '\\' OR previous_location LIKE @search_like ESCAPE '\\' OR group_name LIKE @search_like ESCAPE '\\') {date_query} {user_scope_query}"
+                        "(display_name LIKE @search_like ESCAPE '\\' OR location LIKE @search_like ESCAPE '\\' OR world_name LIKE @search_like ESCAPE '\\' OR previous_location LIKE @search_like ESCAPE '\\' OR group_name LIKE @search_like ESCAPE '\\') {date_query} {gps_user_scope_query}"
                     ),
                     cursor_source_rank,
                     order_sql: &recent_order_sql,
@@ -410,6 +423,7 @@ pub fn feed_latest_query(
                 },
                 scoped_user_ids: query.scoped_user_ids.clone(),
                 excluded_user_ids: query.excluded_user_ids.clone(),
+                location_hidden_user_ids: query.location_hidden_user_ids.clone(),
                 max_entries: query.max_rows,
                 date_from: String::new(),
                 date_to: String::new(),
@@ -433,6 +447,7 @@ pub fn feed_latest_query(
         favorite_user_ids: &query.favorite_user_ids,
         scoped_user_ids: &query.scoped_user_ids,
         excluded_user_ids: &query.excluded_user_ids,
+        location_hidden_user_ids: &query.location_hidden_user_ids,
         max_rows: query.max_rows,
     };
     let mut output = merge_feed_rows_with_live(rows, &live_entries, 0, context);
@@ -472,6 +487,7 @@ pub fn feed_search_query(
                 },
                 scoped_user_ids: query.scoped_user_ids.clone(),
                 excluded_user_ids: query.excluded_user_ids.clone(),
+                location_hidden_user_ids: query.location_hidden_user_ids.clone(),
                 max_entries: query.max_rows,
                 date_from: query.date_from.clone(),
                 date_to: query.date_to.clone(),
@@ -492,6 +508,7 @@ pub fn feed_search_query(
         favorite_user_ids: &query.favorite_user_ids,
         scoped_user_ids: &query.scoped_user_ids,
         excluded_user_ids: &query.excluded_user_ids,
+        location_hidden_user_ids: &query.location_hidden_user_ids,
         max_rows: query.max_rows,
     };
     let mut output = merge_feed_rows_with_live(rows, &live_entries, 0, context);
@@ -712,6 +729,7 @@ pub(crate) struct FeedLiveRowsMergeContext<'a> {
     pub(crate) favorite_user_ids: &'a [String],
     pub(crate) scoped_user_ids: &'a [String],
     pub(crate) excluded_user_ids: &'a [String],
+    pub(crate) location_hidden_user_ids: &'a [String],
     pub(crate) max_rows: i64,
 }
 
@@ -731,6 +749,7 @@ fn merge_feed_rows_with_live(
         context.favorite_user_ids,
         context.scoped_user_ids,
         context.excluded_user_ids,
+        context.location_hidden_user_ids,
         context.max_rows,
     );
     let mut max_sequence = min_live_sequence;

@@ -18,6 +18,7 @@ type FeedLiveMergeOptions = {
     favoriteUserIds?: readonly string[];
     scopedUserIds?: readonly string[];
     excludedFavoriteUserIds?: readonly string[];
+    locationHiddenUserIds?: readonly string[];
     search?: string;
     dateFrom?: string;
     dateTo?: string;
@@ -159,7 +160,8 @@ function liveRowMatches(
     options: FeedLiveMergeOptions,
     favoriteUserIds: ReadonlySet<string>,
     scopedUserIds: ReadonlySet<string>,
-    excludedUserIds: ReadonlySet<string>
+    excludedUserIds: ReadonlySet<string>,
+    locationHiddenUserIds: ReadonlySet<string>
 ): boolean {
     const entryType = normalizeText(row.type);
     if (!isFeedFilterType(entryType)) {
@@ -183,6 +185,9 @@ function liveRowMatches(
     if (userId && excludedUserIds.has(userId)) {
         return false;
     }
+    if (entryType === 'GPS' && userId && locationHiddenUserIds.has(userId)) {
+        return false;
+    }
     const createdAt = normalizeText(row.created_at);
     if (options.dateFrom && createdAt && createdAt < options.dateFrom) {
         return false;
@@ -202,6 +207,7 @@ function mergeFeedDeltas(
     const favoriteUserIds = new Set(options.favoriteUserIds ?? []);
     const scopedUserIds = new Set(options.scopedUserIds ?? []);
     const excludedUserIds = new Set(options.excludedFavoriteUserIds ?? []);
+    const locationHiddenUserIds = new Set(options.locationHiddenUserIds ?? []);
     const deltas: FeedDelta[] = [
         ...liveEntries.map((entry) => ({
             kind: 'upsert' as const,
@@ -243,7 +249,8 @@ function mergeFeedDeltas(
                 options,
                 favoriteUserIds,
                 scopedUserIds,
-                excludedUserIds
+                excludedUserIds,
+                locationHiddenUserIds
             )
         ) {
             continue;

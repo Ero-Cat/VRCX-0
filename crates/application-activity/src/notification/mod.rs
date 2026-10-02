@@ -17,9 +17,10 @@ mod webhook_delivery;
 mod webhook_sink;
 
 pub use activity_filters::{
-    load_overlay_activity_filters, NotificationActivityFilterSurface,
-    NotificationActivityFiltersSetInput, OverlayActivityFilterProfile,
-    OverlayActivityPreferenceFilters, OverlayActivityPreferenceSurface,
+    load_location_hidden_user_ids, load_overlay_activity_filters,
+    NotificationActivityFilterSurface, NotificationActivityFiltersSetInput,
+    OverlayActivityFilterProfile, OverlayActivityPreferenceFilters,
+    OverlayActivityPreferenceSurface,
 };
 pub use activity_filters::{
     save_notification_activity_filters, save_overlay_activity_preference_filters,

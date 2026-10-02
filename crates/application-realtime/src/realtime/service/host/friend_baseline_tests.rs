@@ -223,6 +223,7 @@ fn sync_friend_snapshot_keeps_a_pending_offline_until_its_deadline() -> Result<(
                 vip_list: Vec::new(),
                 scoped_user_ids: Vec::new(),
                 excluded_user_ids: Vec::new(),
+                location_hidden_user_ids: Vec::new(),
                 max_entries: 10,
                 date_from: String::new(),
                 date_to: String::new(),

@@ -1152,8 +1152,8 @@
                 "value_copied": "{value} copied"
             },
             "context": {
-                "hide_user": "Hide from Feed",
-                "unhide_user": "Unhide from Feed"
+                "hide_user": "Hide Location Changes from Feed",
+                "unhide_user": "Show Location Changes in Feed"
             }
         },
         "friends_locations": {
@@ -2319,13 +2319,15 @@
                     "description": "Periodically fetches friends' public bios and shows changes in the feed. Updates may be delayed, and some changes may go unrecorded."
                 },
                 "hidden_feed": {
-                    "header": "Hidden feed friends",
-                    "description": "Hide selected friends from the feed without deleting saved data.",
+                    "header": "Friends with hidden location changes",
+                    "description": "Hide the selected friends' location changes from the feed. Their other updates still show, and saved data isn't deleted.",
                     "add": "Add friend",
                     "search_placeholder": "Search friends",
                     "empty": "You haven't hidden anyone yet.",
                     "remove": "Unhide friend",
-                    "unknown_friend": "Unknown friend"
+                    "unknown_friend": "Unknown friend",
+                    "hide_notifications": "Hide from notifications too",
+                    "hide_notifications_description": "Their location changes also won't appear in desktop notifications, TTS, VR overlays, webhooks, or in-app notifications."
                 }
             },
             "vr": {

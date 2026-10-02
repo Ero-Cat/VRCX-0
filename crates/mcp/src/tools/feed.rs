@@ -214,6 +214,7 @@ fn search_friend_feed_page(
                 vip_list: Vec::new(),
                 scoped_user_ids: input.target_user_id.into_iter().collect(),
                 excluded_user_ids: Vec::new(),
+                location_hidden_user_ids: Vec::new(),
                 max_entries: page_limit,
                 date_from: input.date_from,
                 date_to: input.date_to,

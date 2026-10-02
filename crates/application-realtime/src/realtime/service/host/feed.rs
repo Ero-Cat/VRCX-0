@@ -329,6 +329,7 @@ mod tests {
             favorite_user_ids: Vec::new(),
             scoped_user_ids: Vec::new(),
             excluded_user_ids: Vec::new(),
+            location_hidden_user_ids: Vec::new(),
             favorites_only: false,
             max_rows,
         })

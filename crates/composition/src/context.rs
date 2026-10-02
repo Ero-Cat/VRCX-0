@@ -14,11 +14,12 @@ use vrcx_0_application::social::{
     ModerationSyncRuntime, MutualGraphFetchRuntime, PrintCleanupQueue,
 };
 use vrcx_0_application_activity::notification::{
-    load_overlay_activity_filters, save_notification_activity_filters,
-    save_overlay_activity_preference_filters, AuthWebhookEvent, AuthWebhookQueue,
-    AuthWebhookQueueDeps, NotificationActivityFiltersSetInput, NotificationConfig,
-    NotificationWebhookSink, NotificationWebhookSinkDeps, OverlayActivityPreferenceFilters,
-    UserImageCache, WebhookDeliveryMonitor, WebhookDeliverySnapshot,
+    load_location_hidden_user_ids, load_overlay_activity_filters,
+    save_notification_activity_filters, save_overlay_activity_preference_filters, AuthWebhookEvent,
+    AuthWebhookQueue, AuthWebhookQueueDeps, NotificationActivityFiltersSetInput,
+    NotificationConfig, NotificationWebhookSink, NotificationWebhookSinkDeps,
+    OverlayActivityPreferenceFilters, UserImageCache, WebhookDeliveryMonitor,
+    WebhookDeliverySnapshot,
 };
 use vrcx_0_application_activity::{
     OverlayActivityRuntime, OverlayActivitySink, OverlayActivitySinkRegistry,
@@ -310,6 +311,9 @@ impl RuntimeHostContext {
         let overlay_activity = OverlayActivityRuntime::with_filters(load_overlay_activity_filters(
             notification_config.as_ref(),
         ));
+        overlay_activity.set_location_hidden_user_ids(load_location_hidden_user_ids(
+            notification_config.as_ref(),
+        ));
         let overlay_activity_sinks = OverlayActivitySinkRegistry::default();
         let notification_projection_observers =
             RealtimeNotificationProjectionObserverRegistry::default();
@@ -551,6 +555,10 @@ impl RuntimeHostContext {
     pub fn reload_overlay_activity_filters(&self) {
         self.overlay_activity
             .set_filters(load_overlay_activity_filters(
+                self.notification_config.as_ref(),
+            ));
+        self.overlay_activity
+            .set_location_hidden_user_ids(load_location_hidden_user_ids(
                 self.notification_config.as_ref(),
             ));
     }

@@ -73,8 +73,7 @@ export function useFeedColumnRows(column: FeedColumnConfig) {
             ),
         [column, localFriendFavorites, remoteFavoritesById]
     );
-    const hiddenUserIds = feedHiddenUsers;
-    const columnExcludedFavoriteUserIds = useMemo(
+    const excludedFavoriteUserIds = useMemo(
         () =>
             Array.from(
                 buildFeedColumnExcludedFavoriteIds({
@@ -84,13 +83,6 @@ export function useFeedColumnRows(column: FeedColumnConfig) {
                 })
             ),
         [column, localFriendFavorites, remoteFavoritesById]
-    );
-    const excludedFavoriteUserIds = useMemo(
-        () =>
-            Array.from(
-                new Set([...columnExcludedFavoriteUserIds, ...hiddenUserIds])
-            ),
-        [columnExcludedFavoriteUserIds, hiddenUserIds]
     );
     const excludedGroupKeys = column.friendScope.excludedFavoriteGroupKeys;
     const excludesFavoriteGroups = Boolean(
@@ -111,9 +103,16 @@ export function useFeedColumnRows(column: FeedColumnConfig) {
                 excludedFavoriteUserIds,
                 favoriteUserIds,
                 feedTypes: column.feedTypes,
+                locationHiddenUserIds: feedHiddenUsers,
                 scope: column.friendScope
             }),
-        [column, currentUserId, excludedFavoriteUserIds, favoriteUserIds]
+        [
+            column,
+            currentUserId,
+            excludedFavoriteUserIds,
+            favoriteUserIds,
+            feedHiddenUsers
+        ]
     );
 
     const buildMergeOptions = useCallback<FeedLiveMergeOptionsBuilder>(
@@ -123,6 +122,7 @@ export function useFeedColumnRows(column: FeedColumnConfig) {
             filters: column.feedTypes,
             excludedFavoriteUserIds,
             favoriteUserIds,
+            locationHiddenUserIds: feedHiddenUsers,
             favoritesOnly: column.friendScope.kind === 'favorites',
             maxRows: Math.max(
                 rows.length + liveEntries.length,
@@ -134,7 +134,8 @@ export function useFeedColumnRows(column: FeedColumnConfig) {
             column.friendScope.kind,
             currentUserId,
             excludedFavoriteUserIds,
-            favoriteUserIds
+            favoriteUserIds,
+            feedHiddenUsers
         ]
     );
 
@@ -171,6 +172,7 @@ export function useFeedColumnRows(column: FeedColumnConfig) {
                 filters: column.feedTypes,
                 excludedFavoriteUserIds,
                 favoriteUserIds,
+                locationHiddenUserIds: feedHiddenUsers,
                 favoritesOnly: column.friendScope.kind === 'favorites',
                 maxRows: FEED_PAGE_SIZE
             })
@@ -226,6 +228,7 @@ export function useFeedColumnRows(column: FeedColumnConfig) {
         excludedFavoriteUserIds,
         favoriteUserIds,
         favoritesReady,
+        feedHiddenUsers,
         feedPersistenceDisabled,
         queryKey,
         scopeHasRows
@@ -291,6 +294,7 @@ export function useFeedColumnRows(column: FeedColumnConfig) {
                 filters: column.feedTypes,
                 excludedFavoriteUserIds,
                 favoriteUserIds,
+                locationHiddenUserIds: feedHiddenUsers,
                 maxEntries: FEED_PAGE_SIZE,
                 cursor
             })
@@ -324,6 +328,7 @@ export function useFeedColumnRows(column: FeedColumnConfig) {
         currentUserId,
         excludedFavoriteUserIds,
         favoriteUserIds,
+        feedHiddenUsers,
         feedPersistenceDisabled,
         hasMore,
         loadingOlder,

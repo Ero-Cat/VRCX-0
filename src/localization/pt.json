@@ -1152,8 +1152,8 @@
                 "value_copied": "{value} copiado"
             },
             "context": {
-                "hide_user": "Ocultar do Feed",
-                "unhide_user": "Mostrar no Feed"
+                "hide_user": "Ocultar mudanças de localização do Feed",
+                "unhide_user": "Mostrar mudanças de localização no Feed"
             }
         },
         "friends_locations": {
@@ -2314,13 +2314,15 @@
                     "description": "Obtém periodicamente as biografias públicas dos amigos e mostra as alterações no Feed. As atualizações podem atrasar e algumas alterações podem não ser registadas."
                 },
                 "hidden_feed": {
-                    "header": "Amigos ocultos no Feed",
-                    "description": "Oculta amigos selecionados no Feed sem excluir dados guardados.",
+                    "header": "Amigos com mudanças de localização ocultas",
+                    "description": "Oculta no Feed as mudanças de localização dos amigos selecionados. A restante atividade continua visível e os dados guardados não são excluídos.",
                     "add": "Adicionar amigo",
                     "search_placeholder": "Pesquisar amigos",
                     "empty": "Ainda não ocultou ninguém.",
                     "remove": "Remover amigo oculto",
-                    "unknown_friend": "Amigo desconhecido"
+                    "unknown_friend": "Amigo desconhecido",
+                    "hide_notifications": "Ocultar também nas notificações",
+                    "hide_notifications_description": "As mudanças de localização também não aparecem nas notificações do ambiente de trabalho, TTS, overlays de VR, webhooks nem nas notificações da app."
                 }
             },
             "vr": {

@@ -78,7 +78,8 @@ describe('feedRepository', () => {
             'usr_feed_limit',
             [],
             [],
-            false
+            false,
+            []
         );
         expect(mocks.queryFeedLatest).not.toHaveBeenCalled();
     });
@@ -99,7 +100,8 @@ describe('feedRepository', () => {
             'usr_feed_limit',
             [],
             [],
-            false
+            false,
+            []
         );
     });
 
@@ -116,7 +118,8 @@ describe('feedRepository', () => {
             50_000,
             null,
             [],
-            ['usr_friend']
+            ['usr_friend'],
+            []
         );
         expect(mocks.searchFeedDatabase).not.toHaveBeenCalled();
     });

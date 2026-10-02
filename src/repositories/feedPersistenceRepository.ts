@@ -26,6 +26,7 @@ interface FeedRowsQueryOptions {
     vipList?: string[];
     scopedUserIds?: string[];
     excludedUserIds?: string[];
+    locationHiddenUserIds?: string[];
     maxEntries?: number;
     dateFrom?: string;
     dateTo?: string;
@@ -38,6 +39,7 @@ interface FeedLatestQueryOptions {
     favoriteUserIds?: string[];
     scopedUserIds?: string[];
     excludedUserIds?: string[];
+    locationHiddenUserIds?: string[];
     favoritesOnly?: boolean;
     maxRows?: number;
 }
@@ -87,6 +89,7 @@ async function queryFeedRows({
     vipList = [],
     scopedUserIds = [],
     excludedUserIds = [],
+    locationHiddenUserIds = [],
     maxEntries = DEFAULT_MAX_TABLE_SIZE,
     dateFrom = '',
     dateTo = '',
@@ -101,6 +104,7 @@ async function queryFeedRows({
         vipList: normalizeStringList(vipList),
         scopedUserIds: normalizeStringList(scopedUserIds),
         excludedUserIds: normalizeStringList(excludedUserIds),
+        locationHiddenUserIds: normalizeStringList(locationHiddenUserIds),
         maxEntries,
         dateFrom,
         dateTo,
@@ -122,7 +126,8 @@ const feed = {
         userId: string = '',
         excludedUserIds: string[] = [],
         scopedUserIds: string[] = [],
-        favoritesOnly: boolean = false
+        favoritesOnly: boolean = false,
+        locationHiddenUserIds: string[] = []
     ) {
         await ensureFeedTablesForUser(userId);
         const query = {
@@ -132,6 +137,7 @@ const feed = {
             favoriteUserIds: normalizeStringList(vipList),
             scopedUserIds: normalizeStringList(scopedUserIds),
             excludedUserIds: normalizeStringList(excludedUserIds),
+            locationHiddenUserIds: normalizeStringList(locationHiddenUserIds),
             favoritesOnly,
             dateFrom,
             dateTo,
@@ -147,6 +153,7 @@ const feed = {
         scopedUserIds = [],
         favoritesOnly = false,
         excludedUserIds = [],
+        locationHiddenUserIds = [],
         maxRows = DEFAULT_MAX_TABLE_SIZE
     }: FeedLatestQueryOptions) {
         await ensureFeedTablesForUser(userId);
@@ -157,6 +164,7 @@ const feed = {
             scopedUserIds: normalizeStringList(scopedUserIds),
             favoritesOnly,
             excludedUserIds: normalizeStringList(excludedUserIds),
+            locationHiddenUserIds: normalizeStringList(locationHiddenUserIds),
             maxRows
         } satisfies FeedLatestQueryInput;
         return commands.appFeedLatestQuery(query);
@@ -169,7 +177,8 @@ const feed = {
         maxEntries: number = DEFAULT_MAX_TABLE_SIZE,
         cursor: FeedCursor | null = null,
         excludedUserIds: string[] = [],
-        scopedUserIds: string[] = []
+        scopedUserIds: string[] = [],
+        locationHiddenUserIds: string[] = []
     ) {
         return queryFeedRows({
             userId,
@@ -178,6 +187,7 @@ const feed = {
             vipList,
             scopedUserIds,
             excludedUserIds,
+            locationHiddenUserIds,
             maxEntries,
             cursor
         });

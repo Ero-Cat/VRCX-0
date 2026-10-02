@@ -28,11 +28,13 @@ export function knownUserName(
 export function useKnownUserOptions({
     enabled,
     endpoint,
-    excludeUserId = ''
+    excludeUserId = '',
+    query = ''
 }: {
     enabled: boolean;
     endpoint: string;
     excludeUserId?: string | null;
+    query?: string;
 }): KnownUserOption[] {
     const usersByKey = useUserFactsStore((state) =>
         enabled ? state.usersByKey : NO_USER_FACTS
@@ -40,6 +42,7 @@ export function useKnownUserOptions({
     return useMemo(() => {
         const excludedUserId = normalizeUserId(excludeUserId);
         const normalizedEndpoint = normalizeEndpoint(endpoint);
+        const normalizedQuery = query.trim().toLowerCase();
         const usersById = new Map<string, KnownUserOption>();
         for (const user of Object.values(usersByKey)) {
             const userId = normalizeUserId(user?.id);
@@ -48,7 +51,12 @@ export function useKnownUserOptions({
                 userId !== excludedUserId &&
                 !usersById.has(userId) &&
                 normalizeEndpoint(user?.endpoint || normalizedEndpoint) ===
-                    normalizedEndpoint
+                    normalizedEndpoint &&
+                (!normalizedQuery ||
+                    knownUserName(user)
+                        .toLowerCase()
+                        .includes(normalizedQuery) ||
+                    userId.toLowerCase().includes(normalizedQuery))
             ) {
                 usersById.set(userId, user);
             }
@@ -60,5 +68,5 @@ export function useKnownUserOptions({
                 )
             )
             .slice(0, KNOWN_USER_OPTION_LIMIT);
-    }, [endpoint, excludeUserId, usersByKey]);
+    }, [endpoint, excludeUserId, query, usersByKey]);
 }

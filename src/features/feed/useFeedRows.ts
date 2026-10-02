@@ -201,10 +201,10 @@ export function useFeedRows({
 
     const createMergeOptionsBuilder = useCallback(
         ({
-            excludedUserIds,
+            locationHiddenUserIds,
             favoriteUserIds
         }: {
-            excludedUserIds: string[];
+            locationHiddenUserIds: string[];
             favoriteUserIds: string[];
         }): FeedLiveMergeOptionsBuilder =>
             ({ liveEntries, rows }) => ({
@@ -212,7 +212,7 @@ export function useFeedRows({
                 userId: currentUserId || '',
                 search: deferredSearchQuery,
                 filters: activeFilters,
-                excludedFavoriteUserIds: excludedUserIds,
+                locationHiddenUserIds,
                 favoriteUserIds,
                 scopedUserIds,
                 dateFrom: toIsoRangeStart(dateFrom),
@@ -407,7 +407,7 @@ export function useFeedRows({
                     userId: currentUserId,
                     search: deferredSearchQuery,
                     filters: activeFilters,
-                    excludedFavoriteUserIds: hiddenUserIds,
+                    locationHiddenUserIds: hiddenUserIds,
                     favoriteUserIds,
                     scopedUserIds,
                     dateFrom: toIsoRangeStart(dateFrom),
@@ -436,7 +436,7 @@ export function useFeedRows({
             .queryFeedLatest({
                 userId: currentUserId,
                 filters: activeFilters,
-                excludedFavoriteUserIds: hiddenUserIds,
+                locationHiddenUserIds: hiddenUserIds,
                 favoriteUserIds,
                 scopedUserIds,
                 favoritesOnly,
@@ -447,7 +447,7 @@ export function useFeedRows({
                     return;
                 }
                 const buildMergeOptions = createMergeOptionsBuilder({
-                    excludedUserIds: hiddenUserIds,
+                    locationHiddenUserIds: hiddenUserIds,
                     favoriteUserIds
                 });
                 cursorRef.current = result.persistedCursor ?? null;
@@ -523,7 +523,7 @@ export function useFeedRows({
             const minLiveSequence = lastLiveFeedSequenceRef.current;
             mergeFeedRowsWithLiveEntries({
                 buildMergeOptions: createMergeOptionsBuilder({
-                    excludedUserIds: hiddenUserIds,
+                    locationHiddenUserIds: hiddenUserIds,
                     favoriteUserIds
                 }),
                 minLiveSequence,
@@ -579,7 +579,7 @@ export function useFeedRows({
             .queryFeedPage({
                 userId: currentUserId,
                 filters: activeFilters,
-                excludedFavoriteUserIds: hiddenUserIds,
+                locationHiddenUserIds: hiddenUserIds,
                 favoriteUserIds,
                 favoritesOnly,
                 maxEntries: FEED_PAGE_SIZE,

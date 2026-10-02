@@ -5,7 +5,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { onlineFeedEntry } from '@/components/feed/feedLiveTestEntries';
+import {
+    gpsFeedEntry,
+    onlineFeedEntry
+} from '@/components/feed/feedLiveTestEntries';
 import { useFavoriteStore } from '@/state/favoriteStore';
 import { useFeedLiveStore } from '@/state/feedLiveStore';
 import type { FeedLiveEntry } from '@/state/feedLiveTypes';
@@ -120,6 +123,7 @@ describe('DashboardFeedWidget', () => {
         expect(mocks.queryFeedLatest).toHaveBeenCalledWith({
             userId: 'usr_self',
             filters: [],
+            locationHiddenUserIds: [],
             maxRows: 100
         });
         expect(screen.getByText('Friend')).toBeTruthy();
@@ -128,6 +132,47 @@ describe('DashboardFeedWidget', () => {
                 name: 'Feed history is not being saved'
             })
         ).toBeTruthy();
+    });
+
+    it('hides live location changes of hidden friends but keeps their other activity', async () => {
+        mocks.queryFeedLatest.mockResolvedValue({ rows: [], maxSequence: 0 });
+        setDashboardFeedStoreState({
+            currentUserId: 'usr_self',
+            liveFeedEntries: [
+                {
+                    sequence: 1,
+                    ownerUserId: 'usr_self',
+                    entry: gpsFeedEntry({
+                        userId: 'usr_hidden',
+                        displayName: 'Hidden Traveler'
+                    })
+                },
+                {
+                    sequence: 2,
+                    ownerUserId: 'usr_self',
+                    entry: onlineFeedEntry({
+                        userId: 'usr_hidden',
+                        displayName: 'Hidden Online'
+                    })
+                }
+            ],
+            liveFeedVersion: 2
+        });
+        usePreferencesStore.setState({ feedHiddenUsers: ['usr_hidden'] });
+
+        render(
+            <MemoryRouter>
+                <DashboardFeedWidget config={{}} configUpdater={null} />
+            </MemoryRouter>
+        );
+
+        await waitFor(() =>
+            expect(screen.getByText('Hidden Online')).toBeTruthy()
+        );
+        expect(mocks.queryFeedLatest).toHaveBeenCalledWith(
+            expect.objectContaining({ locationHiddenUserIds: ['usr_hidden'] })
+        );
+        expect(screen.queryByText('Hidden Traveler')).toBeNull();
     });
 
     it('groups compact feed rows by day instead of repeating the date per row', async () => {

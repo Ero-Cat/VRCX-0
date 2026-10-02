@@ -1156,8 +1156,8 @@
                 "value_copied": "{value} zkopírováno"
             },
             "context": {
-                "hide_user": "Skrýt z Feedu",
-                "unhide_user": "Zobrazit ve Feedu"
+                "hide_user": "Skrýt změny polohy z Feedu",
+                "unhide_user": "Zobrazit změny polohy ve Feedu"
             }
         },
         "friends_locations": {
@@ -2324,13 +2324,15 @@
                     "description": "Pravidelně načítá veřejná bio přátel a změny zobrazuje ve Feedu. Aktualizace se mohou zpozdit a některé změny mohou být vynechány."
                 },
                 "hidden_feed": {
-                    "header": "Skrytí přátelé ve Feedu",
-                    "description": "Skryje vybrané přátele ve Feedu bez odstranění uložených dat.",
+                    "header": "Přátelé se skrytými změnami polohy",
+                    "description": "Skryje ve Feedu změny polohy vybraných přátel. Jejich ostatní aktivita se dál zobrazuje a uložená data se neodstraní.",
                     "add": "Přidat přítele",
                     "search_placeholder": "Hledat přátele",
                     "empty": "Zatím jste nikoho neskryli.",
                     "remove": "Odebrat skrytého přítele",
-                    "unknown_friend": "Neznámý přítel"
+                    "unknown_friend": "Neznámý přítel",
+                    "hide_notifications": "Skrýt i v oznámeních",
+                    "hide_notifications_description": "Jejich změny polohy se nezobrazí ani v oznámeních na ploše, TTS, VR overlayích, webhoocích ani v oznámeních v aplikaci."
                 }
             },
             "vr": {

@@ -153,7 +153,8 @@ export function InstanceHistoryPage({
     const otherKnownUsers = useKnownUserOptions({
         enabled: targetPickerOpen,
         endpoint,
-        excludeUserId: currentUserId
+        excludeUserId: currentUserId,
+        query: targetSearch
     });
     const knownUsers = useMemo<KnownUserOption[]>(
         () =>

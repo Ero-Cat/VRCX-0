@@ -194,52 +194,11 @@ export function useSettingsActions(deps: SettingsActionsDeps) {
         ...actionDeps,
         ...preferenceActions
     });
-    function normalizeCurrentFeedHiddenUsers() {
-        return normalizePreferenceSnapshot({
-            feedHiddenUsers: deps.prefs.feedHiddenUsers
-        }).feedHiddenUsers;
-    }
     async function addFeedHiddenUser(userId: string) {
-        const previous = normalizeCurrentFeedHiddenUsers();
-        const next = normalizePreferenceSnapshot({
-            feedHiddenUsers: [...previous, userId]
-        }).feedHiddenUsers;
-        await deps.commit(
-            () => addFeedHiddenUserPreference(userId),
-            () => {
-                deps.setPrefs((current) => ({
-                    ...current,
-                    feedHiddenUsers: next
-                }));
-                return () =>
-                    deps.setPrefs((current) => ({
-                        ...current,
-                        feedHiddenUsers: previous
-                    }));
-            }
-        );
+        await deps.commit(() => addFeedHiddenUserPreference(userId));
     }
     async function removeFeedHiddenUser(userId: string) {
-        const normalizedUserId = userId.trim();
-        if (!normalizedUserId) {
-            return;
-        }
-        const previous = normalizeCurrentFeedHiddenUsers();
-        const next = previous.filter((id) => id !== normalizedUserId);
-        await deps.commit(
-            () => removeFeedHiddenUserPreference(normalizedUserId),
-            () => {
-                deps.setPrefs((current) => ({
-                    ...current,
-                    feedHiddenUsers: next
-                }));
-                return () =>
-                    deps.setPrefs((current) => ({
-                        ...current,
-                        feedHiddenUsers: previous
-                    }));
-            }
-        );
+        await deps.commit(() => removeFeedHiddenUserPreference(userId));
     }
     return {
         ...preferenceActions,

@@ -28,6 +28,7 @@ interface FeedQueryOptions {
     favoriteUserIds?: string[];
     scopedUserIds?: readonly string[];
     excludedFavoriteUserIds?: string[];
+    locationHiddenUserIds?: string[];
     dateFrom?: string;
     dateTo?: string;
     maxEntries?: number;
@@ -41,6 +42,7 @@ interface FeedLatestQueryOptions {
     favoriteUserIds?: string[];
     scopedUserIds?: readonly string[];
     excludedFavoriteUserIds?: string[];
+    locationHiddenUserIds?: string[];
     favoritesOnly?: boolean;
     maxRows?: number;
 }
@@ -98,6 +100,7 @@ class FeedRepository {
         favoriteUserIds = [],
         scopedUserIds = [],
         excludedFavoriteUserIds = [],
+        locationHiddenUserIds = [],
         dateFrom = '',
         dateTo = '',
         maxEntries,
@@ -125,7 +128,8 @@ class FeedRepository {
                 normalizedUserId,
                 normalizedExcludedFavorites,
                 normalizedScoped,
-                favoritesOnly
+                favoritesOnly,
+                normalizeUserIdList(locationHiddenUserIds)
             );
         }
 
@@ -137,7 +141,8 @@ class FeedRepository {
                 (normalizedScoped.length > 0 ? searchLimit : maxTableSize),
             cursor,
             normalizedExcludedFavorites,
-            normalizedScoped
+            normalizedScoped,
+            normalizeUserIdList(locationHiddenUserIds)
         );
     }
 
@@ -151,6 +156,7 @@ class FeedRepository {
         favoriteUserIds = [],
         scopedUserIds = [],
         excludedFavoriteUserIds = [],
+        locationHiddenUserIds = [],
         favoritesOnly = false,
         maxRows
     }: FeedLatestQueryOptions): Promise<FeedReadModelResult<FeedRowOutput>> {
@@ -169,6 +175,7 @@ class FeedRepository {
             favoriteUserIds: normalizedFavorites,
             scopedUserIds: normalizedScoped,
             excludedUserIds: normalizedExcludedFavorites,
+            locationHiddenUserIds: normalizeUserIdList(locationHiddenUserIds),
             favoritesOnly,
             maxRows: maxRows ?? maxTableSize
         });

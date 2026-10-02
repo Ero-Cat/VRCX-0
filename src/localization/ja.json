@@ -1150,8 +1150,8 @@
                 "value_copied": "{value}をコピーしました"
             },
             "context": {
-                "hide_user": "フィードから非表示",
-                "unhide_user": "フィードの非表示を解除"
+                "hide_user": "フィードで現在地の変化を非表示",
+                "unhide_user": "フィードで現在地の変化を表示"
             }
         },
         "friends_locations": {
@@ -2312,13 +2312,15 @@
                     "description": "フレンドの公開自己紹介を定期的に取得し、変化をフィードに表示します。反映が遅れたり、一部が抜けたりすることがあります。"
                 },
                 "hidden_feed": {
-                    "header": "フィードで非表示のフレンド",
-                    "description": "保存済みデータを削除せずに、選択したフレンドをフィードから非表示にします。",
+                    "header": "現在地の変化を非表示にしたフレンド",
+                    "description": "選択したフレンドの現在地の変化をフィードから非表示にします。そのほかの更新は通常どおり表示され、保存済みデータも削除されません。",
                     "add": "フレンドを追加",
                     "search_placeholder": "フレンドを検索",
                     "empty": "まだ誰も非表示にしていません。",
                     "remove": "非表示を解除",
-                    "unknown_friend": "不明なフレンド"
+                    "unknown_friend": "不明なフレンド",
+                    "hide_notifications": "通知でも非表示にする",
+                    "hide_notifications_description": "デスクトップ通知、TTS、VR オーバーレイ、Webhook、アプリ内通知でも、このフレンドの現在地の変化を知らせません。"
                 }
             },
             "vr": {

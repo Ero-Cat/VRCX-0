@@ -88,6 +88,9 @@ export function DashboardFeedWidget({
     const feedPersistenceDisabled = usePreferencesStore(
         (state) => state.feedPersistenceDisabled
     );
+    const feedHiddenUsers = usePreferencesStore(
+        (state) => state.feedHiddenUsers
+    );
     const lastLiveFeedSequenceRef = useRef(0);
     const liveFeedSnapshotRef = useRef({
         entries: liveFeedEntries,
@@ -156,6 +159,7 @@ export function DashboardFeedWidget({
                         rows,
                         userId: currentUserId || '',
                         filters: activeFilters,
+                        locationHiddenUserIds: feedHiddenUsers,
                         maxRows: FEED_WIDGET_MAX_ROWS
                     }),
                     liveEntries: liveFeedSnapshot.entries,
@@ -177,7 +181,7 @@ export function DashboardFeedWidget({
             }
             return null;
         },
-        [activeFilters, currentUserId]
+        [activeFilters, currentUserId, feedHiddenUsers]
     );
 
     const prepareWidgetRowsForCommit = useCallback(
@@ -235,6 +239,7 @@ export function DashboardFeedWidget({
             .queryFeedLatest({
                 userId: currentUserId,
                 filters: activeFilters,
+                locationHiddenUserIds: feedHiddenUsers,
                 maxRows: FEED_WIDGET_MAX_ROWS
             })
             .then(async (result) => {
@@ -287,6 +292,7 @@ export function DashboardFeedWidget({
         activeFilters,
         addGameLogEventCount,
         currentUserId,
+        feedHiddenUsers,
         feedPersistenceDisabled,
         mergeWidgetRowsWithLatestLive,
         prepareWidgetRowsForCommit

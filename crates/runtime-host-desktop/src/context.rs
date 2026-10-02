@@ -2,9 +2,9 @@ use std::sync::{Arc, Mutex};
 
 use vrcx_0_application::auth::AuthCredentialStore;
 use vrcx_0_application_activity::notification::{
-    extract_file_version, fallback_file_version, load_overlay_activity_filters,
-    normalize_avatar_image_url_128, CachedNotificationUserImageResolver, NotificationConfig,
-    RealtimeUserImageResolverSlot,
+    extract_file_version, fallback_file_version, load_location_hidden_user_ids,
+    load_overlay_activity_filters, normalize_avatar_image_url_128,
+    CachedNotificationUserImageResolver, NotificationConfig, RealtimeUserImageResolverSlot,
 };
 use vrcx_0_application_activity::{
     OverlayActivityRuntime, OverlayActivitySink, OverlayActivitySinkRegistry,
@@ -150,6 +150,10 @@ impl DesktopRuntimeServices {
     pub fn reload_overlay_activity_filters(&self) {
         self.overlay_activity
             .set_filters(load_overlay_activity_filters(
+                self.notification_config.as_ref(),
+            ));
+        self.overlay_activity
+            .set_location_hidden_user_ids(load_location_hidden_user_ids(
                 self.notification_config.as_ref(),
             ));
     }

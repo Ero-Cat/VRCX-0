@@ -290,6 +290,7 @@ pub fn feed_lookup_input(user_id: String) -> FeedRowsQueryInput {
         vip_list: Vec::new(),
         scoped_user_ids: Vec::new(),
         excluded_user_ids: Vec::new(),
+        location_hidden_user_ids: Vec::new(),
         max_entries: 20,
         date_from: String::new(),
         date_to: String::new(),

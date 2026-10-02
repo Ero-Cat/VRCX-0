@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 use serde_json::json;
@@ -826,6 +827,51 @@ fn dedup_blocks_redelivery_across_surfaces() {
     assert!(runtime.ingest_candidate(first).is_some());
     assert!(runtime.ingest_candidate(duplicate).is_none());
     assert_eq!(sink.take_deliveries().len(), 1);
+}
+
+#[test]
+fn location_hidden_users_skip_gps_on_every_surface_but_keep_other_activity() {
+    let rule = json!({ "scope": "friends", "favoriteGroupKeys": "all" });
+    let surface = json!({ "types": { "GPS": rule, "Status": rule } });
+    let runtime = OverlayActivityRuntime::with_filters(OverlayActivityFilters::from_json(json!({
+        "version": 1,
+        "wrist": surface,
+        "desktop": surface,
+        "vr": surface,
+        "hmd": surface,
+        "webhook": surface,
+        "tts": surface
+    })));
+    let sink = TestOverlayActivitySink::default();
+    runtime.set_sink(sink.clone());
+    runtime.set_delivery_armed(true);
+    runtime.set_friend_user_ids(["usr_hidden", "usr_other"]);
+    runtime.set_location_hidden_user_ids(HashSet::from(["usr_hidden".to_string()]));
+
+    assert!(runtime
+        .ingest_candidate(recent_candidate("GPS", "usr_hidden"))
+        .is_none());
+    assert!(sink.take_deliveries().is_empty());
+    assert!(runtime.snapshot().entries.is_empty());
+
+    assert!(runtime
+        .ingest_candidate(recent_candidate("Status", "usr_hidden"))
+        .is_some());
+    assert!(runtime
+        .ingest_candidate(recent_candidate("GPS", "usr_other"))
+        .is_some());
+    let delivered = sink
+        .take_deliveries()
+        .into_iter()
+        .map(|delivery| (delivery.entry.activity_type, delivery.entry.actor_user_id))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        delivered,
+        vec![
+            ("Status".to_string(), "usr_hidden".to_string()),
+            ("GPS".to_string(), "usr_other".to_string()),
+        ]
+    );
 }
 
 fn candidate(activity_type: &str, user_id: &str) -> OverlayActivityCandidate {

@@ -162,6 +162,7 @@ pub(super) struct OverlayActivityState {
     pub(super) friend_favorite_groups: OverlayFavoriteGroups,
     pub(super) group_favorite_groups: OverlayFavoriteGroups,
     pub(super) friend_user_ids: HashSet<String>,
+    location_hidden_user_ids: HashSet<String>,
     pub(super) group_instance_scope_key: String,
     pub(super) group_instance_baseline: HashMap<String, Vec<String>>,
     current_instance_location: String,
@@ -183,6 +184,7 @@ impl Default for OverlayActivityState {
             friend_favorite_groups: OverlayFavoriteGroups::default(),
             group_favorite_groups: OverlayFavoriteGroups::default(),
             friend_user_ids: HashSet::new(),
+            location_hidden_user_ids: HashSet::new(),
             group_instance_scope_key: String::new(),
             group_instance_baseline: HashMap::new(),
             current_instance_location: String::new(),
@@ -272,6 +274,12 @@ impl OverlayActivityRuntime {
     {
         if let Ok(mut current) = self.inner.sink.lock() {
             *current = Some(Arc::new(sink));
+        }
+    }
+
+    pub fn set_location_hidden_user_ids(&self, user_ids: HashSet<String>) {
+        if let Ok(mut state) = self.inner.state.lock() {
+            state.location_hidden_user_ids = user_ids;
         }
     }
 
@@ -389,6 +397,13 @@ impl OverlayActivityRuntime {
                 return None;
             }
             clear_joined_delivery_coverage_for_departing_gps(&mut state, &candidate);
+            if candidate.activity_type == "GPS"
+                && state
+                    .location_hidden_user_ids
+                    .contains(&normalize_id(&candidate.actor_user_id))
+            {
+                return None;
+            }
 
             let wrist = surface_matches(
                 &state,

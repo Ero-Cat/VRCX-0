@@ -47,6 +47,13 @@ export function buildSocialSection({
         commit,
         onAddFeedHiddenUser: addFeedHiddenUser,
         onRemoveFeedHiddenUser: removeFeedHiddenUser,
+        onFeedHiddenUsersHideNotificationsChange: (checked: boolean) => {
+            saveBoolPreference(
+                'feedHiddenUsersHideNotifications',
+                'feedHiddenUsersHideNotifications',
+                checked
+            );
+        },
         setRecentActionCooldownEnabledPreference,
         setRecentActionCooldownMinutesPreference,
         toggleLocalFavoriteFriendsGroup,

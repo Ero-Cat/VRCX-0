@@ -122,7 +122,10 @@ export const FeedSearchBox = memo(function FeedSearchBox({
                         onSearchDraftChange(value);
                         return;
                     }
-                    if (details.reason === 'item-press') {
+                    if (
+                        details.reason === 'input-clear' &&
+                        details.isItemPress
+                    ) {
                         onClearSearch();
                     }
                 }}

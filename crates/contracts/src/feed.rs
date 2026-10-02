@@ -47,6 +47,8 @@ pub struct FeedRowsQueryInput {
     pub scoped_user_ids: Vec<String>,
     #[serde(default)]
     pub excluded_user_ids: Vec<String>,
+    #[serde(default)]
+    pub location_hidden_user_ids: Vec<String>,
     pub max_entries: i64,
     #[serde(default)]
     pub date_from: String,
@@ -69,6 +71,8 @@ pub struct FeedLatestQueryInput {
     #[serde(default)]
     pub excluded_user_ids: Vec<String>,
     #[serde(default)]
+    pub location_hidden_user_ids: Vec<String>,
+    #[serde(default)]
     pub favorites_only: bool,
     pub max_rows: i64,
 }
@@ -87,6 +91,8 @@ pub struct FeedSearchQueryInput {
     pub scoped_user_ids: Vec<String>,
     #[serde(default)]
     pub excluded_user_ids: Vec<String>,
+    #[serde(default)]
+    pub location_hidden_user_ids: Vec<String>,
     #[serde(default)]
     pub favorites_only: bool,
     #[serde(default)]
@@ -184,6 +190,7 @@ pub struct FeedLiveQueryMatcher {
     favorite_user_ids: HashSet<String>,
     scoped_user_ids: HashSet<String>,
     excluded_user_ids: HashSet<String>,
+    location_hidden_user_ids: HashSet<String>,
     max_rows: Option<usize>,
 }
 
@@ -199,6 +206,7 @@ impl FeedLiveQueryMatcher {
             &query.favorite_user_ids,
             &query.scoped_user_ids,
             &query.excluded_user_ids,
+            &query.location_hidden_user_ids,
             query.max_rows,
         )
     }
@@ -214,6 +222,7 @@ impl FeedLiveQueryMatcher {
             &query.favorite_user_ids,
             &query.scoped_user_ids,
             &query.excluded_user_ids,
+            &query.location_hidden_user_ids,
             query.max_rows,
         )
     }
@@ -229,6 +238,7 @@ impl FeedLiveQueryMatcher {
         favorite_user_ids: &[String],
         scoped_user_ids: &[String],
         excluded_user_ids: &[String],
+        location_hidden_user_ids: &[String],
         max_rows: i64,
     ) -> Self {
         Self {
@@ -241,6 +251,7 @@ impl FeedLiveQueryMatcher {
             favorite_user_ids: normalize_user_ids(favorite_user_ids),
             scoped_user_ids: normalize_user_ids(scoped_user_ids),
             excluded_user_ids: normalize_user_ids(excluded_user_ids),
+            location_hidden_user_ids: normalize_user_ids(location_hidden_user_ids),
             max_rows: (max_rows > 0).then_some(max_rows as usize),
         }
     }
@@ -267,6 +278,12 @@ impl FeedLiveQueryMatcher {
             return false;
         }
         if !user_id.is_empty() && self.excluded_user_ids.contains(user_id) {
+            return false;
+        }
+        if entry_filter == FeedFilter::Gps
+            && !user_id.is_empty()
+            && self.location_hidden_user_ids.contains(user_id)
+        {
             return false;
         }
 

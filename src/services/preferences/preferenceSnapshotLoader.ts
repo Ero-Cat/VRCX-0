@@ -190,6 +190,7 @@ export async function loadPreferenceSnapshot() {
         searchLimit,
         localFavoriteFriendsGroups,
         feedHiddenUsers,
+        feedHiddenUsersHideNotifications,
         overlayActivityFilters,
         vrNotificationActivityFilters,
         hmdNotificationActivityFilters,
@@ -347,6 +348,7 @@ export async function loadPreferenceSnapshot() {
         ),
         configRepository.getArray('localFavoriteFriendsGroups', []),
         configRepository.getString('feedHiddenUsers', '[]'),
+        configRepository.getBool('feedHiddenUsersHideNotifications', true),
         configRepository.getString('overlayActivityFilters', ''),
         configRepository.getString('vrNotificationActivityFilters', ''),
         configRepository.getString('hmdNotificationActivityFilters', ''),
@@ -568,6 +570,9 @@ export async function loadPreferenceSnapshot() {
             localFavoriteFriendsGroups
         ),
         feedHiddenUsers: normalizeFeedHiddenUsers(feedHiddenUsers),
+        feedHiddenUsersHideNotifications: Boolean(
+            feedHiddenUsersHideNotifications
+        ),
         overlayActivityFilters: parseOverlayActivityFiltersPreference(
             overlayActivityFilters
         ),

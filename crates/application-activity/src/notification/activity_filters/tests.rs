@@ -220,3 +220,21 @@ fn backend_save_updates_only_requested_notification_surface(
         .contains("future.activity"));
     Ok(())
 }
+
+#[test]
+fn location_hidden_users_load_from_the_feed_list_unless_the_switch_is_off(
+) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    let (_dir, config) = test_config("location-hidden-users")?;
+    config.set_string(
+        "feedHiddenUsers",
+        &serde_json::to_string(&json!([" usr_a ", { "userId": "usr_b" }, ""]))?,
+    )?;
+    assert_eq!(
+        load_location_hidden_user_ids(&config),
+        HashSet::from(["usr_a".to_string(), "usr_b".to_string()])
+    );
+
+    config.set_string("feedHiddenUsersHideNotifications", "false")?;
+    assert!(load_location_hidden_user_ids(&config).is_empty());
+    Ok(())
+}

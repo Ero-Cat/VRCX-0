@@ -1150,8 +1150,8 @@
                 "value_copied": "已复制 {value}"
             },
             "context": {
-                "hide_user": "从动态中隐藏",
-                "unhide_user": "在动态中取消隐藏"
+                "hide_user": "在动态中隐藏位置变动",
+                "unhide_user": "在动态中显示位置变动"
             }
         },
         "friends_locations": {
@@ -2313,13 +2313,15 @@
                     "description": "定期获取好友的公开简介，变化会显示在好友动态中。更新可能延迟，部分变化可能漏记。"
                 },
                 "hidden_feed": {
-                    "header": "已隐藏动态的好友",
-                    "description": "隐藏所选好友的动态，不会删除已保存的数据。",
+                    "header": "已隐藏位置变动的好友",
+                    "description": "在好友动态中隐藏所选好友的位置变动，其他动态照常显示，也不会删除已保存的数据。",
                     "add": "添加好友",
                     "search_placeholder": "搜索好友",
                     "empty": "还没有隐藏任何人。",
                     "remove": "取消隐藏好友",
-                    "unknown_friend": "未知好友"
+                    "unknown_friend": "未知好友",
+                    "hide_notifications": "通知中也隐藏",
+                    "hide_notifications_description": "这些好友的位置变动也不会出现在桌面通知、TTS、VR 叠加界面、Webhook 和应用内通知中。"
                 }
             },
             "vr": {
@@ -3756,7 +3758,7 @@
                 "offline": "离线",
                 "online": "在线",
                 "join_me": "欢迎加入",
-                "ask_me": "请先询问",
+                "ask_me": "忙碌",
                 "busy": "请勿打扰"
             },
             "pronouns": "人称代词",

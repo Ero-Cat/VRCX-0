@@ -1,6 +1,7 @@
 import i18n from '@/services/i18nService';
 import { normalizeString } from '@/shared/utils/string';
 import { useNotificationStore } from '@/state/notificationStore';
+import { usePreferencesStore } from '@/state/preferencesStore';
 
 type SharedFeedNotificationEntry = Record<string, unknown> & {
     type?: string;
@@ -20,6 +21,15 @@ export async function pushSharedFeedNotification(
     entry?: SharedFeedNotificationEntry | null
 ): Promise<void> {
     const type = normalizeString(entry?.type) || 'Feed';
+    const { feedHiddenUsers, feedHiddenUsersHideNotifications } =
+        usePreferencesStore.getState();
+    if (
+        type === 'GPS' &&
+        feedHiddenUsersHideNotifications &&
+        feedHiddenUsers.includes(normalizeString(entry?.userId))
+    ) {
+        return;
+    }
     const displayName =
         normalizeString(entry?.displayName || entry?.userId) || 'Unknown';
     const detail =

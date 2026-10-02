@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 
 use crate::{
     OverlayActivityFilters, OverlayActivityRule, OverlayActivityScope, OverlayActivitySurface,
@@ -116,6 +116,32 @@ pub fn load_overlay_activity_filters(config: &dyn NotificationConfig) -> Overlay
         filters.tts = seed_tts_notification_activity_filters(config, &filters);
     }
     filters
+}
+
+pub fn load_location_hidden_user_ids(config: &dyn NotificationConfig) -> HashSet<String> {
+    if !config
+        .get_bool("feedHiddenUsersHideNotifications", true)
+        .unwrap_or(true)
+    {
+        return HashSet::new();
+    }
+    let Some(raw) = config.get_raw("feedHiddenUsers").ok().flatten() else {
+        return HashSet::new();
+    };
+    let Ok(Value::Array(entries)) = serde_json::from_str::<Value>(&raw) else {
+        return HashSet::new();
+    };
+    entries
+        .iter()
+        .filter_map(|entry| match entry {
+            Value::String(user_id) => Some(user_id.as_str()),
+            Value::Object(fields) => fields.get("userId").and_then(Value::as_str),
+            _ => None,
+        })
+        .map(str::trim)
+        .filter(|user_id| !user_id.is_empty())
+        .map(str::to_string)
+        .collect()
 }
 
 fn seed_tts_notification_activity_filters(

@@ -26,6 +26,7 @@ the app and across releases.
 | Accessibility                  | 无障碍                 | 無障礙                | アクセシビリティ                     |
 | Account                        | 账号                   | 帳號                  | アカウント                           |
 | Animators                      | 动画器                 | 動畫控制器數          | アニメーターの数                     |
+| Ask Me                         | 忙碌                   | 詢問我                | きいてみてね                         |
 | Audio Source                   | 音源                   | 音訊來源              | オーディオソース                     |
 | Audio Sources                  | 音源                   | 音訊源數              | オーディオソースの数                 |
 | Avatar                         | 虚拟形象               | 角色                  | アバター                             |

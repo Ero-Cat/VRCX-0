@@ -115,6 +115,7 @@ struct MergeCase {
     favorite_user_ids: Vec<String>,
     scoped_user_ids: Vec<String>,
     excluded_user_ids: Vec<String>,
+    location_hidden_user_ids: Vec<String>,
     live_entries: Vec<FeedLiveEntryInput>,
     min_live_sequence: i64,
     max_rows: i64,
@@ -131,6 +132,7 @@ fn merge_case(input: MergeCase) -> FeedReadModelOutput {
         favorite_user_ids: &input.favorite_user_ids,
         scoped_user_ids: &input.scoped_user_ids,
         excluded_user_ids: &input.excluded_user_ids,
+        location_hidden_user_ids: &input.location_hidden_user_ids,
         max_rows: input.max_rows,
     };
     merge_feed_rows_with_live(
@@ -154,6 +156,7 @@ fn live_feed_ignores_friend_relationship_events_without_active_filters() {
         favorite_user_ids: Vec::new(),
         scoped_user_ids: Vec::new(),
         excluded_user_ids: Vec::new(),
+        location_hidden_user_ids: Vec::new(),
         live_entries: vec![
             live(
                 1,
@@ -204,6 +207,7 @@ fn user_scope_drops_live_entries_and_existing_rows_outside_the_scope() {
         favorite_user_ids: Vec::new(),
         scoped_user_ids: vec!["usr_scoped".into()],
         excluded_user_ids: Vec::new(),
+        location_hidden_user_ids: Vec::new(),
         live_entries: vec![
             live(
                 1,
@@ -250,6 +254,7 @@ fn merged_rows_carry_every_live_entry_field() {
         favorite_user_ids: Vec::new(),
         scoped_user_ids: Vec::new(),
         excluded_user_ids: Vec::new(),
+        location_hidden_user_ids: Vec::new(),
         live_entries: vec![live(
             1,
             FeedLiveEntry::Gps {
@@ -354,6 +359,7 @@ fn latest_query_keeps_the_persisted_cursor_when_live_rows_fill_the_result(
             favorite_user_ids: Vec::new(),
             scoped_user_ids: Vec::new(),
             excluded_user_ids: Vec::new(),
+            location_hidden_user_ids: Vec::new(),
             favorites_only: false,
             max_rows: 1,
         },
@@ -370,6 +376,70 @@ fn latest_query_keeps_the_persisted_cursor_when_live_rows_fill_the_result(
     assert_eq!(output.rows[0].row_id, None);
     assert!(output.persisted_has_more);
     assert!(output.persisted_cursor.is_some());
+    Ok(())
+}
+
+#[test]
+fn location_hidden_users_drop_only_their_gps_rows() -> Result<(), crate::Error> {
+    let dir = TestDir::new("feed-location-hidden-users");
+    let db = DatabaseService::new(&dir.path.join("VRCX-0.sqlite3"))?;
+    write_realtime_batch(
+        &db,
+        &OwnerId::new("usr_self"),
+        &RealtimePersistenceBatch {
+            feed_entries: vec![
+                gps_entry("2026-05-15T00:00:00Z", "usr_hidden", "Hidden", "wrld_1:a"),
+                status_entry("2026-05-15T00:00:01Z", "usr_hidden", "Hidden", "busy"),
+                gps_entry("2026-05-15T00:00:02Z", "usr_other", "Other", "wrld_1:b"),
+            ],
+            ..RealtimePersistenceBatch::default()
+        },
+    )?;
+
+    let output = feed_latest_query(
+        &db,
+        FeedLatestQueryInput {
+            user_id: "usr_self".into(),
+            filters: Vec::new(),
+            favorite_user_ids: Vec::new(),
+            scoped_user_ids: Vec::new(),
+            excluded_user_ids: Vec::new(),
+            location_hidden_user_ids: vec!["usr_hidden".into()],
+            favorites_only: false,
+            max_rows: 10,
+        },
+        vec![
+            live(
+                1,
+                gps_entry("2026-05-15T00:01:00Z", "usr_hidden", "Hidden", "wrld_1:c"),
+            ),
+            live(
+                2,
+                status_entry("2026-05-15T00:01:01Z", "usr_hidden", "Hidden", "active"),
+            ),
+        ],
+        2,
+        true,
+    )?;
+
+    let rows = output
+        .rows
+        .iter()
+        .map(|row| {
+            (
+                row.user_id.as_deref().unwrap_or_default(),
+                row.r#type.as_deref().unwrap_or_default(),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        rows,
+        vec![
+            ("usr_hidden", "Status"),
+            ("usr_other", "GPS"),
+            ("usr_hidden", "Status"),
+        ]
+    );
     Ok(())
 }
 
@@ -412,6 +482,7 @@ fn lookup_feed_pagination_uses_the_same_date_order_as_its_cursor() -> Result<(),
             vip_list: Vec::new(),
             scoped_user_ids: Vec::new(),
             excluded_user_ids: Vec::new(),
+            location_hidden_user_ids: Vec::new(),
             max_entries: 1,
             date_from: String::new(),
             date_to: String::new(),
@@ -432,6 +503,7 @@ fn lookup_feed_pagination_uses_the_same_date_order_as_its_cursor() -> Result<(),
             vip_list: Vec::new(),
             scoped_user_ids: Vec::new(),
             excluded_user_ids: Vec::new(),
+            location_hidden_user_ids: Vec::new(),
             max_entries: 1,
             date_from: String::new(),
             date_to: String::new(),
@@ -489,6 +561,7 @@ fn world_id_search_honors_the_date_window() -> Result<(), crate::Error> {
             vip_list: Vec::new(),
             scoped_user_ids: Vec::new(),
             excluded_user_ids: Vec::new(),
+            location_hidden_user_ids: Vec::new(),
             max_entries: 10,
             date_from: "2026-05-10T00:00:00Z".into(),
             date_to: String::new(),
@@ -539,6 +612,7 @@ fn private_avatar_search_applies_dates_to_every_match_branch() -> Result<(), cra
             vip_list: Vec::new(),
             scoped_user_ids: Vec::new(),
             excluded_user_ids: Vec::new(),
+            location_hidden_user_ids: Vec::new(),
             max_entries: 10,
             date_from: "2026-05-10T00:00:00Z".into(),
             date_to: String::new(),
@@ -590,6 +664,7 @@ fn date_window_preserves_millisecond_boundaries() -> Result<(), crate::Error> {
             vip_list: Vec::new(),
             scoped_user_ids: Vec::new(),
             excluded_user_ids: Vec::new(),
+            location_hidden_user_ids: Vec::new(),
             max_entries: 10,
             date_from: "2026-05-20T00:00:00.000Z".into(),
             date_to: "2026-05-20T00:00:00.000Z".into(),
@@ -613,6 +688,7 @@ fn date_window_preserves_millisecond_boundaries() -> Result<(), crate::Error> {
             vip_list: Vec::new(),
             scoped_user_ids: Vec::new(),
             excluded_user_ids: Vec::new(),
+            location_hidden_user_ids: Vec::new(),
             max_entries: 1,
             date_from: String::new(),
             date_to: String::new(),
@@ -665,6 +741,7 @@ fn search_matches_previous_values_and_escapes_like_wildcards() -> Result<(), cra
                 vip_list: Vec::new(),
                 scoped_user_ids: Vec::new(),
                 excluded_user_ids: Vec::new(),
+                location_hidden_user_ids: Vec::new(),
                 max_entries: 10,
                 date_from: String::new(),
                 date_to: String::new(),
@@ -698,6 +775,7 @@ fn lookup_page(
             vip_list: Vec::new(),
             scoped_user_ids: Vec::new(),
             excluded_user_ids: Vec::new(),
+            location_hidden_user_ids: Vec::new(),
             max_entries,
             date_from: String::new(),
             date_to: String::new(),
