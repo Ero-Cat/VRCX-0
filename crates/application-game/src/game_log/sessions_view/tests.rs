@@ -124,7 +124,7 @@ fn returns_sessions_newest_first_with_video_merge() {
 }
 
 #[test]
-fn returns_every_duration_row_for_the_selected_session_location() {
+fn returns_duration_rows_within_the_session_visit() {
     let store = test_store("session-player-duration-rows");
     let session_location = "wrld_test:1";
     write_rows(
@@ -164,12 +164,71 @@ fn returns_every_duration_row_for_the_selected_session_location() {
     let sessions = query(&store, GameLogSessionsQueryInput::default());
 
     assert_eq!(sessions.len(), 1);
-    assert_eq!(sessions[0].player_duration_rows.len(), 3);
-    assert_eq!(sessions[0].player_duration_rows[0].display_name, "Alice");
+    assert_eq!(sessions[0].player_duration_rows.len(), 2);
+    assert_eq!(
+        sessions[0].player_duration_rows[0].display_name,
+        "Renamed Alice"
+    );
     assert_eq!(sessions[0].player_duration_rows[0].user_id, "usr_alice");
-    assert_eq!(sessions[0].player_duration_rows[0].time, 60_000);
-    assert_eq!(sessions[0].player_duration_rows[1].time, 90_000);
-    assert_eq!(sessions[0].player_duration_rows[2].time, 0);
+    assert_eq!(sessions[0].player_duration_rows[0].time, 90_000);
+    assert_eq!(sessions[0].player_duration_rows[1].time, 0);
+}
+
+#[test]
+fn splits_duration_rows_between_visits_to_the_same_instance() {
+    let store = test_store("session-player-duration-revisit");
+    let revisited = "wrld_home:1";
+    let mut first_visit = location("2026-01-01T00:41:00.000Z", revisited, "wrld_home", "Home");
+    first_visit.time = 9_720_000;
+    let mut detour = location(
+        "2026-01-01T03:23:00.000Z",
+        "wrld_away:1",
+        "wrld_away",
+        "Away",
+    );
+    detour.time = 360_000;
+    let mut second_visit = location("2026-01-01T03:44:00.000Z", revisited, "wrld_home", "Home");
+    second_visit.time = 360_000;
+    write_rows(
+        &store,
+        vec![first_visit, detour, second_visit],
+        vec![
+            leave(
+                "2026-01-01T03:23:00.000Z",
+                "Alice",
+                revisited,
+                "usr_alice",
+                10_080_000,
+            ),
+            leave(
+                "2026-01-01T03:50:00.000Z",
+                "Alice",
+                revisited,
+                "usr_alice",
+                360_000,
+            ),
+            leave(
+                "2026-01-01T09:00:00.000Z",
+                "Bob",
+                revisited,
+                "usr_bob",
+                18_000_000,
+            ),
+        ],
+        Vec::new(),
+    );
+
+    let sessions = query(&store, GameLogSessionsQueryInput::default());
+
+    assert_eq!(
+        sessions
+            .iter()
+            .map(|s| (s.location.as_str(), s.player_duration_rows.len()))
+            .collect::<Vec<_>>(),
+        vec![(revisited, 1), ("wrld_away:1", 0), (revisited, 1)]
+    );
+    assert_eq!(sessions[0].player_duration_rows[0].time, 360_000);
+    assert_eq!(sessions[2].player_duration_rows[0].time, 10_080_000);
 }
 
 #[test]

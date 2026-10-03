@@ -642,6 +642,7 @@ impl GameStateStore for TestGameStateStore {
                     row.value.created_at.clone(),
                     index,
                     SessionPlayerDurationRow {
+                        created_at: row.value.created_at.clone(),
                         location: row.value.location.clone(),
                         display_name: row.value.display_name.clone(),
                         user_id: row.value.user_id.clone(),

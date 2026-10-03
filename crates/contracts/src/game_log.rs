@@ -190,6 +190,7 @@ pub struct SessionEventRow {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SessionPlayerDurationRow {
+    pub created_at: String,
     pub location: String,
     pub display_name: String,
     pub user_id: String,

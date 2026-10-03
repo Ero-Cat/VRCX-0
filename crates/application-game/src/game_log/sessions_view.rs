@@ -15,6 +15,7 @@ use crate::Result;
 use vrcx_0_core::OwnerId;
 
 const DAY_MS: i64 = 86_400_000;
+const PLAYER_DURATION_END_GRACE_MS: i64 = 60_000;
 const SESSION_GLOBAL_SEARCH_INITIAL_LOCATIONS: i64 = 500;
 // Authoritative defaults when the caller passes a non-positive value (0 = unset).
 // The frontend reads config with a 0 sentinel and lets the backend own these.
@@ -577,28 +578,62 @@ pub fn game_log_sessions_query(
         .iter()
         .map(|segment| segment.location.clone())
         .collect::<Vec<_>>();
-    let mut duration_rows_by_location: HashMap<String, Vec<GameLogSessionPlayerDurationRowDto>> =
-        HashMap::new();
-    for row in store
+    let duration_rows = store
         .session_player_duration_rows(owner_user_id, &locations)
-        .unwrap_or_default()
-    {
-        duration_rows_by_location
-            .entry(row.location.clone())
-            .or_default()
-            .push(row.into());
-    }
+        .unwrap_or_default();
+    let player_duration_rows = assign_player_duration_rows(&segments, duration_rows);
 
     Ok(segments
         .into_iter()
-        .map(|segment| {
-            let player_duration_rows = duration_rows_by_location
-                .get(&segment.location)
-                .cloned()
-                .unwrap_or_default();
-            GameLogSessionDto::from_segment(segment, player_duration_rows)
-        })
+        .zip(player_duration_rows)
+        .map(|(segment, rows)| GameLogSessionDto::from_segment(segment, rows))
         .collect())
+}
+
+struct SegmentWindow {
+    index: usize,
+    start: i64,
+    end: Option<i64>,
+}
+
+fn assign_player_duration_rows(
+    segments: &[SessionSegmentOut],
+    rows: Vec<SessionPlayerDurationRow>,
+) -> Vec<Vec<GameLogSessionPlayerDurationRowDto>> {
+    let mut windows_by_location: HashMap<&str, Vec<SegmentWindow>> = HashMap::new();
+    for (index, segment) in segments.iter().enumerate() {
+        let start = parse_session_epoch(&segment.created_at);
+        if start <= 0 {
+            continue;
+        }
+        let end = segment
+            .duration
+            .filter(|duration| *duration > 0)
+            .map(|duration| start + duration + PLAYER_DURATION_END_GRACE_MS);
+        windows_by_location
+            .entry(segment.location.as_str())
+            .or_default()
+            .push(SegmentWindow { index, start, end });
+    }
+    for windows in windows_by_location.values_mut() {
+        windows.sort_by_key(|window| window.start);
+    }
+
+    let mut assigned = vec![Vec::new(); segments.len()];
+    for row in rows {
+        let Some(windows) = windows_by_location.get(row.location.as_str()) else {
+            continue;
+        };
+        let epoch = parse_session_epoch(&row.created_at);
+        let position = windows.partition_point(|window| window.start <= epoch);
+        let Some(window) = windows[..position].last() else {
+            continue;
+        };
+        if window.end.is_none_or(|end| epoch <= end) {
+            assigned[window.index].push(row.into());
+        }
+    }
+    assigned
 }
 
 #[cfg(test)]

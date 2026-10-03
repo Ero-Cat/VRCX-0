@@ -550,7 +550,7 @@ pub fn get_session_player_duration_rows(
     }
     let rows = db.execute(
         &format!(
-            "SELECT location, display_name, user_id, time
+            "SELECT location, display_name, user_id, time, created_at
              FROM gamelog_join_leave
              WHERE owner_id IN (0, @ownerId)
                AND type = 'OnPlayerLeft'
@@ -564,6 +564,7 @@ pub fn get_session_player_duration_rows(
     Ok(rows
         .iter()
         .map(|row| SessionPlayerDurationRow {
+            created_at: row_string(row, 4),
             location: row_string(row, 0),
             display_name: row_string(row, 1),
             user_id: row_string(row, 2),
