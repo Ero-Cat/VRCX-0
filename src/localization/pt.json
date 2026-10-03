@@ -2363,6 +2363,7 @@
                     "style": "Estilo do aviso",
                     "style_standard": "Padrão",
                     "style_compact": "Compacto",
+                    "friend_icons": "Mostrar Ícones de Amigos",
                     "timeout": "Duração",
                     "opacity": "Opacidade",
                     "filters": "Filtros de notificações do headset"
@@ -2716,7 +2717,7 @@
                         "ovrtoolkit_hud_notifications": "Notificações no HUD do OVR Toolkit",
                         "ovrtoolkit_wrist_notifications": "Notificações no pulso do OVR Toolkit",
                         "notification_filters": "Filtros de Notificação do Overlay de VR",
-                        "user_images": "Mostrar Ícones de Usuário",
+                        "user_images": "Mostrar Ícones de Amigos",
                         "notification_opacity": "Opacidade da Notificação",
                         "notification_timeout": "Tempo Limite da Notificação"
                     },
@@ -2734,7 +2735,8 @@
                         "when_to_display": "Quando Exibir",
                         "notification_filters": "Filtros de Notificação da Área de Trabalho",
                         "desktop_notification_while_afk": "Notificações de Desktop Enquanto AFK",
-                        "notification_sound": "Som da Notificação"
+                        "notification_sound": "Som da Notificação",
+                        "friend_icons": "Mostrar Ícones de Amigos"
                     },
                     "webhook": {
                         "header": "Notificações por Webhook",

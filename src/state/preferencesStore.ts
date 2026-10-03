@@ -328,6 +328,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     afkDesktopToast: false,
     overlayToast: 'Game Running',
     desktopNotificationSound: false,
+    desktopNotificationAvatars: true,
     notificationDoNotDisturbEndOnGameStart: true,
     busyStatusDoNotDisturb: true,
     notificationTTS: 'Never',
@@ -347,6 +348,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     hmdNotificationOpacity: 90,
     hmdNotificationPosition: 'bottom',
     hmdNotificationStyle: 'standard',
+    hmdNotificationAvatars: true,
     webhookEnabled: false,
     webhookAuthEventsEnabled: true,
     webhookUrl: '',
@@ -510,6 +512,9 @@ export function normalizePreferenceSnapshot(snapshot: unknown = {}) {
         afkDesktopToast: normalizeBool(next.afkDesktopToast),
         overlayToast: String(next.overlayToast || 'Game Running'),
         desktopNotificationSound: normalizeBool(next.desktopNotificationSound),
+        desktopNotificationAvatars: normalizeBool(
+            next.desktopNotificationAvatars
+        ),
         notificationDoNotDisturbEndOnGameStart: normalizeBool(
             next.notificationDoNotDisturbEndOnGameStart
         ),
@@ -568,6 +573,7 @@ export function normalizePreferenceSnapshot(snapshot: unknown = {}) {
         hmdNotificationStyle: normalizeHmdNotificationStyle(
             next.hmdNotificationStyle
         ),
+        hmdNotificationAvatars: normalizeBool(next.hmdNotificationAvatars),
         webhookEnabled: normalizeBool(next.webhookEnabled),
         webhookAuthEventsEnabled: normalizeBool(next.webhookAuthEventsEnabled),
         webhookUrl: String(next.webhookUrl || ''),

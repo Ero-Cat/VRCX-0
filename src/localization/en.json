@@ -2368,6 +2368,7 @@
                     "style": "Banner Style",
                     "style_standard": "Standard",
                     "style_compact": "Compact",
+                    "friend_icons": "Show Friend Icons",
                     "timeout": "Display Duration",
                     "opacity": "Opacity",
                     "filters": "HMD Notification Filters"
@@ -2810,7 +2811,7 @@
                         "ovrtoolkit_hud_notifications": "OVR Toolkit HUD Notifications",
                         "ovrtoolkit_wrist_notifications": "OVR Toolkit Wrist Notifications",
                         "notification_filters": "VR Overlay Notification Filters",
-                        "user_images": "Show User Icons",
+                        "user_images": "Show Friend Icons",
                         "notification_opacity": "Notification Opacity",
                         "notification_timeout": "Notification Duration"
                     },
@@ -2828,7 +2829,8 @@
                         "when_to_display": "Show Desktop Notifications",
                         "notification_filters": "Desktop Notification Filters",
                         "desktop_notification_while_afk": "Show Notifications While AFK",
-                        "notification_sound": "Notification Sound"
+                        "notification_sound": "Notification Sound",
+                        "friend_icons": "Show Friend Icons"
                     },
                     "webhook": {
                         "header": "Webhook Notifications",

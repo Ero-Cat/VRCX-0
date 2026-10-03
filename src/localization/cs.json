@@ -2373,6 +2373,7 @@
                     "style": "Styl oznámení",
                     "style_standard": "Standardní",
                     "style_compact": "Kompaktní",
+                    "friend_icons": "Zobrazit ikony přátel",
                     "timeout": "Doba zobrazení",
                     "opacity": "Neprůhlednost",
                     "filters": "Filtry oznámení v headsetu"
@@ -2726,7 +2727,7 @@
                         "ovrtoolkit_hud_notifications": "Oznámení OVR Toolkit HUD",
                         "ovrtoolkit_wrist_notifications": "Oznámení OVR Toolkit na zápěstí",
                         "notification_filters": "Filtry oznámení v překryvné vrstvě VR",
-                        "user_images": "Zobrazit ikony uživatelů",
+                        "user_images": "Zobrazit ikony přátel",
                         "notification_opacity": "Neprůhlednost oznámení",
                         "notification_timeout": "Doba zobrazení oznámení"
                     },
@@ -2744,7 +2745,8 @@
                         "when_to_display": "When to display",
                         "notification_filters": "Filtry desktopových oznámení",
                         "desktop_notification_while_afk": "Desktop Notifications While AFK",
-                        "notification_sound": "Zvuk oznámení"
+                        "notification_sound": "Zvuk oznámení",
+                        "friend_icons": "Zobrazit ikony přátel"
                     },
                     "webhook": {
                         "header": "Oznámení webhooku",

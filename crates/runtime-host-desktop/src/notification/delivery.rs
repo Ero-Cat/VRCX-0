@@ -40,6 +40,7 @@ pub struct NotificationDeliveryPreferences {
     pub afk_desktop_toast: bool,
     pub overlay_toast: NotificationDeliveryCondition,
     pub desktop_notification_sound: bool,
+    pub desktop_notification_avatars: bool,
     pub notification_tts: NotificationDeliveryCondition,
     pub notification_tts_name_mode: NotificationTtsNameMode,
     pub notification_tts_voice_native: String,
@@ -60,6 +61,7 @@ impl Default for NotificationDeliveryPreferences {
             afk_desktop_toast: false,
             overlay_toast: NotificationDeliveryCondition::GameRunning,
             desktop_notification_sound: false,
+            desktop_notification_avatars: true,
             notification_tts: NotificationDeliveryCondition::Never,
             notification_tts_name_mode: NotificationTtsNameMode::Username,
             notification_tts_voice_native: String::new(),
@@ -98,8 +100,12 @@ impl NotificationDeliveryPlan {
         self.desktop || self.xs || self.ovrt || self.tts
     }
 
-    pub fn needs_local_image(self) -> bool {
-        self.desktop || self.xs || self.ovrt
+    pub fn desktop_image(self, preferences: &NotificationDeliveryPreferences) -> bool {
+        self.desktop && preferences.desktop_notification_avatars
+    }
+
+    pub fn overlay_image(self, preferences: &NotificationDeliveryPreferences) -> bool {
+        (self.xs || self.ovrt) && preferences.image_notifications
     }
 }
 

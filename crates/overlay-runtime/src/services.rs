@@ -20,9 +20,7 @@ pub trait VrOverlayRuntimeServices: Send + Sync {
 
     fn hmd_notifications_allowed(&self) -> bool;
 
-    fn notification_images_enabled(&self) -> bool;
-
-    fn notification_user_image(&self, endpoint: &str, user_id: &str) -> Option<String>;
+    fn notification_friend_image(&self, endpoint: &str, user_id: &str) -> Option<String>;
 
     fn set_hmd_afk(&self, is_hmd_afk: bool);
 

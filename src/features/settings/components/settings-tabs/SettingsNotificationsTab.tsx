@@ -30,6 +30,7 @@ type SettingsNotificationsPrefs = Pick<
     PreferencesSnapshot,
     | 'afkDesktopToast'
     | 'desktopNotificationSound'
+    | 'desktopNotificationAvatars'
     | 'desktopToast'
     | 'notificationDoNotDisturbEndOnGameStart'
     | 'busyStatusDoNotDisturb'
@@ -48,6 +49,7 @@ type SettingsNotificationsTabContentProps = {
     notificationTtsTestVisible: boolean;
     onAfkDesktopToastChange: (checked: boolean) => void;
     onDesktopNotificationSoundChange: (checked: boolean) => void;
+    onDesktopNotificationAvatarsChange: (checked: boolean) => void;
     onDesktopToastChange: (value: string) => void;
     onNotificationTtsModeChange: (value: string) => void;
     onNotificationDoNotDisturbEndOnGameStartChange: (checked: boolean) => void;
@@ -83,6 +85,7 @@ export function SettingsNotificationsTabContent({
     onDesktopToastChange,
     onAfkDesktopToastChange,
     onDesktopNotificationSoundChange,
+    onDesktopNotificationAvatarsChange,
     onNotificationTtsModeChange,
     onNotificationDoNotDisturbEndOnGameStartChange,
     onBusyStatusDoNotDisturbChange,
@@ -246,6 +249,17 @@ export function SettingsNotificationsTabContent({
                     <Switch
                         checked={prefs.desktopNotificationSound}
                         onCheckedChange={onDesktopNotificationSoundChange}
+                    />
+                </Field>
+
+                <Field
+                    label={t(
+                        'view.settings.notifications.notifications.desktop_notifications.friend_icons'
+                    )}
+                >
+                    <Switch
+                        checked={prefs.desktopNotificationAvatars}
+                        onCheckedChange={onDesktopNotificationAvatarsChange}
                     />
                 </Field>
             </SettingsCard>

@@ -3,7 +3,8 @@ use std::sync::Arc;
 use super::resolver::RealtimeUserImageResolverSlot;
 use super::{
     generic_webhook_payload, parse_webhook_fields, render_delivery,
-    CachedNotificationUserImageResolver, OverlayLocale, RenderedNotification,
+    CachedNotificationUserImageResolver, NotificationRemote, NotificationRemoteFuture,
+    NotificationResolver, OverlayLocale, RenderedNotification,
 };
 use crate::{
     ActivityActorRelation, ActivityCategory, ActivityContent, ActivityDelivery, ActivityEntry,
@@ -118,11 +119,16 @@ fn delivery() -> ActivityDelivery {
 
 struct FakeCachedResolver {
     url: Option<String>,
+    friend_url: Option<String>,
 }
 
 impl CachedNotificationUserImageResolver for FakeCachedResolver {
     fn cached_url(&self, _endpoint: &str, _user_id: &str) -> Option<String> {
         self.url.clone()
+    }
+
+    fn cached_friend_url(&self, _endpoint: &str, _user_id: &str) -> Option<String> {
+        self.friend_url.clone()
     }
 }
 
@@ -138,6 +144,7 @@ fn realtime_image_resolver_returns_none_when_slot_is_unset() {
 fn realtime_user_image_resolver_does_not_retain_owner() {
     let owner: Arc<dyn CachedNotificationUserImageResolver> = Arc::new(FakeCachedResolver {
         url: Some("https://img.example/usr_traveler.png".into()),
+        friend_url: None,
     });
     let weak_owner = Arc::downgrade(&owner);
     let resolver = RealtimeUserImageResolverSlot::default();
@@ -151,4 +158,66 @@ fn realtime_user_image_resolver_does_not_retain_owner() {
 
     assert!(weak_owner.upgrade().is_none());
     assert_eq!(resolver.cached_url("", "usr_traveler"), None);
+}
+
+#[test]
+fn friend_image_reads_only_the_friend_cache() {
+    let resolver = NotificationResolver::new(Arc::new(NoRemote));
+    let friend: Arc<dyn CachedNotificationUserImageResolver> = Arc::new(FakeCachedResolver {
+        url: Some("https://api.example.test/api/1/file/file_4567cdef/1/file".into()),
+        friend_url: Some("https://api.example.test/api/1/file/file_0123abcd/2/file".into()),
+    });
+    resolver.attach_realtime(&friend);
+    assert_eq!(
+        resolver
+            .friend_image("https://api.example.test/api/1", "usr_friend")
+            .as_deref(),
+        Some("https://api.example.test/api/1/image/file_0123abcd/2/128")
+    );
+
+    let stranger: Arc<dyn CachedNotificationUserImageResolver> = Arc::new(FakeCachedResolver {
+        url: Some("https://api.example.test/api/1/file/file_4567cdef/1/file".into()),
+        friend_url: None,
+    });
+    resolver.attach_realtime(&stranger);
+    assert_eq!(
+        resolver.friend_image("https://api.example.test/api/1", "usr_stranger"),
+        None
+    );
+}
+
+struct NoRemote;
+
+impl NotificationRemote for NoRemote {
+    fn user<'a>(
+        &'a self,
+        _endpoint: &'a str,
+        _user_id: &'a str,
+    ) -> NotificationRemoteFuture<'a, serde_json::Value> {
+        Box::pin(async { None })
+    }
+
+    fn avatar_name<'a>(
+        &'a self,
+        _endpoint: &'a str,
+        _file_id: &'a str,
+    ) -> NotificationRemoteFuture<'a, String> {
+        Box::pin(async { None })
+    }
+
+    fn world_name<'a>(
+        &'a self,
+        _endpoint: &'a str,
+        _world_id: &'a str,
+    ) -> NotificationRemoteFuture<'a, String> {
+        Box::pin(async { None })
+    }
+
+    fn world_image_url<'a>(
+        &'a self,
+        _endpoint: &'a str,
+        _world_id: &'a str,
+    ) -> NotificationRemoteFuture<'a, String> {
+        Box::pin(async { None })
+    }
 }

@@ -265,10 +265,12 @@ describe('preferenceSnapshotLoader', () => {
         });
     });
 
-    it('shows HMD notifications at 90% opacity until the user changes it', async () => {
+    it('shows HMD notifications at 90% opacity and desktop and HMD icons until the user changes them', async () => {
         const snapshot = await loadPreferenceSnapshot();
 
         expect(snapshot.hmdNotificationOpacity).toBe(90);
+        expect(snapshot.hmdNotificationAvatars).toBe(true);
+        expect(snapshot.desktopNotificationAvatars).toBe(true);
     });
 
     it('loads an explicit Friend Log notification dot opt-out', async () => {

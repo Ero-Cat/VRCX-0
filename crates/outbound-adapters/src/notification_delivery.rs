@@ -169,4 +169,10 @@ impl CachedNotificationUserImageResolver for RealtimeNotificationUserImageResolv
             .upgrade()?
             .cached_user_notification_image_url(endpoint, user_id)
     }
+
+    fn cached_friend_url(&self, endpoint: &str, user_id: &str) -> Option<String> {
+        self.runtime
+            .upgrade()?
+            .cached_friend_notification_image_url(endpoint, user_id)
+    }
 }

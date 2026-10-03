@@ -24,7 +24,6 @@ use vrcx_0_core::location::is_meaningful_world_name;
 use vrcx_0_core::OwnerId;
 
 const NOTIFICATION_IMAGE_FIRST_SEND_BUDGET: Duration = Duration::from_secs(1);
-const NOTIFICATION_USER_IMAGE_FIRST_SEND_BUDGET: Duration = Duration::from_secs(2);
 const NOTIFICATION_WORLD_NAME_FIRST_SEND_BUDGET: Duration = Duration::from_secs(2);
 
 pub struct NotificationDispatcher {
@@ -71,7 +70,8 @@ struct PreparedNotification {
     plan: NotificationDeliveryPlan,
     render: RenderedNotification,
     locale: OverlayLocale,
-    local_image: Option<String>,
+    desktop_image: Option<String>,
+    overlay_image: Option<String>,
     desktop_action: Option<DesktopNotificationAction>,
 }
 
@@ -154,14 +154,6 @@ impl ActivitySink for NotificationDispatcher {
         let (endpoint, current_user_id) = notification_session_identity(&self.auth_scope);
         let sequence = self.next_sequence.fetch_add(1, Ordering::Relaxed);
         let priority = delivery.entry.kind == ActivityKind::OnPlayerJoining;
-        let mut delivery = delivery;
-        if !priority {
-            if let Some(actor_user_id) = image_actor_user_id(&delivery, &current_user_id) {
-                if let Some(image_url) = self.resolver.cached_user_image(&endpoint, actor_user_id) {
-                    delivery.entry.content.image_url = image_url;
-                }
-            }
-        }
         let job = NotificationJob {
             delivery,
             preferences,
@@ -177,7 +169,7 @@ impl ActivitySink for NotificationDispatcher {
                 job.locale,
                 job.preferences.show_instance_id_in_location,
             );
-            let prepared = prepare_rendered_notification(job, render, None);
+            let prepared = prepare_rendered_notification(job, render, None, None);
             dispatch_prepared_notification(&prepared, self.output.as_ref());
             let _ = self
                 .completion_tx
@@ -224,21 +216,15 @@ async fn prepare_notification(
     resolver: Arc<NotificationResolver>,
     tasks: TaskSupervisor,
 ) -> PreparedNotification {
-    let needs_local_image = job.preferences.image_notifications && job.plan.needs_local_image();
-    let (actor_image, world) = tokio::join!(
-        async {
-            if needs_local_image {
-                resolve_actor_image_with_budget(&tasks, Arc::clone(&resolver), &job).await
-            } else {
-                None
-            }
-        },
-        resolve_world_name_with_budget(&tasks, Arc::clone(&resolver), &job),
-    );
-    if let Some(image_url) = actor_image {
-        job.delivery.entry.content.image_url = image_url;
-    }
-    if let Some((world_name, display_location)) = world {
+    let friend_image =
+        if job.plan.desktop_image(&job.preferences) || job.plan.overlay_image(&job.preferences) {
+            friend_actor_image(&resolver, &job)
+        } else {
+            None
+        };
+    if let Some((world_name, display_location)) =
+        resolve_world_name_with_budget(&tasks, Arc::clone(&resolver), &job).await
+    {
         job.delivery.entry.content.world_name = world_name;
         if !display_location.trim().is_empty() {
             job.delivery.entry.content.display_location = display_location;
@@ -249,18 +235,47 @@ async fn prepare_notification(
         job.locale,
         job.preferences.show_instance_id_in_location,
     );
-    let local_image = if needs_local_image {
-        resolve_local_image_with_budget(&tasks, image_cache, &render.image_url).await
-    } else {
-        None
+    let (desktop_url, overlay_url) =
+        notification_image_urls(job.plan, &job.preferences, friend_image, &render.image_url);
+    let desktop_image = match &desktop_url {
+        Some(url) => resolve_local_image_with_budget(&tasks, Arc::clone(&image_cache), url).await,
+        None => None,
     };
-    prepare_rendered_notification(job, render, local_image)
+    let overlay_image = match &overlay_url {
+        Some(_) if overlay_url == desktop_url => desktop_image.clone(),
+        Some(url) => resolve_local_image_with_budget(&tasks, image_cache, url).await,
+        None => None,
+    };
+    prepare_rendered_notification(job, render, desktop_image, overlay_image)
+}
+
+fn notification_image_urls(
+    plan: NotificationDeliveryPlan,
+    preferences: &NotificationDeliveryPreferences,
+    friend_image: Option<String>,
+    notification_image: &str,
+) -> (Option<String>, Option<String>) {
+    let notification_image = notification_image.trim();
+    let desktop = plan
+        .desktop_image(preferences)
+        .then(|| friend_image.clone())
+        .flatten();
+    let overlay = plan
+        .overlay_image(preferences)
+        .then(|| {
+            friend_image.or_else(|| {
+                (!notification_image.is_empty()).then(|| notification_image.to_string())
+            })
+        })
+        .flatten();
+    (desktop, overlay)
 }
 
 fn prepare_rendered_notification(
     job: NotificationJob,
     render: RenderedNotification,
-    local_image: Option<String>,
+    desktop_image: Option<String>,
+    overlay_image: Option<String>,
 ) -> PreparedNotification {
     let owner_user_id = OwnerId::new(job.current_user_id);
     let desktop_action = if job.delivery.entry.kind == ActivityKind::GroupInstanceOpened {
@@ -280,7 +295,8 @@ fn prepare_rendered_notification(
         plan: job.plan,
         render,
         locale: job.locale,
-        local_image,
+        desktop_image,
+        overlay_image,
         desktop_action,
     }
 }
@@ -310,7 +326,6 @@ fn dispatch_prepared_notification(
             user_memo.as_deref(),
         );
     }
-    let local_image = notification.local_image.as_deref();
     if plan.desktop {
         send_desktop_notification(
             output.desktop.as_ref(),
@@ -318,7 +333,7 @@ fn dispatch_prepared_notification(
             notification.delivery.entry.kind,
             &notification.delivery.entry.content.group_name,
             &notification.preferences,
-            local_image,
+            notification.desktop_image.as_deref(),
             notification.desktop_action.as_ref(),
         );
     }
@@ -326,7 +341,7 @@ fn dispatch_prepared_notification(
         plan,
         &notification.render,
         &notification.preferences,
-        local_image,
+        notification.overlay_image.as_deref(),
     );
 }
 
@@ -357,22 +372,9 @@ fn image_actor_user_id<'a>(
         .then_some(actor_user_id)
 }
 
-async fn resolve_actor_image_with_budget(
-    tasks: &TaskSupervisor,
-    resolver: Arc<NotificationResolver>,
-    job: &NotificationJob,
-) -> Option<String> {
-    let actor_user_id = image_actor_user_id(&job.delivery, &job.current_user_id)?.to_string();
-    let endpoint = job.endpoint.clone();
-    let (result_tx, result_rx) = oneshot::channel();
-    tasks.spawn(async move {
-        let result = resolver.user_image(&endpoint, &actor_user_id).await;
-        let _ = result_tx.send(result);
-    });
-    tokio::time::timeout(NOTIFICATION_USER_IMAGE_FIRST_SEND_BUDGET, result_rx)
-        .await
-        .ok()?
-        .ok()?
+fn friend_actor_image(resolver: &NotificationResolver, job: &NotificationJob) -> Option<String> {
+    let actor_user_id = image_actor_user_id(&job.delivery, &job.current_user_id)?;
+    resolver.friend_image(&job.endpoint, actor_user_id)
 }
 
 async fn resolve_world_name_with_budget(

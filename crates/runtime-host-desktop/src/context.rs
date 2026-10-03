@@ -281,9 +281,7 @@ impl DesktopRuntimeServices {
             if !user_id.starts_with("usr_") {
                 continue;
             }
-            let Some(normalized) = self
-                .notification_resolver
-                .cached_user_image(&endpoint, user_id)
+            let Some(normalized) = self.notification_resolver.friend_image(&endpoint, user_id)
             else {
                 continue;
             };
@@ -345,13 +343,8 @@ impl VrOverlayRuntimeServices for DesktopRuntimeServices {
         self.notification_policy.hmd_allowed()
     }
 
-    fn notification_images_enabled(&self) -> bool {
-        self.notification_policy.images_enabled()
-    }
-
-    fn notification_user_image(&self, endpoint: &str, user_id: &str) -> Option<String> {
-        self.notification_resolver
-            .cached_user_image(endpoint, user_id)
+    fn notification_friend_image(&self, endpoint: &str, user_id: &str) -> Option<String> {
+        self.notification_resolver.friend_image(endpoint, user_id)
     }
 
     fn set_hmd_afk(&self, is_hmd_afk: bool) {

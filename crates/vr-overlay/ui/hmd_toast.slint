@@ -22,7 +22,7 @@ component HmdToastCard inherits Rectangle {
     property <color> avatar-surface-color: #ffffff0d;
     property <color> action-color: #d7dce3;
     property <length> avatar-size: root.compact ? 40px : 70px;
-    property <length> avatar-x: root.compact ? 14px : 24px;
+    property <length> avatar-x: root.compact ? 20px : 24px;
     property <length> content-x: root.toast.show-avatar ? self.avatar-x + self.avatar-size + (root.compact ? 16px : 24px) : 24px;
     property <length> star-room: root.toast.is-favorite ? (root.compact ? 26px : 30px) : 0px;
     property <length> inline-width: actor-text.preferred-width + self.star-room + 12px + action-text.preferred-width;

@@ -179,7 +179,7 @@ impl VrOverlayRuntime {
     }
 
     fn hmd_toast_views(&self, now: Instant) -> Vec<HmdToastView> {
-        let images = self.current_runtime_config().hmd.images;
+        let avatars = self.current_runtime_config().hmd.avatars;
         let Ok(mut queue) = self.hmd_toasts.lock() else {
             return Vec::new();
         };
@@ -196,7 +196,7 @@ impl VrOverlayRuntime {
                 if let Some(services) = &self.services {
                     refresh_cached_world_name(services.world_cache(), &mut toast.entry);
                 }
-                let show_avatar = images && self.is_current_hmd_friend(&toast.entry.actor_user_id);
+                let show_avatar = avatars && self.is_current_hmd_friend(&toast.entry.actor_user_id);
                 HmdToastView {
                     entry: toast.entry.clone(),
                     avatar: if show_avatar {
@@ -235,7 +235,7 @@ impl VrOverlayRuntime {
     }
 
     fn spawn_avatar_fetch(self: &Arc<Self>, entry: &ActivityEntry) {
-        if !self.current_runtime_config().hmd.images {
+        if !self.current_runtime_config().hmd.avatars {
             return;
         }
         let Some(services) = self.services.as_ref().cloned() else {
@@ -246,21 +246,13 @@ impl VrOverlayRuntime {
             return;
         }
         let actor_user_id = entry.actor_user_id.trim().to_string();
-        if !self.is_current_hmd_friend(&actor_user_id) {
-            tracing::debug!(
-                source_id = %source_id,
-                actor_user_id = %actor_user_id,
-                "HMD avatar fetch skipped: actor is not a current friend"
-            );
-            return;
-        }
         let endpoint = services.auth_scope().snapshot().endpoint;
-        let Some(initial_image_url) = services.notification_user_image(&endpoint, &actor_user_id)
+        let Some(initial_image_url) = services.notification_friend_image(&endpoint, &actor_user_id)
         else {
             tracing::debug!(
                 source_id = %source_id,
                 actor_user_id = %actor_user_id,
-                "HMD avatar fetch skipped: no cached image url for the actor"
+                "HMD avatar fetch skipped: no cached friend icon for the actor"
             );
             return;
         };

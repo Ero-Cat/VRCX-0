@@ -59,13 +59,14 @@ fn vr_delivery_requires_steamvr_and_enabled_channels() {
 
 #[test]
 fn ovr_toolkit_is_only_planned_on_windows() {
+    let preferences = NotificationDeliveryPreferences {
+        ovrt_hud_notifications: true,
+        ovrt_wrist_notifications: true,
+        ..NotificationDeliveryPreferences::default()
+    };
     let plan = decide_notification_plan(
         &delivery(false, true, false, false),
-        &NotificationDeliveryPreferences {
-            ovrt_hud_notifications: true,
-            ovrt_wrist_notifications: true,
-            ..NotificationDeliveryPreferences::default()
-        },
+        &preferences,
         &NotificationDeliveryGameState {
             is_game_running: true,
             is_steamvr_running: true,
@@ -79,10 +80,41 @@ fn ovr_toolkit_is_only_planned_on_windows() {
             plan.ovrt,
             plan.ovrt_hud,
             plan.ovrt_wrist,
-            plan.needs_local_image()
+            plan.overlay_image(&preferences)
         ),
         (cfg!(windows), cfg!(windows), cfg!(windows), cfg!(windows))
     );
+}
+
+#[test]
+fn desktop_and_external_overlay_icons_follow_their_own_switches() {
+    let game = NotificationDeliveryGameState {
+        is_game_running: true,
+        is_steamvr_running: true,
+        is_game_no_vr: false,
+        is_hmd_afk: false,
+    };
+    let images = |desktop, vr, desktop_notification_avatars, image_notifications| {
+        let preferences = NotificationDeliveryPreferences {
+            desktop_toast: NotificationDeliveryCondition::Always,
+            overlay_toast: NotificationDeliveryCondition::Always,
+            xs_notifications: true,
+            desktop_notification_avatars,
+            image_notifications,
+            ..NotificationDeliveryPreferences::default()
+        };
+        let plan =
+            decide_notification_plan(&delivery(desktop, vr, false, false), &preferences, &game);
+        (
+            plan.desktop_image(&preferences),
+            plan.overlay_image(&preferences),
+        )
+    };
+
+    assert_eq!(images(true, false, true, false), (true, false));
+    assert_eq!(images(true, false, false, true), (false, false));
+    assert_eq!(images(false, true, false, true), (false, true));
+    assert_eq!(images(false, true, true, false), (false, false));
 }
 
 #[test]

@@ -487,9 +487,9 @@
         "discord": {
             "title": {
                 "invite": "{name}님의 초대",
-                "request_invite": "{name}님의 초대 요청",
+                "request_invite": "{name}님의 참가 요청",
                 "invite_response": "{name}님의 초대 응답",
-                "request_invite_response": "{name}님의 초대 요청 응답",
+                "request_invite_response": "{name}님의 참가 요청 응답",
                 "gps": "{name}님의 현재 위치",
                 "status": "{name}님이 상태를 변경했습니다",
                 "avatar_change": "{name}님이 아바타를 변경했습니다",
@@ -930,7 +930,7 @@
         },
         "success": {
             "vrchat_launch_request_sent": "VRChat에서 열었습니다.",
-            "invite_request_sent": "초대 요청이 전송되었습니다.",
+            "invite_request_sent": "참가 요청이 전송되었습니다.",
             "boop_sent": "콕찌르기를 보냈습니다",
             "friend_and_favorite_snapshots_refreshed": "친구 목록을 새로고침했습니다."
         },
@@ -1054,7 +1054,7 @@
                 "cannot_invite_no_current_vrchat_location_is_available": "초대할 수 없습니다. 지금 인스턴스에 있지 않습니다.",
                 "cannot_invite_from_the_current_instance_type": "초대할 수 없습니다. 현재 인스턴스에서는 초대를 허용하지 않습니다.",
                 "cannot_invite_current_location_is_not_a_concrete_instance": "초대할 수 없습니다. 지금은 참가할 수 있는 인스턴스에 있지 않습니다.",
-                "cannot_request_invite_friend_is_not_online": "초대를 요청할 수 없습니다. 친구가 온라인 상태가 아닙니다.",
+                "cannot_request_invite_friend_is_not_online": "참가를 요청할 수 없습니다. 친구가 온라인 상태가 아닙니다.",
                 "feed_query_failed": "피드를 불러오지 못했습니다."
             },
             "label": {
@@ -1066,7 +1066,7 @@
             },
             "success": {
                 "vrchat_launch_request_sent": "VRChat에서 열었습니다.",
-                "invite_request_sent": "초대 요청이 전송되었습니다.",
+                "invite_request_sent": "참가 요청이 전송되었습니다.",
                 "boop_sent": "콕찌르기를 보냈습니다"
             },
             "loading": {
@@ -1081,14 +1081,14 @@
                 "failed_to_launch_instance": "인스턴스를 시작하지 못했습니다.",
                 "failed_to_send_self_invite": "셀프 초대를 보내지 못했습니다.",
                 "failed_to_send_invite": "초대장을 보내지 못했습니다.",
-                "failed_to_request_invite": "초대를 요청하지 못했습니다.",
+                "failed_to_request_invite": "참가를 요청하지 못했습니다.",
                 "failed_to_send_boop": "콕찌르기를 보내지 못했습니다."
             },
             "modal": {
                 "send_invite": "초대장을 보내시겠습니까?",
                 "invite": "초대",
-                "request_invite": "초대를 요청하시겠습니까?",
-                "request_invite_2": "초대 요청",
+                "request_invite": "참가를 요청하시겠습니까?",
+                "request_invite_2": "참가 요청",
                 "send": "보내기"
             },
             "dynamic": {
@@ -1413,7 +1413,7 @@
                 "local_favorite_group_deleted": "로컬 즐겨찾기 그룹이 삭제되었습니다.",
                 "avatar_history_cleared": "아바타 기록이 삭제되었습니다.",
                 "vrchat_launch_request_sent": "VRChat에서 열었습니다.",
-                "invite_request_sent": "초대 요청이 전송되었습니다.",
+                "invite_request_sent": "참가 요청이 전송되었습니다.",
                 "boop_sent": "콕찌르기를 보냈습니다",
                 "avatar_selected": "아바타가 선택됨",
                 "copied_selected_favorite_ids": "선택한 즐겨찾기 ID를 복사했습니다.",
@@ -1576,9 +1576,9 @@
                 "decline_with_message": "메시지로 거절"
             },
             "filters": {
-                "requestInvite": "초대 요청",
+                "requestInvite": "참가 요청",
                 "invite": "초대",
-                "requestInviteResponse": "초대 요청 응답",
+                "requestInviteResponse": "참가 요청 응답",
                 "inviteResponse": "초대 응답",
                 "friendRequest": "친구 요청",
                 "ignoredFriendRequest": "무시된 친구 요청",
@@ -1724,7 +1724,7 @@
                 "friend_detail_loading_cancelled": "친구 세부정보 불러오기를 취소했습니다.",
                 "roster_bootstrap_did_not_complete": "친구를 불러오지 못했습니다.",
                 "vrchat_launch_request_sent": "VRChat에서 열었습니다.",
-                "invite_request_sent": "초대 요청이 전송되었습니다.",
+                "invite_request_sent": "참가 요청이 전송되었습니다.",
                 "boop_sent": "콕찌르기를 보냈습니다"
             },
             "empty": {
@@ -2005,8 +2005,8 @@
                 "status_schedule_description": "일정에 따라 상태 변경",
                 "room_status_rules": "인스턴스 규칙",
                 "room_status_rules_description": "인스턴스, 월드, 친구에 따라 상태 변경",
-                "invite_request_auto_reply": "초대 요청 자동 응답",
-                "invite_request_auto_reply_description": "초대를 요청한 허용 목록의 친구를 자동 초대",
+                "invite_request_auto_reply": "참가 요청 자동 응답",
+                "invite_request_auto_reply_description": "참가를 요청한 허용 목록의 친구를 자동 초대",
                 "schedule_rules": "일정 규칙",
                 "schedule_rules_description": "시간대별로 상태, 상태 메시지 또는 둘 다를 바꿀 수 있습니다.",
                 "add_rule": "규칙 추가",
@@ -2055,7 +2055,7 @@
                 "preset_in_selected_room_types": "선택한 인스턴스 유형일 때",
                 "preset_in_favorite_worlds": "즐겨찾기한 월드에 있을 때",
                 "preset_custom": "맞춤",
-                "auto_send_invites_for_request_invite": "초대 요청에 자동 응답",
+                "auto_send_invites_for_request_invite": "참가 요청에 자동 응답",
                 "auto_send_invites_description": "허용된 즐겨찾기 친구만 자동으로 처리됩니다.",
                 "allowlist_mode": "허용 목록 모드",
                 "allowlist_mode_description": "자동 응답을 하려면 현재 인스턴스가 초대를 허용해야 합니다.",
@@ -2067,8 +2067,8 @@
                 "failed_to_save_schedule_rules": "일정 규칙을 저장하지 못했습니다.",
                 "failed_to_load_room_rules": "인스턴스 규칙을 불러오지 못했습니다.",
                 "failed_to_save_room_rules": "인스턴스 규칙을 저장하지 못했습니다.",
-                "failed_to_load_invite_settings": "초대 요청 자동 응답 설정을 불러오지 못했습니다.",
-                "failed_to_save_invite_settings": "초대 요청 자동 응답 설정을 저장하지 못했습니다."
+                "failed_to_load_invite_settings": "참가 요청 자동 응답 설정을 불러오지 못했습니다.",
+                "failed_to_save_invite_settings": "참가 요청 자동 응답 설정을 저장하지 못했습니다."
             },
             "other": {
                 "header": "기타",
@@ -2304,6 +2304,7 @@
                     "style": "배너 스타일",
                     "style_standard": "기본",
                     "style_compact": "컴팩트",
+                    "friend_icons": "친구 아이콘 표시",
                     "timeout": "표시 시간",
                     "opacity": "불투명도",
                     "filters": "헤드셋 알림 필터"
@@ -2657,7 +2658,7 @@
                         "ovrtoolkit_hud_notifications": "OVR Toolkit HUD 알림",
                         "ovrtoolkit_wrist_notifications": "OVR Toolkit 손목 알림",
                         "notification_filters": "VR 오버레이 알림 필터",
-                        "user_images": "사용자 아이콘 표시",
+                        "user_images": "친구 아이콘 표시",
                         "notification_opacity": "알림 불투명도",
                         "notification_timeout": "알림 표시 시간"
                     },
@@ -2675,7 +2676,8 @@
                         "when_to_display": "표시 조건",
                         "notification_filters": "데스크톱 알림 필터",
                         "desktop_notification_while_afk": "AFK 동안 알림 표시",
-                        "notification_sound": "알림음"
+                        "notification_sound": "알림음",
+                        "friend_icons": "친구 아이콘 표시"
                     },
                     "webhook": {
                         "header": "Webhook 알림",
@@ -3252,7 +3254,7 @@
                 "failed_to_launch_instance": "인스턴스를 시작하지 못했습니다.",
                 "failed_to_send_self_invite": "셀프 초대를 보내지 못했습니다.",
                 "failed_to_send_invite": "초대장을 보내지 못했습니다.",
-                "failed_to_request_invite": "초대를 요청하지 못했습니다.",
+                "failed_to_request_invite": "참가를 요청하지 못했습니다.",
                 "failed_to_send_boop": "콕찌르기를 보내지 못했습니다.",
                 "failed_to_select_avatar": "아바타를 선택하지 못했습니다.",
                 "failed_to_create_local_favorite_group": "로컬 즐겨찾기 그룹을 생성하지 못했습니다.",
@@ -3275,8 +3277,8 @@
                 "clear_avatar_history": "아바타 기록을 삭제하시겠습니까?",
                 "send_invite": "초대장을 보내시겠습니까?",
                 "invite": "초대",
-                "request_invite": "초대를 요청하시겠습니까?",
-                "request_invite_2": "초대 요청",
+                "request_invite": "참가를 요청하시겠습니까?",
+                "request_invite_2": "참가 요청",
                 "send": "보내기",
                 "delete_value_favorites": "즐겨찾기 {value}개를 삭제할까요?",
                 "this_action_cannot_be_undone": "이 작업은 취소할 수 없습니다.",
@@ -3319,7 +3321,7 @@
                 "failed_to_launch_instance": "인스턴스를 시작하지 못했습니다.",
                 "failed_to_send_self_invite": "셀프 초대를 보내지 못했습니다.",
                 "failed_to_send_invite": "초대장을 보내지 못했습니다.",
-                "failed_to_request_invite": "초대를 요청하지 못했습니다.",
+                "failed_to_request_invite": "참가를 요청하지 못했습니다.",
                 "failed_to_send_boop": "콕찌르기를 보내지 못했습니다."
             },
             "modal": {
@@ -3327,8 +3329,8 @@
                 "unfriend": "친구 삭제",
                 "send_invite": "초대장을 보내시겠습니까?",
                 "invite": "초대",
-                "request_invite": "초대를 요청하시겠습니까?",
-                "request_invite_2": "초대 요청",
+                "request_invite": "참가를 요청하시겠습니까?",
+                "request_invite_2": "참가 요청",
                 "send": "보내기"
             },
             "dynamic": {
@@ -3710,7 +3712,7 @@
             },
             "actions": {
                 "invite": "초대",
-                "request_invite": "초대 요청",
+                "request_invite": "참가 요청",
                 "invite_to_group": "그룹에 초대",
                 "group_actions": "그룹",
                 "group_moderation": "그룹 관리",
@@ -4043,9 +4045,9 @@
                 "failed_to_report_user": "사용자를 신고하지 못했습니다.",
                 "invite_message_sent": "초대 메시지가 전송되었습니다.",
                 "failed_to_send_invite": "초대장을 보내지 못했습니다.",
-                "invite_request_message_sent": "초대 요청 메시지가 전송되었습니다.",
-                "invite_request_sent": "초대 요청이 전송되었습니다.",
-                "failed_to_request_invite": "초대를 요청하지 못했습니다.",
+                "invite_request_message_sent": "참가 요청 메시지가 전송되었습니다.",
+                "invite_request_sent": "참가 요청이 전송되었습니다.",
+                "failed_to_request_invite": "참가를 요청하지 못했습니다.",
                 "failed_to_send_boop": "콕찌르기를 보내지 못했습니다.",
                 "already_viewing_user": "이미 이 사용자를 보고 있습니다.",
                 "failed_to_open_discord_profile": "Discord 프로필을 열지 못했습니다.",
@@ -4061,7 +4063,7 @@
                 "report_hacking": "해킹을 신고하시겠습니까?",
                 "report": "신고",
                 "send_invite": "초대장을 보내시겠습니까?",
-                "request_invite": "초대를 요청하시겠습니까?",
+                "request_invite": "참가를 요청하시겠습니까?",
                 "send": "보내기",
                 "enter_the_vrchat_group_id_to_invite_this_user_to": "이 사용자를 초대하려면 VRChat 그룹 ID를 입력하세요.",
                 "leave_group": "그룹 탈퇴",
@@ -4870,13 +4872,13 @@
             "header": "초대 응답"
         },
         "invite_request_response_message": {
-            "header": "초대 요청 응답"
+            "header": "참가 요청 응답"
         },
         "edit_invite_messages": {
             "header": "메시지 템플릿",
             "invite_message_tab": "초대",
-            "invite_request_tab": "초대 요청",
-            "invite_request_response_tab": "초대 요청 응답",
+            "invite_request_tab": "참가 요청",
+            "invite_request_response_tab": "참가 요청 응답",
             "invite_response_tab": "초대 응답",
             "error": {
                 "failed_to_load_templates": "초대 메시지 템플릿을 불러오지 못했습니다.",
@@ -5268,9 +5270,9 @@
             },
             "types": {
                 "invite": "초대",
-                "requestInvite": "초대 요청",
+                "requestInvite": "참가 요청",
                 "inviteResponse": "초대 응답",
-                "requestInviteResponse": "초대 요청 응답",
+                "requestInviteResponse": "참가 요청 응답",
                 "friendRequest": "친구 요청",
                 "boop": "콕찌르기",
                 "group_queueReady": "인스턴스 대기열 준비 완료",
@@ -5937,9 +5939,9 @@
         "offline": "로그아웃했습니다",
         "status_update": "현재 상태는 {status} {description}입니다.",
         "invite": "{location}에 초대했습니다 {message}",
-        "request_invite": "초대를 요청했습니다 {message}",
+        "request_invite": "참가를 요청했습니다 {message}",
         "invite_response": "초대에 응답했습니다 {message}",
-        "request_invite_response": "초대 요청에 응답했습니다 {message}",
+        "request_invite_response": "참가 요청에 응답했습니다 {message}",
         "friend_request": "친구 요청을 보냈습니다",
         "friend": "이제 친구가 되었습니다",
         "unfriend": "더 이상 친구가 아닙니다",
@@ -6256,7 +6258,7 @@
                 "failed_to_launch_instance": "인스턴스를 시작하지 못했습니다.",
                 "failed_to_send_self_invite": "셀프 초대를 보내지 못했습니다.",
                 "failed_to_send_invite": "초대장을 보내지 못했습니다.",
-                "failed_to_request_invite": "초대를 요청하지 못했습니다.",
+                "failed_to_request_invite": "참가를 요청하지 못했습니다.",
                 "failed_to_send_boop": "콕찌르기를 보내지 못했습니다.",
                 "failed_to_update_social_status": "소셜 상태를 업데이트하지 못했습니다.",
                 "failed_to_update_status_description": "상태 설명을 업데이트하지 못했습니다.",
@@ -6265,8 +6267,8 @@
             "modal": {
                 "send_invite": "초대장을 보내시겠습니까?",
                 "invite": "초대",
-                "request_invite": "초대를 요청하시겠습니까?",
-                "request_invite_2": "초대 요청",
+                "request_invite": "참가를 요청하시겠습니까?",
+                "request_invite_2": "참가 요청",
                 "send": "보내기",
                 "edit_status_description": "상태 설명 수정"
             }

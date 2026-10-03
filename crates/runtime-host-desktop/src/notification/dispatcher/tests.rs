@@ -264,27 +264,77 @@ fn image_job(actor_user_id: &str) -> super::NotificationJob {
     }
 }
 
-#[tokio::test]
-async fn desktop_notifications_fetch_an_uncached_actor_image() {
-    let resolver = std::sync::Arc::new(
-        vrcx_0_application_activity::notification::NotificationResolver::new(std::sync::Arc::new(
-            UserIconRemote,
-        )),
-    );
-    let tasks = vrcx_0_application_core::TaskSupervisor::new();
+struct FriendIcons;
+
+impl vrcx_0_application_activity::notification::CachedNotificationUserImageResolver
+    for FriendIcons
+{
+    fn cached_url(&self, _endpoint: &str, user_id: &str) -> Option<String> {
+        Some(format!(
+            "https://api.example.test/api/1/file/file_{user_id}/1/file"
+        ))
+    }
+
+    fn cached_friend_url(&self, _endpoint: &str, user_id: &str) -> Option<String> {
+        (user_id == "usr_friend")
+            .then(|| "https://api.example.test/api/1/file/file_0123abcd/4/file".to_string())
+    }
+}
+
+#[test]
+fn desktop_shows_only_friend_icons_while_external_overlays_fall_back_to_the_notification_image() {
+    let plan = NotificationDeliveryPlan {
+        desktop: true,
+        xs: true,
+        ..NotificationDeliveryPlan::default()
+    };
+    let preferences = NotificationDeliveryPreferences::default();
+    let friend = "https://api.example.test/api/1/image/file_0123abcd/4/128".to_string();
+    let thumbnail = "https://assets.example.test/video.png";
 
     assert_eq!(
-        super::resolve_actor_image_with_budget(
-            &tasks,
-            resolver.clone(),
-            &image_job("usr_traveler")
-        )
-        .await
-        .as_deref(),
+        super::notification_image_urls(plan, &preferences, Some(friend.clone()), thumbnail),
+        (Some(friend.clone()), Some(friend.clone()))
+    );
+    assert_eq!(
+        super::notification_image_urls(plan, &preferences, None, thumbnail),
+        (None, Some(thumbnail.to_string()))
+    );
+    assert_eq!(
+        super::notification_image_urls(plan, &preferences, None, " "),
+        (None, None)
+    );
+    let switched_off = NotificationDeliveryPreferences {
+        desktop_notification_avatars: false,
+        image_notifications: false,
+        ..NotificationDeliveryPreferences::default()
+    };
+    assert_eq!(
+        super::notification_image_urls(plan, &switched_off, Some(friend), thumbnail),
+        (None, None)
+    );
+}
+
+#[test]
+fn local_notifications_only_show_cached_friend_icons() {
+    let resolver = vrcx_0_application_activity::notification::NotificationResolver::new(
+        std::sync::Arc::new(UserIconRemote),
+    );
+    let friends: std::sync::Arc<
+        dyn vrcx_0_application_activity::notification::CachedNotificationUserImageResolver,
+    > = std::sync::Arc::new(FriendIcons);
+    resolver.attach_realtime(&friends);
+
+    assert_eq!(
+        super::friend_actor_image(&resolver, &image_job("usr_friend")).as_deref(),
         Some("https://api.example.test/api/1/image/file_0123abcd/4/128")
     );
     assert_eq!(
-        super::resolve_actor_image_with_budget(&tasks, resolver, &image_job("usr_self")).await,
+        super::friend_actor_image(&resolver, &image_job("usr_traveler")),
+        None
+    );
+    assert_eq!(
+        super::friend_actor_image(&resolver, &image_job("usr_self")),
         None
     );
 }

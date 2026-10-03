@@ -33,6 +33,7 @@ type SettingsVrPrefs = Pick<
     | 'hmdNotificationOpacity'
     | 'hmdNotificationPosition'
     | 'hmdNotificationStyle'
+    | 'hmdNotificationAvatars'
     | 'hmdNotificationStartMode'
     | 'hmdNotificationTimeout'
     | 'hmdNotificationsEnabled'
@@ -72,6 +73,7 @@ type SettingsVrTabContentProps = {
     onHmdNotificationOpacityChange: (value: number) => void;
     onHmdNotificationPositionChange: (value: HmdNotificationPosition) => void;
     onHmdNotificationStyleChange: (value: HmdNotificationStyle) => void;
+    onHmdNotificationAvatarsChange: (checked: boolean) => void;
     onHmdNotificationStartModeChange: (value: HmdNotificationStartMode) => void;
     onHmdNotificationTimeoutSecondsChange: (value: string) => void;
     onHmdNotificationsEnabledChange: (checked: boolean) => void;
@@ -160,6 +162,7 @@ function SettingsVrTabContent({
     onHmdNotificationOpacityChange,
     onHmdNotificationPositionChange,
     onHmdNotificationStyleChange,
+    onHmdNotificationAvatarsChange,
     onHmdNotificationStartModeChange,
     onOpenHmdNotificationFiltersDialog,
     onWristOverlayEnabledChange,
@@ -509,6 +512,17 @@ function SettingsVrTabContent({
                             </SelectGroup>
                         </SelectContent>
                     </Select>
+                </Field>
+
+                <Field
+                    label={t('view.settings.vr.hmd_notifications.friend_icons')}
+                    disabled={!hmdNotificationsEnabled}
+                >
+                    <Switch
+                        checked={prefs.hmdNotificationAvatars}
+                        disabled={!hmdNotificationsEnabled}
+                        onCheckedChange={onHmdNotificationAvatarsChange}
+                    />
                 </Field>
 
                 <Field

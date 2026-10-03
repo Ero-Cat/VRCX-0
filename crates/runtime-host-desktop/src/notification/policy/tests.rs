@@ -68,9 +68,9 @@ fn desktop_delivery() -> ActivityDelivery {
 fn settings_follow_config_writes() {
     let (_dir, config, policy) = policy("policy-settings");
 
-    assert!(policy.images_enabled());
+    assert!(policy.settings().preferences.image_notifications);
     config.set_bool("imageNotifications", false).unwrap();
-    assert!(!policy.images_enabled());
+    assert!(!policy.settings().preferences.image_notifications);
 }
 
 #[test]

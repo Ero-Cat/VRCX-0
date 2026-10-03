@@ -40,6 +40,7 @@ pub fn load_preferences(config: &ConfigRepository) -> NotificationDeliveryPrefer
         ovrt_hud_notifications: config_bool(config, "ovrtHudNotifications", false),
         ovrt_wrist_notifications: config_bool(config, "ovrtWristNotifications", false),
         image_notifications: config_bool(config, "imageNotifications", true),
+        desktop_notification_avatars: config_bool(config, "desktopNotificationAvatars", true),
         notification_timeout_ms: config_int(config, "notificationTimeout", 3000),
         notification_opacity_percent: config_int(config, "notificationOpacity", 100),
         show_instance_id_in_location: config_bool(config, "VRCX_showInstanceIdInLocation", false),

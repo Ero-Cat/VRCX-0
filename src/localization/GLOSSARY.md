@@ -130,9 +130,9 @@ Source strings live in [`en.json`](en.json). Keep recurring terms consistent wit
 | Instances                      | 房间                     | 房間                    | インスタンス                         | —                                |
 | Inventory                      | 库存                     | 庫存                    | インベントリ                         | —                                |
 | Invite                         | 邀请                     | 邀請                    | 招待                                 | —                                |
-| Invite Request                 | 加入请求                 | 申請加入                | 招待リクエスト                       | —                                |
+| Invite Request                 | 加入请求                 | 加入申請                | 招待リクエスト                       | 참가 요청                        |
 | Invite Request Response        | 加入请求回复             | 回覆加入申請            | 招待リクエストの返事                 | —                                |
-| Invite Requests                | 加入请求                 | 加入申請                | 招待リクエスト                       | —                                |
+| Invite Requests                | 加入请求                 | 加入申請                | 招待リクエスト                       | 참가 요청                        |
 | Invite Response                | 回复邀请                 | 回覆邀請                | 招待の返事                           | —                                |
 | Invite to Group                | 邀请加入群组             | 邀請加入群組            | グループに{ln}招待                   | 그룹으로 초대                    |
 | Items                          | 物品                     | 物件                    | アイテム                             | —                                |
@@ -211,7 +211,7 @@ Source strings live in [`en.json`](en.json). Keep recurring terms consistent wit
 | Rejoin                         | 重新加入                 | 重新加入                | ワールドに入り直す                   | —                                |
 | Report Issue                   | 报告问题                 | 回報問題                | 問題を報告                           | —                                |
 | Report User                    | 举报玩家                 | —                       | —                                    | 유저 신고                        |
-| Request Invite                 | 请求加入                 | 申請加入                | 招待をリクエスト                     | —                                |
+| Request Invite                 | 请求加入                 | 申請加入                | 招待をリクエスト                     | 참가 요청                        |
 | Reset Avatar                   | 重置模型                 | 重置角色                | アバターをリセット                   | 아바타 초기화                    |
 | Reset Personal Mirror          | 重置个人镜子             | —                       | —                                    | —                                |
 | Respawn                        | 回出生点                 | 回重生點                | リスポーン                           | 리스폰                           |

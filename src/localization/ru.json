@@ -2371,6 +2371,7 @@
                     "style": "Стиль баннера",
                     "style_standard": "Стандартный",
                     "style_compact": "Компактный",
+                    "friend_icons": "Показывать иконки друзей",
                     "timeout": "Длительность показа",
                     "opacity": "Непрозрачность",
                     "filters": "Фильтры уведомлений в шлеме"
@@ -2724,7 +2725,7 @@
                         "ovrtoolkit_hud_notifications": "OVR Toolkit HUD Уведомления",
                         "ovrtoolkit_wrist_notifications": "OVR Toolkit Уведомления о рейсте",
                         "notification_filters": "VR Фильтры уведомления о накладных устройствах",
-                        "user_images": "Показать имена пользователей",
+                        "user_images": "Показывать иконки друзей",
                         "notification_opacity": "Непрозрачность уведомления",
                         "notification_timeout": "Время уведомления"
                     },
@@ -2742,7 +2743,8 @@
                         "when_to_display": "Когда отображать",
                         "notification_filters": "Фильтры для уведомления рабочего стола",
                         "desktop_notification_while_afk": "Уведомления в Десктоп‑режиме при AFK",
-                        "notification_sound": "Звуковой звук"
+                        "notification_sound": "Звуковой звук",
+                        "friend_icons": "Показывать иконки друзей"
                     },
                     "webhook": {
                         "header": "Webhook-уведомления",

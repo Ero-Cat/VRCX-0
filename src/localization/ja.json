@@ -2361,6 +2361,7 @@
                     "style": "表示スタイル",
                     "style_standard": "標準",
                     "style_compact": "コンパクト",
+                    "friend_icons": "フレンドのアイコン画像を表示",
                     "timeout": "表示時間",
                     "opacity": "不透明度",
                     "filters": "ヘッドセット通知フィルター"
@@ -2714,7 +2715,7 @@
                         "ovrtoolkit_hud_notifications": "OVR Toolkit HUD 上での通知",
                         "ovrtoolkit_wrist_notifications": "OVR Toolkit 手首上での通知",
                         "notification_filters": "VR オーバーレイ通知フィルター",
-                        "user_images": "ユーザー画像を使用",
+                        "user_images": "フレンドのアイコン画像を表示",
                         "notification_opacity": "通知の不透明度",
                         "notification_timeout": "通知の表示時間"
                     },
@@ -2732,7 +2733,8 @@
                         "when_to_display": "デスクトップでの通知の表示",
                         "notification_filters": "デスクトップ通知フィルター",
                         "desktop_notification_while_afk": "AFK 中でもデスクトップに通知",
-                        "notification_sound": "通知音"
+                        "notification_sound": "通知音",
+                        "friend_icons": "フレンドのアイコン画像を表示"
                     },
                     "webhook": {
                         "header": "Webhook 通知",

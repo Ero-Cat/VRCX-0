@@ -49,6 +49,7 @@ export function useSettingsVrTabState() {
             hmdNotificationStartMode: state.hmdNotificationStartMode,
             hmdNotificationPosition: state.hmdNotificationPosition,
             hmdNotificationStyle: state.hmdNotificationStyle,
+            hmdNotificationAvatars: state.hmdNotificationAvatars,
             wristOverlayEnabled: state.wristOverlayEnabled,
             wristOverlayStartMode: state.wristOverlayStartMode,
             wristOverlayButton: state.wristOverlayButton,
@@ -176,6 +177,13 @@ export function useSettingsVrTabState() {
             saveBoolPreference(
                 'hmdNotificationsEnabled',
                 'hmdNotificationsEnabled',
+                enabled
+            );
+        },
+        onHmdNotificationAvatarsChange: (enabled: boolean) => {
+            saveBoolPreference(
+                'hmdNotificationAvatars',
+                'hmdNotificationAvatars',
                 enabled
             );
         },

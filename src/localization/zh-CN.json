@@ -2362,6 +2362,7 @@
                     "style": "条幅样式",
                     "style_standard": "标准",
                     "style_compact": "紧凑",
+                    "friend_icons": "显示好友头像",
                     "timeout": "显示时长",
                     "opacity": "不透明度",
                     "filters": "头显通知过滤"
@@ -2804,7 +2805,7 @@
                         "ovrtoolkit_hud_notifications": "OVR Toolkit HUD 通知",
                         "ovrtoolkit_wrist_notifications": "OVR Toolkit 手腕通知",
                         "notification_filters": "VR 叠加通知过滤器",
-                        "user_images": "显示玩家头像",
+                        "user_images": "显示好友头像",
                         "notification_opacity": "通知透明度",
                         "notification_timeout": "通知时长"
                     },
@@ -2822,7 +2823,8 @@
                         "when_to_display": "何时显示",
                         "notification_filters": "桌面通知过滤器",
                         "desktop_notification_while_afk": "当处于 AFK 状态时显示桌面通知",
-                        "notification_sound": "通知音"
+                        "notification_sound": "通知音",
+                        "friend_icons": "显示好友头像"
                     },
                     "webhook": {
                         "header": "Webhook 通知",

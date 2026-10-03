@@ -24,8 +24,15 @@ impl RealtimeUserImageResolverSlot {
     }
 
     pub(crate) fn cached_url(&self, endpoint: &str, user_id: &str) -> Option<String> {
-        let resolver = self.inner.lock().ok()?.as_ref()?.upgrade()?;
-        resolver.cached_url(endpoint, user_id)
+        self.resolver()?.cached_url(endpoint, user_id)
+    }
+
+    fn cached_friend_url(&self, endpoint: &str, user_id: &str) -> Option<String> {
+        self.resolver()?.cached_friend_url(endpoint, user_id)
+    }
+
+    fn resolver(&self) -> Option<Arc<dyn CachedNotificationUserImageResolver>> {
+        self.inner.lock().ok()?.as_ref()?.upgrade()
     }
 }
 
@@ -48,17 +55,18 @@ impl NotificationResolver {
         self.realtime.set(resolver);
     }
 
-    pub fn cached_user_image(&self, endpoint: &str, user_id: &str) -> Option<String> {
-        let image_url = self
-            .realtime
-            .cached_url(endpoint, user_id)
-            .or_else(|| self.user_images.cached_url(user_id))?;
+    pub fn friend_image(&self, endpoint: &str, user_id: &str) -> Option<String> {
+        let image_url = self.realtime.cached_friend_url(endpoint, user_id)?;
         Some(normalize_avatar_image_url_128(&image_url, endpoint))
     }
 
     pub async fn user_image(&self, endpoint: &str, user_id: &str) -> Option<String> {
-        if let Some(image_url) = self.cached_user_image(endpoint, user_id) {
-            return Some(image_url);
+        if let Some(image_url) = self
+            .realtime
+            .cached_url(endpoint, user_id)
+            .or_else(|| self.user_images.cached_url(user_id))
+        {
+            return Some(normalize_avatar_image_url_128(&image_url, endpoint));
         }
         let image_url = self
             .user_images

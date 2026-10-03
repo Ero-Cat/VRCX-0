@@ -14,6 +14,7 @@ export function useSettingsNotificationsTabState() {
             desktopToast: state.desktopToast,
             afkDesktopToast: state.afkDesktopToast,
             desktopNotificationSound: state.desktopNotificationSound,
+            desktopNotificationAvatars: state.desktopNotificationAvatars,
             notificationDoNotDisturbEndOnGameStart:
                 state.notificationDoNotDisturbEndOnGameStart,
             busyStatusDoNotDisturb: state.busyStatusDoNotDisturb,
@@ -66,6 +67,13 @@ export function useSettingsNotificationsTabState() {
             saveBoolPreference(
                 'desktopNotificationSound',
                 'desktopNotificationSound',
+                enabled
+            );
+        },
+        onDesktopNotificationAvatarsChange: (enabled: boolean) => {
+            saveBoolPreference(
+                'desktopNotificationAvatars',
+                'desktopNotificationAvatars',
                 enabled
             );
         },

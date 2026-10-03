@@ -151,6 +151,14 @@ impl RealtimeHostRuntime {
         self.cached_user_image_url(endpoint, user_id)
     }
 
+    pub fn cached_friend_notification_image_url(
+        &self,
+        endpoint: &str,
+        user_id: &str,
+    ) -> Option<String> {
+        self.cached_friend_image_url(endpoint, user_id)
+    }
+
     fn enrich_notification_image(
         &self,
         endpoint: &str,

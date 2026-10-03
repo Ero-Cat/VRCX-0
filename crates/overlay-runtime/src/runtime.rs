@@ -133,7 +133,7 @@ pub(crate) struct HmdNotificationConfig {
     pub(crate) opacity_percent: u8,
     pub(crate) position: HmdNotificationPosition,
     pub(crate) style: HmdNotificationStyle,
-    pub(crate) images: bool,
+    pub(crate) avatars: bool,
 }
 
 impl Default for HmdNotificationConfig {
@@ -142,10 +142,10 @@ impl Default for HmdNotificationConfig {
             enabled: false,
             start_mode: WristOverlayStartMode::Vrchat,
             timeout_ms: 5_000,
-            opacity_percent: 100,
+            opacity_percent: 90,
             position: HmdNotificationPosition::Bottom,
             style: HmdNotificationStyle::Standard,
-            images: true,
+            avatars: true,
         }
     }
 }

@@ -19,9 +19,10 @@ use super::{
     HMD_SURFACE_WIDTH_METERS,
 };
 use crate::config::{
-    HMD_NOTIFICATIONS_ENABLED_CONFIG_KEY, HMD_NOTIFICATION_OPACITY_CONFIG_KEY,
-    HMD_NOTIFICATION_POSITION_CONFIG_KEY, HMD_NOTIFICATION_START_MODE_CONFIG_KEY,
-    HMD_NOTIFICATION_STYLE_CONFIG_KEY, VR_OVERLAY_HIDE_PRIVATE_WORLDS_CONFIG_KEY,
+    HMD_NOTIFICATIONS_ENABLED_CONFIG_KEY, HMD_NOTIFICATION_AVATARS_CONFIG_KEY,
+    HMD_NOTIFICATION_OPACITY_CONFIG_KEY, HMD_NOTIFICATION_POSITION_CONFIG_KEY,
+    HMD_NOTIFICATION_START_MODE_CONFIG_KEY, HMD_NOTIFICATION_STYLE_CONFIG_KEY,
+    VR_OVERLAY_HIDE_PRIVATE_WORLDS_CONFIG_KEY,
 };
 use crate::VrOverlayRuntimeServices;
 use vrcx_0_host_desktop::vr_overlay::OverlayPlacement;
@@ -64,11 +65,7 @@ impl VrOverlayRuntimeServices for TestServices {
         true
     }
 
-    fn notification_images_enabled(&self) -> bool {
-        self.config.get_bool("imageNotifications", true).unwrap()
-    }
-
-    fn notification_user_image(&self, _endpoint: &str, _user_id: &str) -> Option<String> {
+    fn notification_friend_image(&self, _endpoint: &str, _user_id: &str) -> Option<String> {
         None
     }
 
@@ -150,14 +147,19 @@ fn a_config_write_stays_pending_while_no_surface_is_active_until_reconciled() {
 }
 
 #[test]
-fn hmd_notifications_follow_the_notification_image_switch() {
+fn hmd_avatars_have_their_own_switch_that_defaults_on() {
     let (_dir, config, runtime) = test_runtime();
-    assert!(runtime.current_runtime_config().hmd.images);
+    assert!(runtime.current_runtime_config().hmd.avatars);
 
     config.set_bool("imageNotifications", false).unwrap();
     runtime.reconcile_current();
+    assert!(runtime.current_runtime_config().hmd.avatars);
 
-    assert!(!runtime.current_runtime_config().hmd.images);
+    config
+        .set_bool(HMD_NOTIFICATION_AVATARS_CONFIG_KEY, false)
+        .unwrap();
+    runtime.reconcile_current();
+    assert!(!runtime.current_runtime_config().hmd.avatars);
 }
 
 #[test]

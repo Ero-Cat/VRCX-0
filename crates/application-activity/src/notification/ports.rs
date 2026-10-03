@@ -55,4 +55,5 @@ pub trait NotificationWebhookTransport: Send + Sync {
 
 pub trait CachedNotificationUserImageResolver: Send + Sync {
     fn cached_url(&self, endpoint: &str, user_id: &str) -> Option<String>;
+    fn cached_friend_url(&self, endpoint: &str, user_id: &str) -> Option<String>;
 }

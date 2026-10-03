@@ -111,10 +111,6 @@ impl LocalNotificationPolicy {
             )
     }
 
-    pub(crate) fn images_enabled(&self) -> bool {
-        self.settings().preferences.image_notifications
-    }
-
     fn game_state(&self, settings: &NotificationSettings) -> NotificationDeliveryGameState {
         let snapshot = self.session.snapshot();
         NotificationDeliveryGameState {
