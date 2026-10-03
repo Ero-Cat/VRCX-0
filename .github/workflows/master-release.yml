@@ -1,0 +1,241 @@
+name: Master Release
+
+on:
+    push:
+        branches:
+            - master
+        paths-ignore:
+            - '**.md'
+            - 'docs/**'
+            - 'images/**'
+            - 'LICENSE'
+            - 'LICENSES/**'
+            - 'NOTICE'
+    workflow_dispatch:
+
+concurrency:
+    group: master-release
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+jobs:
+    prepare:
+        name: Prepare Build Metadata
+        runs-on: ubuntu-24.04
+        outputs:
+            version: ${{ steps.meta.outputs.version }}
+            short_sha: ${{ steps.meta.outputs.short_sha }}
+            build_date: ${{ steps.meta.outputs.build_date }}
+            tag: ${{ steps.meta.outputs.tag }}
+        steps:
+            - uses: actions/checkout@v7
+
+            - id: meta
+              name: Read version and derive build tag
+              run: |
+                  version="$(jq -r '.version' src-tauri/tauri.conf.json)"
+                  if [[ -z "$version" || "$version" == "null" ]]; then
+                      echo "Missing Tauri config version." >&2
+                      exit 1
+                  fi
+                  short_sha="${GITHUB_SHA::10}"
+                  build_date="$(date -u +%Y.%m.%d)"
+                  {
+                      echo "version=$version"
+                      echo "short_sha=$short_sha"
+                      echo "build_date=$build_date"
+                      echo "tag=master-${build_date}-${short_sha}"
+                  } >> "$GITHUB_OUTPUT"
+
+    package:
+        name: Package ${{ matrix.platform }}
+        needs: prepare
+        runs-on: ${{ matrix.os }}
+        timeout-minutes: 90
+        defaults:
+            run:
+                shell: bash
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - platform: windows_x86_64
+                      os: windows-latest
+                      rust_target: ''
+                    - platform: linux_x86_64
+                      os: ubuntu-24.04
+                      rust_target: ''
+                    - platform: macos_aarch64
+                      os: macos-latest
+                      rust_target: aarch64-apple-darwin
+                    - platform: macos_x86_64
+                      os: macos-latest
+                      rust_target: x86_64-apple-darwin
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: ${{ matrix.rust_target }}
+                  cache-key: master-release-${{ matrix.platform }}
+                  save-cache: true
+
+            - uses: ./.github/actions/setup-node
+
+            - uses: ./.github/actions/setup-linux-tauri
+              if: runner.os == 'Linux'
+              with:
+                  mode: package
+
+            - name: Prepare unsigned build config
+              run: |
+                  node <<'NODE'
+                  const fs = require('node:fs');
+
+                  const runnerOs = process.env.RUNNER_OS;
+                  const tauriConfig = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+                  const config = structuredClone(tauriConfig);
+
+                  config.bundle ??= {};
+                  config.bundle.createUpdaterArtifacts = false;
+
+                  if (runnerOs === 'Windows') {
+                      config.bundle.windows ??= {};
+                      delete config.bundle.windows.certificateThumbprint;
+                      delete config.bundle.windows.signCommand;
+                  } else if (runnerOs === 'macOS') {
+                      config.bundle.targets = ['dmg'];
+                  } else if (runnerOs === 'Linux') {
+                      const linuxConfig = JSON.parse(fs.readFileSync('src-tauri/tauri.linux.conf.json', 'utf8'));
+                      config.app = { ...config.app, ...linuxConfig.app };
+                      config.bundle = {
+                          ...config.bundle,
+                          ...linuxConfig.bundle,
+                          targets: ['appimage', 'deb', 'rpm'],
+                          createUpdaterArtifacts: false
+                      };
+                  } else {
+                      console.error(`Unsupported runner OS: ${runnerOs}`);
+                      process.exit(1);
+                  }
+
+                  fs.writeFileSync('src-tauri/tauri.master-build.conf.json', `${JSON.stringify(config, null, 4)}\n`);
+                  NODE
+
+            - name: Build Windows package
+              if: runner.os == 'Windows'
+              env:
+                  VRCX_0_BUILD_LABEL: master
+                  VRCX_0_BUILD_BADGE: master ${{ needs.prepare.outputs.build_date }} ${{ needs.prepare.outputs.short_sha }}
+              run: npm run tauri:build -- --config src-tauri/tauri.master-build.conf.json --no-sign
+
+            - name: Build Linux packages
+              if: runner.os == 'Linux'
+              env:
+                  VRCX_0_BUILD_LABEL: master
+                  VRCX_0_BUILD_BADGE: master ${{ needs.prepare.outputs.build_date }} ${{ needs.prepare.outputs.short_sha }}
+                  VRCX_0_WEBKIT_BUILD_TARGET: safari17.4
+              run: npm run tauri:build -- --config src-tauri/tauri.master-build.conf.json --bundles appimage,deb,rpm
+
+            - name: Build macOS package
+              if: runner.os == 'macOS'
+              env:
+                  VRCX_0_BUILD_LABEL: master
+                  VRCX_0_BUILD_BADGE: master ${{ needs.prepare.outputs.build_date }} ${{ needs.prepare.outputs.short_sha }}
+                  VRCX_0_WEBKIT_BUILD_TARGET: safari18.2
+              run: >
+                  npm run tauri:build --
+                  --target ${{ matrix.rust_target }}
+                  --config src-tauri/tauri.master-build.conf.json
+                  --bundles dmg
+
+            - name: Collect package assets
+              run: |
+                  set -euo pipefail
+                  mkdir -p package-assets
+                  version="${{ needs.prepare.outputs.version }}"
+                  short_sha="${{ needs.prepare.outputs.short_sha }}"
+                  stem="VRCX-0_${version}-master.${short_sha}"
+
+                  first_match() {
+                      find "$1" -maxdepth 1 -name "$2" -type f | sort | head -n 1
+                  }
+
+                  case "${{ matrix.platform }}" in
+                      windows_x86_64)
+                          nsis_dir="target/release/bundle/nsis"
+                          installer="$(first_match "$nsis_dir" '*-setup.exe')"
+                          if [[ -z "$installer" ]]; then
+                              echo "No NSIS installer found in $nsis_dir" >&2
+                              exit 1
+                          fi
+                          cp "$installer" "package-assets/${stem}_windows_x86_64_setup.exe"
+                          ;;
+                      linux_x86_64)
+                          bundle_dir="target/release/bundle"
+                          appimage="$(first_match "$bundle_dir/appimage" '*.AppImage')"
+                          deb="$(first_match "$bundle_dir/deb" '*.deb')"
+                          rpm="$(first_match "$bundle_dir/rpm" '*.rpm')"
+                          if [[ -z "$appimage" || -z "$deb" || -z "$rpm" ]]; then
+                              echo "Missing Linux artifact. AppImage=$appimage deb=$deb rpm=$rpm" >&2
+                              exit 1
+                          fi
+                          cp "$appimage" "package-assets/${stem}_linux_x86_64.AppImage"
+                          cp "$deb" "package-assets/${stem}_linux_x86_64.deb"
+                          cp "$rpm" "package-assets/${stem}_linux_x86_64.rpm"
+                          ;;
+                      macos_aarch64|macos_x86_64)
+                          dmg_dir="target/${{ matrix.rust_target }}/release/bundle/dmg"
+                          dmg="$(first_match "$dmg_dir" '*.dmg')"
+                          if [[ -z "$dmg" ]]; then
+                              echo "No macOS DMG found in $dmg_dir" >&2
+                              exit 1
+                          fi
+                          cp "$dmg" "package-assets/${stem}_${{ matrix.platform }}.dmg"
+                          ;;
+                      *)
+                          echo "Unknown platform: ${{ matrix.platform }}" >&2
+                          exit 1
+                          ;;
+                  esac
+
+                  ls -la package-assets
+
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: master-release-${{ matrix.platform }}
+                  path: package-assets/*
+                  if-no-files-found: error
+
+    publish:
+        name: Publish GitHub Release
+        needs:
+            - prepare
+            - package
+        runs-on: ubuntu-24.04
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/download-artifact@v8
+              with:
+                  path: release-assets
+                  pattern: master-release-*
+                  merge-multiple: true
+
+            - name: List release assets
+              run: find release-assets -type f | sort
+
+            - uses: softprops/action-gh-release@v3
+              with:
+                  tag_name: ${{ needs.prepare.outputs.tag }}
+                  name: Master Build ${{ needs.prepare.outputs.build_date }} (${{ needs.prepare.outputs.short_sha }})
+                  body: |
+                      Automated fork build of `master` @ ${{ needs.prepare.outputs.short_sha }} (app version ${{ needs.prepare.outputs.version }}).
+
+                      - Unsigned build: no Windows code signing and no updater signatures.
+                      - In-app auto-update still points at upstream Map1en/VRCX-0 releases; fork builds are not distributed through the updater.
+                  prerelease: true
+                  files: release-assets/*
+                  fail_on_unmatched_files: true
