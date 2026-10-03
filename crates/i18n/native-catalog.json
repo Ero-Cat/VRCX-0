@@ -541,6 +541,10 @@
                     "source": "nativeShell.menu.help.keyboardShortcuts"
                 },
                 {
+                    "key": "nativeShell.menu.help.sendFeedback",
+                    "source": "nativeShell.menu.help.sendFeedback"
+                },
+                {
                     "key": "nativeShell.menu.help.reportIssue",
                     "source": "nativeShell.menu.help.reportIssue"
                 },

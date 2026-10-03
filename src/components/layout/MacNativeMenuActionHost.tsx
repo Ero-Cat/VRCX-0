@@ -37,6 +37,7 @@ const MAC_NATIVE_MENU_ACTION_EVENT = 'macNativeMenuAction';
 const ZOOM_STEP = 10;
 const FULL_WINDOW_MENU_ACTIONS = new Set([
     'settings',
+    'send-feedback',
     'check-updates',
     'notification-center',
     'toggle-nav',
@@ -241,6 +242,9 @@ export function MacNativeMenuActionHost() {
                     break;
                 case 'github':
                     openExternalLink(links.github);
+                    break;
+                case 'send-feedback':
+                    navigate('/settings?tab=feedback');
                     break;
                 case 'report-issue':
                     openExternalLink(links.issues);

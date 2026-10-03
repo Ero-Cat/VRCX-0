@@ -75,6 +75,7 @@ pub(crate) fn configure_macos_app_menu(app: &AppHandle, language: &str) -> tauri
         .text("mac-menu-changelog", help_i18n.changelog)
         .text("mac-menu-keyboard-shortcuts", help_i18n.keyboard_shortcuts)
         .separator()
+        .text("mac-menu-send-feedback", help_i18n.send_feedback)
         .text("mac-menu-report-issue", help_i18n.report_issue)
         .separator()
         .text("mac-menu-github", help_i18n.github)

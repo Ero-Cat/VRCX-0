@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DataTableColumnResizeHandle } from '@/components/data-table/DataTableColumnResizeHandle';
+import { DataTableHeaderLabel } from '@/components/data-table/DataTableSortButton';
 import { VirtualHistoryList } from '@/components/data-table/VirtualHistoryList';
 import { FeedDetailCell } from '@/components/feed/FeedDetailCell';
 import {
@@ -63,13 +64,15 @@ type FeedListLayout = {
 };
 
 function getFeedListLayout(table: FeedTableInstance): FeedListLayout {
+    const expanderWidth = table.getColumn('expander')?.getSize() ?? 40;
     const timeWidth = table.getColumn('created_at')?.getSize() ?? 144;
     const userWidth = table.getColumn('displayName')?.getSize() ?? 160;
     const typeWidth = table.getColumn('type')?.getSize() ?? 96;
     const detailWidth = table.getColumn('detail')?.getSize() ?? 240;
     return {
-        gridTemplateColumns: `2rem ${timeWidth}px ${userWidth}px ${typeWidth}px minmax(${detailWidth}px, 1fr)`,
-        minWidth: 32 + timeWidth + userWidth + typeWidth + detailWidth
+        gridTemplateColumns: `${expanderWidth}px ${timeWidth}px ${userWidth}px ${typeWidth}px minmax(${detailWidth}px, 1fr)`,
+        minWidth:
+            expanderWidth + timeWidth + userWidth + typeWidth + detailWidth
     };
 }
 
@@ -90,7 +93,7 @@ function FeedListHeader({
     ];
     return (
         <div
-            className="grid min-h-[var(--vrcx-0-table-header-height)] items-center gap-2 px-[var(--vrcx-0-table-cell-padding-inline)] text-xs text-[var(--vrcx-0-table-header-foreground)]"
+            className="grid h-[var(--vrcx-0-table-header-height)] items-center"
             style={layout}
         >
             <span aria-hidden="true" />
@@ -99,9 +102,11 @@ function FeedListHeader({
                 return (
                     <div
                         key={id}
-                        className="relative flex h-full min-w-0 items-center pr-2"
+                        className="relative flex h-full min-w-0 items-center px-[var(--vrcx-0-table-cell-padding-inline)]"
                     >
-                        <span className="min-w-0 truncate">{label}</span>
+                        <DataTableHeaderLabel className="min-w-0 truncate">
+                            {label}
+                        </DataTableHeaderLabel>
                         {header ? (
                             <DataTableColumnResizeHandle
                                 header={header}
@@ -167,7 +172,7 @@ function FeedVirtualListRow({
         >
             <div
                 data-feed-list-summary=""
-                className="grid h-[var(--vrcx-0-table-row-height)] items-center gap-2 border-b border-[var(--vrcx-0-table-divider)] px-[var(--vrcx-0-table-cell-padding-inline)] py-[var(--vrcx-0-table-cell-padding-block)] text-sm hover:bg-[var(--vrcx-0-table-row-hover-surface)]"
+                className="grid h-[var(--vrcx-0-table-row-height)] items-center border-b border-[var(--vrcx-0-table-divider)] text-sm hover:bg-[var(--vrcx-0-table-row-hover-surface)] [&>*]:px-[var(--vrcx-0-table-cell-padding-inline)]"
                 style={layout}
             >
                 <Button
@@ -175,7 +180,7 @@ function FeedVirtualListRow({
                     variant="ghost"
                     size="icon-sm"
                     className={cn(
-                        'text-muted-foreground hover:text-foreground -ml-2',
+                        'text-muted-foreground hover:text-foreground justify-self-center !px-0',
                         !canExpand && 'invisible'
                     )}
                     aria-label={

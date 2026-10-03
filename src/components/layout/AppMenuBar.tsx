@@ -227,6 +227,15 @@ export function AppMenuBar({ showHelp = true }: { showHelp?: boolean }) {
                             <MenubarSeparator />
                             <MenubarGroup>
                                 <MenuItem
+                                    onClick={() =>
+                                        runAfterRestoringNormalWindow(() =>
+                                            navigate('/settings?tab=feedback')
+                                        )
+                                    }
+                                >
+                                    {t('app_menu.send_feedback')}
+                                </MenuItem>
+                                <MenuItem
                                     onClick={() => openLink(links.issues)}
                                 >
                                     {t('app_menu.report_issue')}

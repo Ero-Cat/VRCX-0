@@ -566,6 +566,7 @@
                 "title": "Aide",
                 "changelog": "Journal des modifications",
                 "keyboardShortcuts": "Raccourcis clavier",
+                "sendFeedback": "Envoyer un retour",
                 "reportIssue": "Signaler un problème",
                 "qqGroup": "Groupe QQ (communauté chinoise)",
                 "openDevtools": "Ouvrir les DevTools",
